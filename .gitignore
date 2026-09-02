@@ -1,7 +1,10 @@
 # Dependencies
 node_modules/
-yarn.lock
-package-lock.json
+
+# package-lock.json SÍ se versiona a propósito:
+#  · render.yaml instala con `npm ci`, que falla si no existe el lock
+#  · fija las versiones exactas, así un despliegue de octubre instala
+#    lo mismo que se probó hoy
 
 # Environment
 .env
