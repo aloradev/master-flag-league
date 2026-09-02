@@ -1,5 +1,12 @@
-# Despliegue en Render — plan gratuito.
+# Despliegue de la API en Render.
 # Se importa desde el panel: New → Blueprint → conectar este repositorio.
+#
+# La base de datos NO se declara aquí a propósito. La Postgres gratuita de
+# Render solo permite una por workspace y CADUCA 30 DÍAS después de
+# crearse, con 14 de gracia antes de borrarla. Una temporada dura meses:
+# la base moriría a mitad del torneo con los rosters y la documentación
+# validada dentro. Por eso la base vive en Neon y aquí solo se consume su
+# cadena de conexión.
 services:
   - type: web
     name: mfl-api
@@ -12,35 +19,43 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Render inyecta la cadena de conexión de la base declarada abajo.
+
+      # ── Base de datos (Neon) ──
+      # Pegar la cadena CON POOLER de Neon. sync:false = se captura a mano
+      # en el panel y no se guarda en el repositorio.
       - key: DATABASE_URL
-        fromDatabase:
-          name: mfl-db
-          property: connectionString
-      # Se genera solo; no hay que inventar un secreto a mano.
+        sync: false
+
+      # ── Sesiones ──
+      # Render lo genera: un secreto escrito a mano acaba siendo débil.
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRATION
         value: 8h
       - key: JWT_REFRESH_EXPIRATION
         value: 7d
-      # Ajustar al dominio real del frontend una vez publicado en Vercel.
+
+      # ── CORS ──
+      # La URL de Vercel. Si no coincide exactamente, el navegador bloquea
+      # todas las llamadas y el login parece muerto sin explicar por qué.
       - key: FRONTEND_URL
         sync: false
-      # Opcionales: sin ellos el sistema degrada (almacenaje local, correo a consola).
+
+      # ── Almacenamiento de documentos (Cloudinary) ──
+      # Obligatorio en producción: el disco del plan gratuito de Render es
+      # efímero y se borra en cada despliegue. Sin esto, las
+      # identificaciones de los jugadores desaparecen al siguiente deploy.
       - key: CLOUDINARY_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+
+      # ── Correo (Resend) ──
+      # Opcional. Sin esto las notificaciones se registran en consola en
+      # lugar de enviarse, y nada falla.
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM
         sync: false
-
-databases:
-  - name: mfl-db
-    plan: free
-    databaseName: master_flag_league
-    postgresMajorVersion: "16"

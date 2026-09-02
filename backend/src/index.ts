@@ -62,8 +62,32 @@ if (activeDriver() === 'local') {
   );
 }
 
-/** Health check. Render lo consulta para saber si el servicio está vivo. */
-app.get('/health', async (_req, res) => {
+/**
+ * Health check en dos niveles, y la distinción importa por costo.
+ *
+ * GET /health          → solo confirma que el proceso responde.
+ * GET /health?db=1     → además verifica la conexión a la base.
+ *
+ * Neon apaga el cómputo tras 5 minutos de inactividad y el plan gratuito
+ * da ~400 horas al mes. Un monitor que evita que Render se duerma
+ * consulta cada 14 minutos; si ese ping tocara la base, la despertaría
+ * ~100 veces al día y cada despertar cuesta un mínimo de 5 minutos de
+ * cómputo: unas 260 horas mensuales gastadas en no hacer nada.
+ *
+ * Por eso el chequeo profundo es opt-in: el monitor usa /health y solo
+ * un diagnóstico manual pide ?db=1.
+ */
+app.get('/health', async (req, res) => {
+  const checkDatabase = req.query.db === '1' || req.query.db === 'true';
+
+  if (!checkDatabase) {
+    return res.json({
+      status: 'OK',
+      storage: activeDriver(),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   const dbOk = await healthCheck();
   res.status(dbOk ? 200 : 503).json({
     status: dbOk ? 'OK' : 'DEGRADED',

@@ -5,13 +5,19 @@ dotenv.config();
 
 const connectionString = process.env.DATABASE_URL;
 
-// Render / Neon / Supabase entregan DATABASE_URL y requieren SSL.
+// Neon / Supabase / Render entregan DATABASE_URL y exigen SSL.
 // En local se usan las variables individuales sin SSL.
 const pool = connectionString
   ? new Pool({
       connectionString,
       ssl: { rejectUnauthorized: false },
       max: 10,
+      // Neon apaga el cómputo por inactividad y la primera conexión
+      // después paga un arranque en frío de medio segundo. Sin timeout
+      // explícito, `pg` esperaría indefinidamente ante un problema de
+      // red; 15 s cubre el arranque en frío con holgura y falla rápido
+      // cuando de verdad no hay ruta.
+      connectionTimeoutMillis: 15000,
       idleTimeoutMillis: 30000,
     })
   : new Pool({
