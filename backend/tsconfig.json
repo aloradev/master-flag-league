@@ -1,18 +1,31 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "ES2020",
-    "lib": ["ES2020"],
+    "target": "ES2022",
+    "lib": ["ES2022"],
+
+    /*
+     * NodeNext, no "node".
+     *
+     * El paquete es "type": "module" y los imports llevan extensión .js
+     * explícita, que es exactamente la semántica de NodeNext. Estaba puesto
+     * "moduleResolution": "node" —resolución estilo CommonJS para un proyecto
+     * ESM—: funcionaba de casualidad, y TypeScript ya la eliminó, así que un
+     * compilador más nuevo rompe el build.
+     */
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
     "outDir": "./dist",
     "rootDir": "./src",
+
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "sourceMap": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "tests", "scripts"]
 }

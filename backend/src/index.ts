@@ -6,8 +6,12 @@ import routes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { healthCheck } from './config/database.js';
 import { activeDriver, publicDir, PUBLIC_ROUTE } from './services/storage.service.js';
+import { validateEnvironment } from './config/env.js';
 
 dotenv.config();
+
+// Antes de cualquier otra cosa: si falta configuración, mejor no arrancar.
+validateEnvironment();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);

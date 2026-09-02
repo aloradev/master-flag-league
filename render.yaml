@@ -13,7 +13,11 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm ci && npm run build
+    # --include=dev es obligatorio: NODE_ENV=production (más abajo) hace que
+    # npm ci omita las devDependencies, y TypeScript vive ahí. Sin esta
+    # bandera el build no encuentra tsc y compila con lo que haya en la
+    # imagen de Render, que no es lo que se probó.
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm run start
     healthCheckPath: /health
     envVars:
