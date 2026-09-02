@@ -187,8 +187,10 @@ export const reviewPlayer = asyncHandler(async (req: AuthRequest, res: Response)
       );
     }
     if (action === 'APPROVE') {
+      // review_notes se limpia: dejarla mostraría al manager una queja
+      // sobre un documento que ya fue aceptado.
       await q(
-        `UPDATE player_documents SET status = 'APPROVED'
+        `UPDATE player_documents SET status = 'APPROVED', review_notes = NULL
          WHERE player_id = $1 AND is_current = TRUE`,
         [id]
       );

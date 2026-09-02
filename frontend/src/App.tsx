@@ -1,30 +1,111 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from './store/auth'
+import { useEffect } from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from 'react-router-dom';
+import { useAuth, isAdmin, homeFor } from './store/auth';
+import { Layout } from './components/Layout';
+import { Spinner } from './components/ui';
+import type { Role } from './lib/types';
 
-// Pages
-import LoginPage from './pages/LoginPage'
-import ManagerDashboard from './pages/Manager/Dashboard'
-import AdminDashboard from './pages/Admin/Dashboard'
+import Login from './pages/Login';
+import ChangePassword from './pages/ChangePassword';
+import MyTeam from './pages/manager/MyTeam';
+import PlayerForm from './pages/manager/PlayerForm';
+import PlayerDetail from './pages/manager/PlayerDetail';
+import AdminDashboard from './pages/admin/Dashboard';
+import ValidationQueue from './pages/admin/ValidationQueue';
+import AdminTeams from './pages/admin/Teams';
 
-function App() {
+/** Puerta de acceso: exige sesión y, si se indica, un rol permitido. */
+const Protected = ({
+  allow,
+  children,
+}: {
+  allow?: (role: Role) => boolean;
+  children: React.ReactNode;
+}) => {
+  const { user, status } = useAuth();
+  const location = useLocation();
+
+  if (status === 'loading') return <Spinner label="Cargando tu sesión…" />;
+  if (status === 'anonymous' || !user) {
+    return <Navigate to="/ingresar" state={{ from: location.pathname }} replace />;
+  }
+
+  // Una contraseña temporal debe cambiarse antes de usar la plataforma.
+  if (user.mustChangePassword && location.pathname !== '/cambiar-contrasena') {
+    return <Navigate to="/cambiar-contrasena" replace />;
+  }
+
+  if (allow && !allow(user.role)) {
+    return <Navigate to={homeFor(user.role)} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+const App = () => {
+  const { restore, user, status } = useAuth();
+
+  useEffect(() => {
+    void restore();
+  }, [restore]);
+
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          
-          {/* Manager Routes */}
-          <Route path="/manager/*" element={<ManagerDashboard />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin/*" element={<AdminDashboard />} />
-          
-          {/* Default redirect */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </AuthProvider>
-    </Router>
-  )
-}
+    <BrowserRouter>
+      <Routes>
+        <Route path="/ingresar" element={<Login />} />
+        <Route
+          path="/cambiar-contrasena"
+          element={
+            <Protected>
+              <ChangePassword />
+            </Protected>
+          }
+        />
 
-export default App
+        {/* Portal del manager */}
+        <Route
+          element={
+            <Protected allow={(role) => role === 'TEAM_MANAGER' || isAdmin(role)}>
+              <Layout />
+            </Protected>
+          }
+        >
+          <Route path="/equipo" element={<MyTeam />} />
+          <Route path="/equipo/jugadores/nuevo" element={<PlayerForm />} />
+          <Route path="/equipo/jugadores/:id" element={<PlayerDetail />} />
+        </Route>
+
+        {/* Administración */}
+        <Route
+          element={
+            <Protected allow={isAdmin}>
+              <Layout />
+            </Protected>
+          }
+        >
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/validacion" element={<ValidationQueue />} />
+          <Route path="/admin/equipos" element={<AdminTeams />} />
+        </Route>
+
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to={status === 'authenticated' ? homeFor(user?.role) : '/ingresar'}
+              replace
+            />
+          }
+        />
+      </Routes>
+    </BrowserRouter>
+  );
+};
+
+export default App;

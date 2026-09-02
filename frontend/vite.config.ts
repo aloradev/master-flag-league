@@ -1,20 +1,15 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
     proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      }
-    }
+      // En desarrollo el frontend llama a /api y Vite lo reenvía a la API.
+      '/api': { target: 'http://localhost:5000', changeOrigin: true },
+    },
   },
-  build: {
-    outDir: 'dist',
-    sourcemap: false
-  }
-})
+  build: { outDir: 'dist' },
+});

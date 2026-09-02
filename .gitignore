@@ -41,3 +41,6 @@ Thumbs.db
 # PGlite (base de datos local de desarrollo)
 .pglite/
 storage/
+
+# Build del frontend
+frontend/dist/

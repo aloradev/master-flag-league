@@ -1,117 +1,162 @@
-import { useNavigate } from 'react-router-dom'
-import useAuthStore from '../../store/auth'
+import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../lib/api';
+import type { Season, ValidationStats } from '../../lib/types';
+import { Alert, Card, Spinner, Stat } from '../../components/ui';
+import { useAuth } from '../../store/auth';
 
 export default function AdminDashboard() {
-  const navigate = useNavigate()
-  const { logout, user } = useAuthStore()
+  const { user } = useAuth();
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
+  const season = useQuery({
+    queryKey: ['season-active'],
+    queryFn: () => api.get<Season>('/seasons/active'),
+    retry: false,
+  });
+
+  const stats = useQuery({
+    queryKey: ['validation-stats'],
+    queryFn: () => api.get<ValidationStats>('/admin/validation/stats'),
+  });
+
+  if (stats.isLoading) return <Spinner />;
+
+  const data = stats.data;
+  const pendingWork = (data?.pending ?? 0) + (data?.corrections ?? 0);
+
+  const startDate = season.data ? new Date(`${season.data.start_date}T12:00:00`) : null;
+  const daysToStart = startDate
+    ? Math.ceil((startDate.getTime() - Date.now()) / 86_400_000)
+    : null;
+
+  const asDate = (value: string) =>
+    new Date(`${value}T12:00:00`).toLocaleDateString('es-MX', {
+      day: 'numeric',
+      month: 'long',
+    });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-primary">🏆 Administración</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{user?.name}</span>
-            <button
-              onClick={handleLogout}
-              className="btn btn-sm btn-outline"
-            >
-              Salir
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="mx-auto max-w-3xl space-y-5">
+      <div>
+        <h1 className="text-xl font-bold">Hola, {user?.name?.split(' ')[0]}</h1>
+        <p className="text-sm text-base-content/60">
+          {season.data
+            ? `${season.data.name} · inicia el ${asDate(season.data.start_date)}`
+            : 'Sin temporada activa'}
+        </p>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="card bg-white shadow">
-            <div className="card-body">
-              <h3 className="card-title text-sm">Jugadores Pendientes</h3>
-              <div className="text-3xl font-bold text-warning">0</div>
-            </div>
-          </div>
-
-          <div className="card bg-white shadow">
-            <div className="card-body">
-              <h3 className="card-title text-sm">Total Jugadores</h3>
-              <div className="text-3xl font-bold text-primary">0</div>
-            </div>
-          </div>
-
-          <div className="card bg-white shadow">
-            <div className="card-body">
-              <h3 className="card-title text-sm">Equipos Activos</h3>
-              <div className="text-3xl font-bold text-success">0</div>
-            </div>
-          </div>
-
-          <div className="card bg-white shadow">
-            <div className="card-body">
-              <h3 className="card-title text-sm">Jornada Actual</h3>
-              <div className="text-3xl font-bold">-</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Admin Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="card bg-white shadow">
-            <div className="card-body">
-              <h2 className="card-title mb-4">⭐ Validación de Jugadores</h2>
-              <button className="btn btn-primary btn-block mb-2">
-                Revisar Documentos
-              </button>
-              <p className="text-sm text-gray-600">
-                0 jugadores pendientes de aprobación
+      {/* Lo que requiere acción va primero */}
+      {pendingWork > 0 && (
+        <Link to="/admin/validacion" className="block">
+          <Card className="flex items-center justify-between p-4 transition-colors hover:bg-base-300/40">
+            <div>
+              <p className="font-semibold">
+                {pendingWork} registro{pendingWork === 1 ? '' : 's'} esperando tu revisión
               </p>
+              <p className="text-sm text-base-content/60">Abrir cola de validación</p>
             </div>
-          </div>
+            <span className="text-2xl" aria-hidden>
+              →
+            </span>
+          </Card>
+        </Link>
+      )}
 
-          <div className="card bg-white shadow">
-            <div className="card-body">
-              <h2 className="card-title mb-4">⚽ Competencia</h2>
-              <button className="btn btn-primary btn-block mb-2">
-                Generar Jornada
-              </button>
-              <button className="btn btn-outline btn-block">
-                Ver Partidos
-              </button>
-            </div>
-          </div>
+      {daysToStart != null && daysToStart >= 0 && daysToStart <= 21 && (
+        <Alert tone={daysToStart <= 7 ? 'warning' : 'info'}>
+          {daysToStart === 0
+            ? 'La temporada arranca hoy.'
+            : `Faltan ${daysToStart} día(s) para el inicio de la temporada.`}
+          {season.data?.registration_deadline &&
+            ` Registro cierra el ${asDate(season.data.registration_deadline)}.`}
+        </Alert>
+      )}
 
-          <div className="card bg-white shadow">
-            <div className="card-body">
-              <h2 className="card-title mb-4">📊 Gestión</h2>
-              <button className="btn btn-outline btn-block mb-2">
-                Equipos
-              </button>
-              <button className="btn btn-outline btn-block">
-                Usuarios
-              </button>
-            </div>
-          </div>
-
-          <div className="card bg-white shadow">
-            <div className="card-body">
-              <h2 className="card-title mb-4">📈 Reportes</h2>
-              <button className="btn btn-outline btn-block mb-2">
-                Estadísticas
-              </button>
-              <button className="btn btn-outline btn-block">
-                Auditoría
-              </button>
-            </div>
-          </div>
+      <section>
+        <h2 className="mb-2 text-sm font-semibold text-base-content/70">Jugadores</h2>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Stat value={data?.total ?? 0} label="Registrados" />
+          <Stat value={data?.eligible ?? 0} label="Elegibles" tone="success" />
+          <Stat value={data?.pending ?? 0} label="En revisión" tone="warning" />
+          <Stat value={data?.corrections ?? 0} label="Por corregir" tone="error" />
         </div>
-      </main>
+      </section>
+
+      {(data?.by_team?.length ?? 0) > 0 && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-base-content/70">Avance por equipo</h2>
+            <Link to="/admin/equipos" className="text-xs text-primary hover:underline">
+              Administrar equipos
+            </Link>
+          </div>
+
+          <Card className="divide-y divide-base-300">
+            {data!.by_team.map((team) => {
+              const progress = team.total > 0 ? (team.eligible / team.total) * 100 : 0;
+              return (
+                <div key={team.id} className="px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: team.color_primary }}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {team.name}
+                    </span>
+                    <span className="tabular shrink-0 text-xs text-base-content/60">
+                      {team.eligible}/{team.total} elegibles
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-base-300">
+                    <div
+                      className="h-full rounded-full bg-success transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  {team.pending > 0 && (
+                    <p className="mt-1 text-xs text-warning">{team.pending} en revisión</p>
+                  )}
+                </div>
+              );
+            })}
+          </Card>
+        </section>
+      )}
+
+      {season.data && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold text-base-content/70">Temporada</h2>
+          <Card className="grid grid-cols-2 gap-3 p-4 text-sm sm:grid-cols-4">
+            <div>
+              <div className="text-xs text-base-content/50">Categorías</div>
+              <div className="mt-0.5 font-medium">{season.data.categories.length}</div>
+            </div>
+            <div>
+              <div className="text-xs text-base-content/50">Campos</div>
+              <div className="mt-0.5 font-medium">{season.data.fields.length}</div>
+            </div>
+            <div>
+              <div className="text-xs text-base-content/50">Primer horario</div>
+              <div className="mt-0.5 font-medium tabular">
+                {season.data.default_start_time?.slice(0, 5)}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-base-content/50">Registro</div>
+              <div
+                className={`mt-0.5 font-medium ${
+                  season.data.registration_open ? 'text-success' : 'text-error'
+                }`}
+              >
+                {season.data.registration_open ? 'Abierto' : 'Cerrado'}
+              </div>
+            </div>
+          </Card>
+        </section>
+      )}
     </div>
-  )
+  );
 }

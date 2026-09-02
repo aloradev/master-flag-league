@@ -1,0 +1,210 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api, ApiError } from '../../lib/api';
+import type { Season, TeamSummary } from '../../lib/types';
+import { Alert, Card, EmptyState, Field, Spinner } from '../../components/ui';
+
+const PALETTE = ['#0ea5e9', '#16a34a', '#dc2626', '#f59e0b', '#7c3aed', '#db2777', '#0d9488', '#64748b'];
+
+/** Alta de equipo. Los managers se asignan después, desde la ficha del equipo. */
+const NewTeamForm = ({
+  season,
+  onCreated,
+  onCancel,
+}: {
+  season: Season;
+  onCreated: () => void;
+  onCancel: () => void;
+}) => {
+  const [name, setName] = useState('');
+  const [categoryId, setCategoryId] = useState(season.categories[0]?.id ?? '');
+  const [color, setColor] = useState(PALETTE[0]);
+  const [error, setError] = useState<string | null>(null);
+
+  const create = useMutation({
+    mutationFn: () =>
+      api.post('/admin/teams', {
+        seasonId: season.id,
+        categoryId,
+        name: name.trim(),
+        colorPrimary: color,
+      }),
+    onSuccess: () => {
+      setName('');
+      setError(null);
+      onCreated();
+    },
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : 'No se pudo crear el equipo'),
+  });
+
+  return (
+    <Card className="space-y-3 p-4">
+      <h2 className="font-semibold">Nuevo equipo</h2>
+
+      <Field label="Nombre" required>
+        <input
+          className="input input-bordered w-full"
+          placeholder="Sharks"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoFocus
+        />
+      </Field>
+
+      <Field label="Categoría" required>
+        <select
+          className="select select-bordered w-full"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+        >
+          {season.categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label="Color del equipo">
+        <div className="flex flex-wrap gap-2">
+          {PALETTE.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setColor(option)}
+              aria-label={`Color ${option}`}
+              className={`size-8 rounded-full transition-transform ${
+                color === option ? 'scale-110 ring-2 ring-base-content ring-offset-2 ring-offset-base-200' : ''
+              }`}
+              style={{ backgroundColor: option }}
+            />
+          ))}
+        </div>
+      </Field>
+
+      {error && <Alert tone="error">{error}</Alert>}
+
+      <div className="flex gap-2">
+        <button onClick={onCancel} className="btn btn-ghost btn-sm flex-1">
+          Cancelar
+        </button>
+        <button
+          onClick={() => create.mutate()}
+          className="btn btn-primary btn-sm flex-1"
+          disabled={create.isPending || !name.trim() || !categoryId}
+        >
+          {create.isPending ? <span className="loading loading-spinner loading-xs" /> : 'Crear'}
+        </button>
+      </div>
+    </Card>
+  );
+};
+
+export default function AdminTeams() {
+  const queryClient = useQueryClient();
+  const [creating, setCreating] = useState(false);
+
+  const season = useQuery({
+    queryKey: ['season-active'],
+    queryFn: () => api.get<Season>('/seasons/active'),
+    retry: false,
+  });
+
+  const teams = useQuery({
+    queryKey: ['teams'],
+    queryFn: () => api.get<TeamSummary[]>('/teams'),
+  });
+
+  if (teams.isLoading || season.isLoading) return <Spinner />;
+
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ['teams'] });
+    void queryClient.invalidateQueries({ queryKey: ['validation-stats'] });
+    setCreating(false);
+  };
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold">Equipos</h1>
+          <p className="text-sm text-base-content/60">
+            {teams.data?.length ?? 0} equipo(s) en la temporada
+          </p>
+        </div>
+        {!creating && season.data && (
+          <button onClick={() => setCreating(true)} className="btn btn-primary btn-sm">
+            Nuevo equipo
+          </button>
+        )}
+      </div>
+
+      {!season.data && (
+        <Alert tone="warning">
+          No hay una temporada activa. Crea una antes de registrar equipos.
+        </Alert>
+      )}
+
+      {creating && season.data && (
+        <NewTeamForm season={season.data} onCreated={refresh} onCancel={() => setCreating(false)} />
+      )}
+
+      {(teams.data?.length ?? 0) === 0 && !creating ? (
+        <Card>
+          <EmptyState
+            icon="🛡️"
+            title="Todavía no hay equipos"
+            description="Crea los equipos de la temporada y asigna a sus encargados para que empiecen a registrar jugadores."
+          />
+        </Card>
+      ) : (
+        <ul className="space-y-2">
+          {teams.data?.map((team) => {
+            const total = Number(team.players_total);
+            const eligible = Number(team.players_eligible);
+            const pending = Number(team.players_pending);
+
+            return (
+              <Card as="li" key={team.id} className="p-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex size-11 shrink-0 items-center justify-center rounded-field text-xs font-bold"
+                    style={{ backgroundColor: team.color_primary }}
+                  >
+                    {team.short_name ?? team.name.slice(0, 3).toUpperCase()}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{team.name}</p>
+                    <p className="text-xs text-base-content/60">
+                      {team.category_name} ·{' '}
+                      <span className="tabular">
+                        {eligible}/{total}
+                      </span>{' '}
+                      elegibles
+                      {pending > 0 && (
+                        <span className="text-warning"> · {pending} en revisión</span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-base-content/40">
+                      {team.managers.length === 0
+                        ? 'Sin encargados asignados'
+                        : team.managers.map((m) => m.name).join(', ')}
+                    </p>
+                  </div>
+
+                  {team.managers.length === 0 && (
+                    <span className="shrink-0 text-lg" title="Falta asignar encargado" aria-hidden>
+                      ⚠️
+                    </span>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}

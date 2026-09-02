@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+@plugin 'daisyui' {
+  themes: false;
+}
+
+/**
+ * Identidad visual (req. 46): premium, deportiva, oscura.
+ * Base grafito profundo, acento eléctrico, semáforo de elegibilidad
+ * con los mismos tres colores en toda la plataforma.
+ */
+@plugin 'daisyui/theme' {
+  name: 'mfl';
+  default: true;
+  color-scheme: dark;
+
+  --color-base-100: oklch(19% 0.03 265);
+  --color-base-200: oklch(24% 0.035 265);
+  --color-base-300: oklch(30% 0.04 265);
+  --color-base-content: oklch(96% 0.01 265);
+
+  --color-primary: oklch(64% 0.19 268);
+  --color-primary-content: oklch(98% 0.01 268);
+  --color-secondary: oklch(58% 0.2 305);
+  --color-secondary-content: oklch(98% 0.01 305);
+  --color-accent: oklch(76% 0.16 82);
+  --color-accent-content: oklch(20% 0.04 82);
+
+  --color-success: oklch(70% 0.17 152);
+  --color-success-content: oklch(18% 0.04 152);
+  --color-warning: oklch(80% 0.16 85);
+  --color-warning-content: oklch(20% 0.04 85);
+  --color-error: oklch(64% 0.21 25);
+  --color-error-content: oklch(98% 0.01 25);
+  --color-info: oklch(72% 0.14 232);
+
+  --radius-box: 0.875rem;
+  --radius-field: 0.625rem;
+  --radius-selector: 0.5rem;
+  --border: 1px;
+}
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Números de jersey y marcadores: tabulares para que no bailen. */
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-base-100 text-base-content antialiased;
+  /* Respeta el notch en iPhone: la mayoría de usuarios usará celular. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Cifras alineadas en tablas y marcadores. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fondo con degradado sutil para pantallas de acceso. */
+.hero-gradient {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, oklch(40% 0.15 268 / 0.5), transparent),
+    radial-gradient(ellipse 60% 50% at 90% 10%, oklch(40% 0.15 305 / 0.3), transparent);
+}
+
+/* Oculta la barra de desplazamiento en carruseles horizontales. */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
