@@ -1,0 +1,46 @@
+# Despliegue en Render — plan gratuito.
+# Se importa desde el panel: New → Blueprint → conectar este repositorio.
+services:
+  - type: web
+    name: mfl-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render inyecta la cadena de conexión de la base declarada abajo.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mfl-db
+          property: connectionString
+      # Se genera solo; no hay que inventar un secreto a mano.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION
+        value: 8h
+      - key: JWT_REFRESH_EXPIRATION
+        value: 7d
+      # Ajustar al dominio real del frontend una vez publicado en Vercel.
+      - key: FRONTEND_URL
+        sync: false
+      # Opcionales: sin ellos el sistema degrada (almacenaje local, correo a consola).
+      - key: CLOUDINARY_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+databases:
+  - name: mfl-db
+    plan: free
+    databaseName: master_flag_league
+    postgresMajorVersion: "16"
