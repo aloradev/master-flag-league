@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { TeamSummary } from '../../lib/types';
-import { Alert, Card, Field, Spinner } from '../../components/ui';
+import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
 
 /** Posiciones habituales en flag football. */
 const POSITIONS = ['QB', 'WR', 'RB', 'C', 'TE', 'DB', 'LB', 'RUSH', 'SAFETY'];
@@ -201,17 +201,15 @@ export default function PlayerForm() {
           <Link to="/equipo" className="btn btn-ghost flex-1">
             Cancelar
           </Link>
-          <button
+          <Button
             type="submit"
-            className="btn btn-primary flex-1"
-            disabled={saving || !complete}
+            tone="primary"
+            className="flex-1"
+            loading={saving}
+            disabled={!complete}
           >
-            {saving ? (
-              <span className="loading loading-spinner loading-sm" />
-            ) : (
-              'Continuar'
-            )}
-          </button>
+            {saving ? 'Registrando…' : 'Continuar'}
+          </Button>
         </div>
       </form>
     </div>

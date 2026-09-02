@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { QueuePlayer, ValidationQueue as Queue } from '../../lib/types';
-import { Alert, Card, EmptyState, Spinner, Stat } from '../../components/ui';
+import { Alert, Button, Card, EmptyState, Spinner, Stat } from '../../components/ui';
 import { StatusBadge } from '../../components/StatusBadge';
 import { AuthImage, PlayerAvatar } from '../../components/AuthImage';
+import { IconCheckCircle } from '../../components/icons';
 
 type Action = 'APPROVE' | 'REJECT' | 'REQUEST_CORRECTION';
 
@@ -51,7 +52,7 @@ const ReviewCard = ({ player, onDone }: { player: QueuePlayer; onDone: () => voi
       <div className="space-y-3 p-4">
         <div className="flex items-start gap-3">
           <PlayerAvatar
-            photoUrl={player.photo_url}
+            avatarUrl={player.avatar_url}
             name={player.full_name}
             jersey={player.jersey_number}
             size="md"
@@ -115,40 +116,40 @@ const ReviewCard = ({ player, onDone }: { player: QueuePlayer; onDone: () => voi
         {/* Acciones */}
         {mode === 'idle' ? (
           <div className="flex flex-wrap gap-2">
-            <button
+            <Button
+              tone="success"
               onClick={() => review.mutate({ action: 'APPROVE' })}
-              className="btn btn-success flex-1 sm:flex-none"
-              disabled={review.isPending || !player.ready_to_review}
-              title={
-                player.ready_to_review ? undefined : 'Falta documentación por cargar'
-              }
+              loading={review.isPending}
+              disabled={!player.ready_to_review}
+              title={player.ready_to_review ? undefined : 'Falta documentación por cargar'}
+              className="flex-1 sm:flex-none"
             >
-              {review.isPending ? (
-                <span className="loading loading-spinner loading-sm" />
-              ) : (
-                'Aprobar'
-              )}
-            </button>
-            <button
+              {review.isPending ? 'Aprobando…' : 'Aprobar'}
+            </Button>
+            <Button
+              tone="warning"
+              outline
               onClick={() => {
                 setMode('correction');
                 setReason('');
               }}
-              className="btn btn-warning btn-outline flex-1 sm:flex-none"
               disabled={review.isPending}
+              className="flex-1 sm:flex-none"
             >
               Pedir corrección
-            </button>
-            <button
+            </Button>
+            <Button
+              tone="error"
+              outline
               onClick={() => {
                 setMode('reject');
                 setReason('');
               }}
-              className="btn btn-error btn-outline flex-1 sm:flex-none"
               disabled={review.isPending}
+              className="flex-1 sm:flex-none"
             >
               Rechazar
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="space-y-2 rounded-field bg-base-300/40 p-3">
@@ -181,28 +182,27 @@ const ReviewCard = ({ player, onDone }: { player: QueuePlayer; onDone: () => voi
             />
 
             <div className="flex gap-2">
-              <button
+              <Button
+                tone="ghost"
+                size="sm"
                 onClick={() => setMode('idle')}
-                className="btn btn-ghost btn-sm flex-1"
                 disabled={review.isPending}
+                className="flex-1"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
+                tone={mode === 'correction' ? 'warning' : 'error'}
+                size="sm"
                 onClick={() =>
                   submitReason(mode === 'correction' ? 'REQUEST_CORRECTION' : 'REJECT')
                 }
-                className={`btn btn-sm flex-1 ${
-                  mode === 'correction' ? 'btn-warning' : 'btn-error'
-                }`}
-                disabled={review.isPending || !reason.trim()}
+                loading={review.isPending}
+                disabled={!reason.trim()}
+                className="flex-1"
               >
-                {review.isPending ? (
-                  <span className="loading loading-spinner loading-xs" />
-                ) : (
-                  'Enviar y notificar'
-                )}
-              </button>
+                {review.isPending ? 'Enviando…' : 'Enviar y notificar'}
+              </Button>
             </div>
           </div>
         )}
@@ -261,7 +261,7 @@ export default function ValidationQueue() {
       {players.length === 0 ? (
         <Card>
           <EmptyState
-            icon="✅"
+            icon={<IconCheckCircle size={40} />}
             title={data.total === 0 ? 'No hay nada por revisar' : 'Nada listo por ahora'}
             description={
               data.total === 0

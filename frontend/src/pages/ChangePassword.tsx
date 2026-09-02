@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { useAuth, homeFor } from '../store/auth';
-import { Alert, Field } from '../components/ui';
+import { Alert, Button, Field } from '../components/ui';
+import { Logo } from '../components/Logo';
 
 export default function ChangePassword() {
   const { user, markPasswordChanged, logout } = useAuth();
@@ -44,10 +45,8 @@ export default function ChangePassword() {
   return (
     <div className="hero-gradient flex min-h-dvh items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
-          <div className="text-4xl" aria-hidden>
-            🔐
-          </div>
+        <div className="mb-6 flex flex-col items-center text-center">
+          <Logo size="sm" className="w-20" />
           <h1 className="mt-3 text-xl font-bold">Define tu contraseña</h1>
           <p className="mt-1 text-sm text-base-content/60">
             Tu acceso se creó con una contraseña temporal. Elige una propia para continuar.
@@ -112,17 +111,19 @@ export default function ChangePassword() {
             </Alert>
           )}
 
-          <button
+          <Button
             type="submit"
-            className="btn btn-primary w-full"
-            disabled={saving || mismatch || !current || !next || !confirm}
+            tone="primary"
+            block
+            loading={saving}
+            disabled={mismatch || !current || !next || !confirm}
           >
-            {saving ? <span className="loading loading-spinner loading-sm" /> : 'Guardar y continuar'}
-          </button>
+            {saving ? 'Guardando…' : 'Guardar y continuar'}
+          </Button>
 
-          <button type="button" onClick={logout} className="btn btn-ghost btn-sm w-full">
+          <Button type="button" tone="ghost" size="sm" block onClick={logout}>
             Cerrar sesión
-          </button>
+          </Button>
         </form>
       </div>
     </div>

@@ -3,9 +3,10 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { DocumentType, PlayerDetail as Player } from '../../lib/types';
-import { Alert, Card, Spinner } from '../../components/ui';
+import { Alert, Button, Card, Spinner } from '../../components/ui';
 import { StatusBadge, EligibilityBadge } from '../../components/StatusBadge';
 import { AuthImage, PlayerAvatar } from '../../components/AuthImage';
+import { IconCheckCircle, IconCircleX, IconPlus } from '../../components/icons';
 import { fileSize } from '../../lib/format';
 
 /** Orden de captura del flujo del manager (req. 48). */
@@ -67,8 +68,8 @@ const DocumentSlot = ({
             thumbnail
           />
         ) : (
-          <div className="flex size-16 shrink-0 items-center justify-center rounded-field border border-dashed border-base-content/25 text-xl text-base-content/30">
-            +
+          <div className="flex size-16 shrink-0 items-center justify-center rounded-field border border-dashed border-base-content/25 text-base-content/30">
+            <IconPlus size={22} />
           </div>
         )}
 
@@ -82,8 +83,8 @@ const DocumentSlot = ({
                   : help}
               </p>
             </div>
-            <span aria-hidden className="text-base">
-              {document ? '✅' : '❌'}
+            <span className={document ? 'text-success' : 'text-base-content/25'}>
+              {document ? <IconCheckCircle size={18} /> : <IconCircleX size={18} />}
             </span>
           </div>
 
@@ -105,20 +106,15 @@ const DocumentSlot = ({
             onChange={(e) => handleFile(e.target.files?.[0])}
           />
 
-          <button
+          <Button
             type="button"
+            size="sm"
             onClick={() => inputRef.current?.click()}
-            className="btn btn-sm mt-2 w-full sm:w-auto"
-            disabled={upload.isPending}
+            loading={upload.isPending}
+            className="mt-2 w-full sm:w-auto"
           >
-            {upload.isPending ? (
-              <span className="loading loading-spinner loading-xs" />
-            ) : document ? (
-              'Reemplazar'
-            ) : (
-              'Subir archivo'
-            )}
-          </button>
+            {upload.isPending ? 'Subiendo…' : document ? 'Reemplazar' : 'Subir archivo'}
+          </Button>
         </div>
       </div>
     </Card>
@@ -174,7 +170,7 @@ export default function PlayerDetail() {
       {/* Identidad y semáforo */}
       <Card className="p-4">
         <div className="flex items-start gap-4">
-          <PlayerAvatar photoUrl={data.photo_url} name={data.full_name} jersey={data.jersey_number} size="lg" />
+          <PlayerAvatar avatarUrl={data.avatar_url} name={data.full_name} jersey={data.jersey_number} size="lg" />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
               {data.jersey_number != null && (

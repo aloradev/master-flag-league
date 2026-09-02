@@ -4,34 +4,91 @@
 }
 
 /**
- * Identidad visual (req. 46): premium, deportiva, oscura.
- * Base grafito profundo, acento eléctrico, semáforo de elegibilidad
- * con los mismos tres colores en toda la plataforma.
+ * IDENTIDAD VISUAL — Master Flag League Cancún
+ *
+ * Los tres colores salen del logo: cian (~185°), magenta (~320°) y
+ * amarillo (~57°), sobre azul marino profundo y plateado.
+ *
+ * Separación deliberada entre marca y función:
+ *
+ *   Marca    cian · magenta · amarillo   → navegación, acciones, énfasis
+ *   Función  verde · naranja · rojo      → semáforo de elegibilidad
+ *
+ * El amarillo de marca (57°) y un "warning" ámbar (45°) se confundirían
+ * puestos uno junto al otro, así que el warning funcional se corrió a
+ * naranja (~40°) y el verde de "elegible" se alejó del cian llevándolo
+ * a 145° en lugar de un esmeralda cercano.
  */
+
+/* ─────────────────────────── TEMA CLARO ─────────────────────────── */
 @plugin 'daisyui/theme' {
-  name: 'mfl';
+  name: 'mfl-light';
   default: true;
+  color-scheme: light;
+
+  --color-base-100: oklch(100% 0 0);
+  --color-base-200: oklch(97% 0.005 240);
+  --color-base-300: oklch(92% 0.01 240);
+  --color-base-content: oklch(21% 0.03 255);
+
+  /* El cian del logo sobre blanco no alcanza contraste de texto:
+     en claro se oscurece a cyan-700 para que el blanco encima se lea. */
+  --color-primary: oklch(51% 0.11 210);
+  --color-primary-content: oklch(100% 0 0);
+  --color-secondary: oklch(48% 0.19 350);
+  --color-secondary-content: oklch(100% 0 0);
+  --color-accent: oklch(53% 0.13 85);
+  --color-accent-content: oklch(100% 0 0);
+
+  --color-neutral: oklch(32% 0.03 255);
+  --color-neutral-content: oklch(98% 0.005 240);
+
+  --color-success: oklch(52% 0.16 145);
+  --color-success-content: oklch(100% 0 0);
+  --color-warning: oklch(55% 0.17 40);
+  --color-warning-content: oklch(100% 0 0);
+  --color-error: oklch(50% 0.2 27);
+  --color-error-content: oklch(100% 0 0);
+  --color-info: oklch(52% 0.13 235);
+  --color-info-content: oklch(100% 0 0);
+
+  --radius-box: 0.875rem;
+  --radius-field: 0.625rem;
+  --radius-selector: 0.5rem;
+  --border: 1px;
+}
+
+/* ─────────────────────────── TEMA OSCURO ─────────────────────────── */
+/* Es el que coincide con el logo tal como fue diseñado. */
+@plugin 'daisyui/theme' {
+  name: 'mfl-dark';
+  prefersdark: true;
   color-scheme: dark;
 
-  --color-base-100: oklch(19% 0.03 265);
-  --color-base-200: oklch(24% 0.035 265);
-  --color-base-300: oklch(30% 0.04 265);
-  --color-base-content: oklch(96% 0.01 265);
+  --color-base-100: oklch(17% 0.025 258);
+  --color-base-200: oklch(22% 0.03 258);
+  --color-base-300: oklch(28% 0.035 258);
+  --color-base-content: oklch(95% 0.01 250);
 
-  --color-primary: oklch(64% 0.19 268);
-  --color-primary-content: oklch(98% 0.01 268);
-  --color-secondary: oklch(58% 0.2 305);
-  --color-secondary-content: oklch(98% 0.01 305);
-  --color-accent: oklch(76% 0.16 82);
-  --color-accent-content: oklch(20% 0.04 82);
+  /* Sobre fondo oscuro los colores del logo se usan a plena intensidad. */
+  --color-primary: oklch(80% 0.14 195);
+  --color-primary-content: oklch(20% 0.05 210);
+  --color-secondary: oklch(68% 0.24 340);
+  --color-secondary-content: oklch(16% 0.06 340);
+  --color-accent: oklch(87% 0.17 95);
+  --color-accent-content: oklch(22% 0.06 85);
 
-  --color-success: oklch(70% 0.17 152);
-  --color-success-content: oklch(18% 0.04 152);
-  --color-warning: oklch(80% 0.16 85);
-  --color-warning-content: oklch(20% 0.04 85);
-  --color-error: oklch(64% 0.21 25);
-  --color-error-content: oklch(98% 0.01 25);
-  --color-info: oklch(72% 0.14 232);
+  --color-neutral: oklch(30% 0.03 258);
+  --color-neutral-content: oklch(95% 0.01 250);
+
+  --color-success: oklch(75% 0.19 145);
+  --color-success-content: oklch(18% 0.06 145);
+  --color-warning: oklch(76% 0.16 55);
+  --color-warning-content: oklch(20% 0.06 55);
+  --color-error: oklch(70% 0.19 22);
+  --color-error-content: oklch(18% 0.06 22);
+  --color-info: oklch(74% 0.13 235);
+  --color-info-content: oklch(18% 0.05 235);
 
   --radius-box: 0.875rem;
   --radius-field: 0.625rem;
@@ -41,7 +98,6 @@
 
 @theme {
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  /* Números de jersey y marcadores: tabulares para que no bailen. */
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
 }
 
@@ -51,23 +107,33 @@ html {
 
 body {
   @apply bg-base-100 text-base-content antialiased;
-  /* Respeta el notch en iPhone: la mayoría de usuarios usará celular. */
+  /* Respeta el notch del iPhone: la mayoría de usuarios usará celular. */
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Cifras alineadas en tablas y marcadores. */
+/* Cifras alineadas: números de jersey, marcadores y tablas. */
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
-/* Fondo con degradado sutil para pantallas de acceso. */
+/**
+ * Fondo de las pantallas de acceso: el degradado toma el cian y el
+ * magenta del logo. En claro se mantiene tenue para no competir con el
+ * formulario; en oscuro puede brillar más.
+ */
 .hero-gradient {
   background:
-    radial-gradient(ellipse 80% 60% at 50% -10%, oklch(40% 0.15 268 / 0.5), transparent),
-    radial-gradient(ellipse 60% 50% at 90% 10%, oklch(40% 0.15 305 / 0.3), transparent);
+    radial-gradient(ellipse 80% 60% at 50% -10%, oklch(70% 0.14 195 / 0.18), transparent),
+    radial-gradient(ellipse 60% 55% at 88% 8%, oklch(65% 0.22 340 / 0.14), transparent);
 }
 
-/* Oculta la barra de desplazamiento en carruseles horizontales. */
+[data-theme='mfl-dark'] .hero-gradient {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, oklch(60% 0.16 195 / 0.28), transparent),
+    radial-gradient(ellipse 60% 55% at 88% 8%, oklch(55% 0.24 340 / 0.22), transparent);
+}
+
+/* Carruseles horizontales sin barra de desplazamiento visible. */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -75,9 +141,16 @@ body {
   scrollbar-width: none;
 }
 
+/* Evita el destello de tema al cambiar con el conmutador. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    transition: background-color 150ms ease;
+  }
+}
+
 /**
  * Impresión: el roster se entrega en papel el día de partido.
- * El tema oscuro gastaría el tóner, así que se invierte a tinta sobre blanco.
+ * Se fuerza tinta negra sobre blanco aunque el usuario esté en oscuro.
  */
 @media print {
   @page {
@@ -90,7 +163,6 @@ body {
     padding: 0;
   }
 
-  /* Fuera navegación, botones y todo lo que no sea el documento. */
   nav,
   aside,
   header,

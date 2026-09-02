@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { Season, TeamSummary } from '../../lib/types';
-import { Alert, Card, EmptyState, Field, Spinner } from '../../components/ui';
+import { Alert, Button, Card, EmptyState, Field, Spinner } from '../../components/ui';
+import { IconShield, IconWarning } from '../../components/icons';
+import { TeamCrest } from '../../components/AuthImage';
 
 const PALETTE = ['#0ea5e9', '#16a34a', '#dc2626', '#f59e0b', '#7c3aed', '#db2777', '#0d9488', '#64748b'];
 
@@ -87,16 +89,19 @@ const NewTeamForm = ({
       {error && <Alert tone="error">{error}</Alert>}
 
       <div className="flex gap-2">
-        <button onClick={onCancel} className="btn btn-ghost btn-sm flex-1">
+        <Button tone="ghost" size="sm" onClick={onCancel} className="flex-1">
           Cancelar
-        </button>
-        <button
+        </Button>
+        <Button
+          tone="primary"
+          size="sm"
           onClick={() => create.mutate()}
-          className="btn btn-primary btn-sm flex-1"
-          disabled={create.isPending || !name.trim() || !categoryId}
+          loading={create.isPending}
+          disabled={!name.trim() || !categoryId}
+          className="flex-1"
         >
-          {create.isPending ? <span className="loading loading-spinner loading-xs" /> : 'Crear'}
-        </button>
+          {create.isPending ? 'Creando…' : 'Crear'}
+        </Button>
       </div>
     </Card>
   );
@@ -154,7 +159,7 @@ export default function AdminTeams() {
       {(teams.data?.length ?? 0) === 0 && !creating ? (
         <Card>
           <EmptyState
-            icon="🛡️"
+            icon={<IconShield size={40} />}
             title="Todavía no hay equipos"
             description="Crea los equipos de la temporada y asigna a sus encargados para que empiecen a registrar jugadores."
           />
@@ -172,12 +177,13 @@ export default function AdminTeams() {
                   to={`/admin/equipos/${team.id}`}
                   className="flex items-center gap-3 p-3 transition-colors hover:bg-base-300/40"
                 >
-                  <div
-                    className="flex size-11 shrink-0 items-center justify-center rounded-field text-xs font-bold"
-                    style={{ backgroundColor: team.color_primary }}
-                  >
-                    {team.short_name ?? team.name.slice(0, 3).toUpperCase()}
-                  </div>
+                  <TeamCrest
+                    logoUrl={team.logo_url}
+                    name={team.name}
+                    shortName={team.short_name}
+                    color={team.color_primary}
+                    className="size-11 text-xs"
+                  />
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{team.name}</p>
@@ -199,8 +205,12 @@ export default function AdminTeams() {
                   </div>
 
                   {team.managers.length === 0 && (
-                    <span className="shrink-0 text-lg" title="Falta asignar encargado" aria-hidden>
-                      ⚠️
+                    <span
+                      className="shrink-0 text-warning"
+                      title="Falta asignar encargado"
+                      aria-label="Falta asignar encargado"
+                    >
+                      <IconWarning size={20} />
                     </span>
                   )}
                 </Link>

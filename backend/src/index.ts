@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import routes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { healthCheck } from './config/database.js';
-import { activeDriver } from './services/storage.service.js';
+import { activeDriver, publicDir, PUBLIC_ROUTE } from './services/storage.service.js';
 
 dotenv.config();
 
@@ -40,6 +40,27 @@ app.use((_req, res, next) => {
   res.setHeader('Referrer-Policy', 'no-referrer');
   next();
 });
+
+/**
+ * Archivos públicos: avatares derivados y logos de equipo.
+ *
+ * Solo en modo local. Con Cloudinary configurado los sirve su CDN y esta
+ * ruta queda sin uso. Nunca expone el directorio privado: son dos
+ * carpetas distintas y aquí solo se monta la pública.
+ */
+if (activeDriver() === 'local') {
+  app.use(
+    PUBLIC_ROUTE,
+    express.static(publicDir(), {
+      // Los derivados llevan nombre aleatorio y nunca se sobrescriben,
+      // así que se pueden cachear de forma agresiva.
+      maxAge: '30d',
+      immutable: true,
+      index: false,
+      dotfiles: 'deny',
+    })
+  );
+}
 
 /** Health check. Render lo consulta para saber si el servicio está vivo. */
 app.get('/health', async (_req, res) => {

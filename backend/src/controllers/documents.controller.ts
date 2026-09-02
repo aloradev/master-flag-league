@@ -5,7 +5,8 @@ import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
 import { canAccessTeam, type AuthRequest } from '../middleware/auth.js';
-import { putFile, getFile } from '../services/storage.service.js';
+import { putFile, putPublicFile, getFile } from '../services/storage.service.js';
+import { makeAvatar, isProcessableImage } from '../services/image.service.js';
 import { refreshEligibility, documentLabel } from '../services/eligibility.service.js';
 
 const VALID_TYPES = ['PHOTO', 'ID_FRONT', 'ID_BACK'];
@@ -80,7 +81,39 @@ export const uploadDocument = asyncHandler(async (req: AuthRequest, res: Respons
   }
   if (file.size === 0) throw new AppError('El archivo está vacío', 400);
 
+  // La fotografía debe ser una imagen real: un PDF no sirve como avatar.
+  if (documentType === 'PHOTO') {
+    if (!file.mimetype.startsWith('image/')) {
+      throw new AppError('La fotografía debe ser una imagen JPG o PNG, no un PDF', 400);
+    }
+    if (!(await isProcessableImage(file.buffer))) {
+      throw new AppError('El archivo no es una imagen válida o está dañado', 400);
+    }
+  }
+
   const stored = await putFile(file.buffer, file.mimetype, file.originalname, playerId);
+
+  /**
+   * De la fotografía se publica un derivado, no el original.
+   *
+   * El original queda en el nivel privado como respaldo del registro.
+   * Lo que se muestra en plantillas, cola de revisión y perfil público
+   * es un WebP de 512 px reencodificado, que además ya no lleva los
+   * metadatos EXIF —y con ellos, las coordenadas GPS del lugar donde se
+   * tomó la foto, normalmente el domicilio del jugador.
+   */
+  let publicAvatarUrl: string | null = null;
+  if (documentType === 'PHOTO') {
+    try {
+      const avatar = await makeAvatar(file.buffer);
+      const published = await putPublicFile(avatar.buffer, avatar.mimeType, 'avatares');
+      publicAvatarUrl = published.url;
+    } catch (err) {
+      // Un fallo aquí no debe tumbar la carga: el documento ya se guardó
+      // y la elegibilidad depende de eso, no del avatar.
+      console.error('[documents] No se pudo generar el avatar:', err);
+    }
+  }
 
   const previous = await query<{ id: string; version: number }>(
     `SELECT id, version FROM player_documents
@@ -126,8 +159,9 @@ export const uploadDocument = asyncHandler(async (req: AuthRequest, res: Respons
   });
 
   if (documentType === 'PHOTO') {
-    await query('UPDATE players SET photo_url = $1 WHERE id = $2', [
+    await query('UPDATE players SET photo_url = $1, avatar_url = COALESCE($2, avatar_url) WHERE id = $3', [
       `/api/v1/documents/${documentId}/file`,
+      publicAvatarUrl,
       playerId,
     ]);
   }
@@ -144,7 +178,7 @@ export const uploadDocument = asyncHandler(async (req: AuthRequest, res: Respons
 
   res.status(201).json({
     success: true,
-    data: { id: documentId, documentType, version, eligibility },
+    data: { id: documentId, documentType, version, eligibility, avatarUrl: publicAvatarUrl },
     message: `${documentLabel(documentType)} cargada correctamente`,
   });
 });

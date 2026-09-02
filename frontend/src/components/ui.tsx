@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import React from 'react';
+import { IconInbox } from './icons';
 
 export const Spinner = ({ label }: { label?: string }) => (
   <div className="flex flex-col items-center justify-center gap-3 py-12">
@@ -48,19 +50,20 @@ export const Alert = ({
 };
 
 export const EmptyState = ({
-  icon = '📋',
+  icon,
   title,
   description,
   action,
 }: {
-  icon?: string;
+  /** Icono SVG del set propio. Sin él se usa la bandeja vacía. */
+  icon?: ReactNode;
   title: string;
   description?: string;
   action?: ReactNode;
 }) => (
   <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
-    <span className="text-4xl" aria-hidden>
-      {icon}
+    <span className="text-base-content/30">
+      {icon ?? <IconInbox size={40} />}
     </span>
     <h3 className="text-base font-semibold">{title}</h3>
     {description && (
@@ -116,5 +119,81 @@ export const Stat = ({
       <div className={`tabular text-2xl font-bold leading-tight ${color}`}>{value}</div>
       <div className="mt-0.5 text-xs text-base-content/60">{label}</div>
     </Card>
+  );
+};
+
+type ButtonTone =
+  | 'primary'
+  | 'secondary'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'neutral'
+  | 'ghost';
+
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'className'> {
+  children: ReactNode;
+  tone?: ButtonTone;
+  size?: 'xs' | 'sm' | 'md';
+  /** Muestra el indicador y bloquea el botón mientras la acción corre. */
+  loading?: boolean;
+  outline?: boolean;
+  block?: boolean;
+  className?: string;
+}
+
+const TONE_CLASS: Record<ButtonTone, string> = {
+  primary: 'btn-primary',
+  secondary: 'btn-secondary',
+  success: 'btn-success',
+  warning: 'btn-warning',
+  error: 'btn-error',
+  neutral: 'btn-neutral',
+  ghost: 'btn-ghost',
+};
+
+/**
+ * Botón con estado de carga.
+ *
+ * Existe como componente para que toda acción que llame a la API se
+ * comporte igual: se deshabilita mientras corre —lo que evita el doble
+ * envío, que en "Aprobar" o "Guardar" duplicaría el registro— y conserva
+ * su etiqueta junto al indicador, en lugar de reemplazarla. Un botón que
+ * cambia su texto por un spinner deja al usuario sin saber qué se está
+ * ejecutando, y además brinca de ancho.
+ */
+export const Button = ({
+  children,
+  tone = 'neutral',
+  size = 'md',
+  loading = false,
+  outline = false,
+  block = false,
+  disabled,
+  className = '',
+  ...rest
+}: ButtonProps) => {
+  const sizeClass = { xs: 'btn-xs', sm: 'btn-sm', md: '' }[size];
+  const spinnerSize = { xs: 'loading-xs', sm: 'loading-xs', md: 'loading-sm' }[size];
+
+  return (
+    <button
+      {...rest}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className={[
+        'btn',
+        TONE_CLASS[tone],
+        outline && 'btn-outline',
+        sizeClass,
+        block && 'btn-block',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {loading && <span className={`loading loading-spinner ${spinnerSize}`} aria-hidden />}
+      {children}
+    </button>
   );
 };

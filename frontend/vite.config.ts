@@ -9,6 +9,8 @@ export default defineConfig({
     proxy: {
       // En desarrollo el frontend llama a /api y Vite lo reenvía a la API.
       '/api': { target: 'http://localhost:5000', changeOrigin: true },
+      // Avatares y logos: los sirve la API cuando no hay Cloudinary.
+      '/media': { target: 'http://localhost:5000', changeOrigin: true },
     },
   },
   build: { outDir: 'dist' },

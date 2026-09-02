@@ -4,6 +4,24 @@ import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
 import { canAccessTeam, ROLES, type AuthRequest } from '../middleware/auth.js';
+import multer from 'multer';
+import { putPublicFile, deleteFile } from '../services/storage.service.js';
+import { makeLogo, isProcessableImage } from '../services/image.service.js';
+
+/**
+ * Columnas del equipo que la API expone.
+ *
+ * Se enumeran en lugar de usar `SELECT t.*` porque el comodín publica
+ * sola cualquier columna nueva: `logo_storage_key` —un identificador
+ * interno del almacenamiento— llegó a las respuestas sin que nadie lo
+ * decidiera. Con la lista explícita, agregar una columna privada a la
+ * tabla no la filtra.
+ */
+const TEAM_COLUMNS = `
+  t.id, t.season_id, t.category_id, t.name, t.short_name,
+  t.logo_url, t.image_url, t.color_primary, t.color_secondary,
+  t.status, t.created_at, t.updated_at
+`;
 
 /** Máximo de encargados por equipo (req. 4). Configurable a futuro. */
 const MAX_MANAGERS_PER_TEAM = 2;
@@ -42,7 +60,7 @@ export const listTeams = asyncHandler(async (req: AuthRequest, res: Response) =>
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const result = await query(
-    `SELECT t.*, c.name AS category_name, c.color AS category_color, s.name AS season_name,
+    `SELECT ${TEAM_COLUMNS}, c.name AS category_name, c.color AS category_color, s.name AS season_name,
             (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id) AS players_total,
             (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id AND p.is_eligible) AS players_eligible,
             (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id AND p.status = 'PENDING') AS players_pending,
@@ -71,7 +89,7 @@ export const getTeam = asyncHandler(async (req: AuthRequest, res: Response) => {
   }
 
   const teamResult = await query(
-    `SELECT t.*, c.name AS category_name, c.color AS category_color,
+    `SELECT ${TEAM_COLUMNS}, c.name AS category_name, c.color AS category_color,
             s.name AS season_name, s.registration_deadline, s.require_approval_to_play
      FROM teams t
      JOIN categories c ON c.id = t.category_id
@@ -92,7 +110,7 @@ export const getTeam = asyncHandler(async (req: AuthRequest, res: Response) => {
     ),
     query(
       `SELECT id, first_name, last_name_paternal, last_name_maternal, jersey_number,
-              position, photo_url, status, is_eligible, eligibility_reason
+              position, photo_url, avatar_url, status, is_eligible, eligibility_reason
        FROM players WHERE team_id = $1
        ORDER BY jersey_number NULLS LAST, last_name_paternal`,
       [id]
@@ -261,4 +279,70 @@ export const removeManager = asyncHandler(async (req: AuthRequest, res: Response
     oldValue: { userId },
   });
   res.json({ success: true, message: 'Encargado removido' });
+});
+
+/** Multer en memoria para el logo: se valida y redimensiona antes de guardar. */
+export const logoUploadMiddleware = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+}).single('file');
+
+/**
+ * POST /api/v1/teams/:id/logo
+ *
+ * El logo es público por naturaleza: aparece en la tabla, en el calendario
+ * y en las tarjetas para redes. Se guarda como derivado de 512 px en WebP
+ * conservando la transparencia, sin recortar a cuadrado —un escudo
+ * recortado pierde las puntas.
+ */
+export const uploadTeamLogo = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const file = (req as any).file as
+    | { buffer: Buffer; mimetype: string; size: number }
+    | undefined;
+
+  if (!file) throw new AppError('No se recibió ningún archivo', 400);
+  if (!canAccessTeam(req, id)) {
+    throw new AppError('No tienes acceso a este equipo', 403);
+  }
+
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) {
+    throw new AppError('El logo debe ser PNG, JPG o WebP', 400);
+  }
+  if (!(await isProcessableImage(file.buffer))) {
+    throw new AppError('El archivo no es una imagen válida o está dañado', 400);
+  }
+
+  const existing = await query<{ logo_storage_key: string | null }>(
+    'SELECT logo_storage_key FROM teams WHERE id = $1',
+    [id]
+  );
+  if (!existing.rows[0]) throw new AppError('Equipo no encontrado', 404);
+
+  const logo = await makeLogo(file.buffer);
+  const published = await putPublicFile(logo.buffer, logo.mimeType, 'logos');
+
+  await query(
+    'UPDATE teams SET logo_url = $1, logo_storage_key = $2, updated_at = NOW() WHERE id = $3',
+    [published.url, published.storageKey, id]
+  );
+
+  // El logo anterior queda huérfano: se borra para no acumular basura
+  // en el almacenamiento gratuito, que tiene 25 GB.
+  const previousKey = existing.rows[0].logo_storage_key;
+  if (previousKey && previousKey !== published.storageKey) {
+    void deleteFile(previousKey, 'public');
+  }
+
+  await audit(req, {
+    action: 'UPLOAD_TEAM_LOGO',
+    entityType: 'team',
+    entityId: id,
+    newValue: { url: published.url, size: published.size },
+  });
+
+  res.status(201).json({
+    success: true,
+    data: { logoUrl: published.url, width: logo.width, height: logo.height },
+  });
 });

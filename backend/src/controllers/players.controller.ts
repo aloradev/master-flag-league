@@ -11,6 +11,22 @@ import {
   documentLabel,
 } from '../services/eligibility.service.js';
 
+/**
+ * Columnas del jugador que la API expone.
+ *
+ * Explícitas por el mismo motivo que en equipos: `extra_fields` guarda lo
+ * que cada liga configure y una columna nueva no debe publicarse sola.
+ */
+const PLAYER_COLUMNS = `
+  p.id, p.team_id, p.season_id, p.category_id,
+  p.first_name, p.last_name_paternal, p.last_name_maternal,
+  p.date_of_birth, p.jersey_number, p.position,
+  p.photo_url, p.avatar_url, p.phone, p.email,
+  p.status, p.is_eligible, p.eligibility_reason,
+  p.registered_by_user_id, p.reviewed_by_user_id, p.reviewed_at,
+  p.created_at, p.updated_at
+`;
+
 /** Estados en los que el manager todavía puede editar (req. 4). */
 const MANAGER_EDITABLE_STATUSES = ['PENDING', 'CORRECTIONS_REQUIRED'];
 
@@ -68,7 +84,7 @@ export const listPlayers = asyncHandler(async (req: AuthRequest, res: Response) 
 
   const result = await query(
     `SELECT p.id, p.first_name, p.last_name_paternal, p.last_name_maternal,
-            p.jersey_number, p.position, p.photo_url, p.status,
+            p.jersey_number, p.position, p.photo_url, p.avatar_url, p.status,
             p.is_eligible, p.eligibility_reason, p.created_at,
             t.id AS team_id, t.name AS team_name, t.color_primary AS team_color,
             c.name AS category_name,
@@ -90,7 +106,7 @@ export const getPlayer = asyncHandler(async (req: AuthRequest, res: Response) =>
   const { id } = req.params;
 
   const result = await query(
-    `SELECT p.*, t.name AS team_name, t.id AS team_id, c.name AS category_name,
+    `SELECT ${PLAYER_COLUMNS}, t.name AS team_name, c.name AS category_name,
             s.registration_deadline
      FROM players p
      JOIN teams t      ON t.id = p.team_id
@@ -344,7 +360,7 @@ export const updatePlayer = asyncHandler(async (req: AuthRequest, res: Response)
 export const getPublicPlayerProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
   const result = await query(
     `SELECT p.id, p.first_name, p.last_name_paternal, p.last_name_maternal,
-            p.jersey_number, p.position, p.photo_url,
+            p.jersey_number, p.position, p.avatar_url,
             EXTRACT(YEAR FROM p.date_of_birth)::int AS birth_year,
             t.name AS team_name, t.logo_url AS team_logo, t.color_primary AS team_color,
             c.name AS category_name, s.name AS season_name

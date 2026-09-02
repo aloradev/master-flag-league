@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { Role } from '../../lib/types';
-import { Alert, Card, EmptyState, Field, Spinner } from '../../components/ui';
+import { Alert, Button, Card, EmptyState, Field, Spinner } from '../../components/ui';
 import { useAuth } from '../../store/auth';
+import { IconUsers } from '../../components/icons';
 
 interface UserRow {
   id: string;
@@ -58,12 +59,12 @@ const CredentialsPanel = ({
         <div className="text-lg font-bold tracking-wider">{password}</div>
       </div>
       <div className="mt-2 flex gap-2">
-        <button onClick={copy} className="btn btn-sm">
+        <Button size="sm" onClick={copy}>
           {copied ? '✓ Copiado' : 'Copiar'}
-        </button>
-        <button onClick={onClose} className="btn btn-ghost btn-sm">
+        </Button>
+        <Button tone="ghost" size="sm" onClick={onClose}>
           Entendido
-        </button>
+        </Button>
       </div>
     </Alert>
   );
@@ -155,16 +156,19 @@ const NewUserForm = ({
       {error && <Alert tone="error">{error}</Alert>}
 
       <div className="flex gap-2">
-        <button onClick={onCancel} className="btn btn-ghost btn-sm flex-1">
+        <Button tone="ghost" size="sm" onClick={onCancel} className="flex-1">
           Cancelar
-        </button>
-        <button
+        </Button>
+        <Button
+          tone="primary"
+          size="sm"
           onClick={() => create.mutate()}
-          className="btn btn-primary btn-sm flex-1"
-          disabled={create.isPending || !form.name.trim() || !form.email.trim()}
+          loading={create.isPending}
+          disabled={!form.name.trim() || !form.email.trim()}
+          className="flex-1"
         >
-          {create.isPending ? <span className="loading loading-spinner loading-xs" /> : 'Crear'}
-        </button>
+          {create.isPending ? 'Creando…' : 'Crear'}
+        </Button>
       </div>
     </Card>
   );
@@ -252,26 +256,20 @@ const UserRowCard = ({ user, onChanged }: { user: UserRow; onChanged: () => void
           )}
 
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => reset.mutate()}
-              className="btn btn-sm"
-              disabled={reset.isPending}
-            >
-              {reset.isPending ? (
-                <span className="loading loading-spinner loading-xs" />
-              ) : (
-                'Restablecer contraseña'
-              )}
-            </button>
+            <Button size="sm" onClick={() => reset.mutate()} loading={reset.isPending}>
+              {reset.isPending ? 'Restableciendo…' : 'Restablecer contraseña'}
+            </Button>
 
             {!isSelf && (
-              <button
+              <Button
+                size="sm"
+                tone={user.active ? 'error' : 'success'}
+                outline
                 onClick={() => update.mutate({ active: !user.active })}
-                className={`btn btn-sm ${user.active ? 'btn-error btn-outline' : 'btn-success btn-outline'}`}
-                disabled={update.isPending}
+                loading={update.isPending}
               >
                 {user.active ? 'Desactivar' : 'Reactivar'}
-              </button>
+              </Button>
             )}
           </div>
 
@@ -376,7 +374,7 @@ export default function AdminUsers() {
       {(users.data?.length ?? 0) === 0 ? (
         <Card>
           <EmptyState
-            icon="👤"
+            icon={<IconUsers size={40} />}
             title="Sin usuarios en este filtro"
             description="Crea los encargados de equipo y árbitros para que puedan usar la plataforma."
           />

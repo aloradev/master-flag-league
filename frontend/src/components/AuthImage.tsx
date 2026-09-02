@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { fetchProtectedBlob, documentPath } from '../lib/api';
+import { fetchProtectedBlob, documentPath, mediaUrl } from '../lib/api';
+import { IconDocument } from './icons';
 
 /**
  * Muestra un documento protegido.
@@ -72,9 +73,7 @@ export const AuthImage = ({ fileUrl, alt, mimeType, className = '', thumbnail }:
         rel="noreferrer"
         className={`${box} flex-col gap-1 text-center hover:bg-base-300/70`}
       >
-        <span className="text-2xl" aria-hidden>
-          📄
-        </span>
+        <IconDocument size={22} />
         <span className="text-xs text-base-content/60">Ver PDF</span>
       </a>
     ) : (
@@ -93,19 +92,31 @@ export const AuthImage = ({ fileUrl, alt, mimeType, className = '', thumbnail }:
   );
 };
 
-/** Avatar del jugador: foto autorizada o sus iniciales. */
+/**
+ * Avatar del jugador.
+ *
+ * Usa el derivado PÚBLICO con una etiqueta <img> normal, no la descarga
+ * autenticada de AuthImage. La diferencia se nota en una plantilla de
+ * veinte jugadores: veinte peticiones con cabecera Authorization, sin
+ * caché de navegador y sin poder mostrarse en el perfil público, contra
+ * veinte imágenes cacheadas de ~20 KB.
+ *
+ * AuthImage sigue existiendo, pero solo para las identificaciones.
+ */
 export const PlayerAvatar = ({
-  photoUrl,
+  avatarUrl,
   name,
   jersey,
   size = 'md',
 }: {
-  photoUrl?: string | null;
+  avatarUrl?: string | null;
   name: string;
   jersey?: number | null;
   size?: 'sm' | 'md' | 'lg';
 }) => {
   const dimension = { sm: 'size-9', md: 'size-12', lg: 'size-20' }[size];
+  const resolved = mediaUrl(avatarUrl);
+
   const initials = name
     .split(' ')
     .filter(Boolean)
@@ -114,12 +125,16 @@ export const PlayerAvatar = ({
     .join('')
     .toUpperCase();
 
-  if (photoUrl) {
+  if (resolved) {
     return (
-      <AuthImage
-        fileUrl={photoUrl}
+      <img
+        src={resolved}
         alt={name}
-        className={`${dimension} shrink-0 rounded-full`}
+        width={80}
+        height={80}
+        loading="lazy"
+        decoding="async"
+        className={`${dimension} shrink-0 rounded-full bg-base-300 object-cover`}
       />
     );
   }
@@ -129,6 +144,44 @@ export const PlayerAvatar = ({
       className={`${dimension} flex shrink-0 items-center justify-center rounded-full bg-base-300 text-sm font-semibold text-base-content/60`}
     >
       {jersey != null ? <span className="tabular">{jersey}</span> : initials}
+    </div>
+  );
+};
+
+/** Logo del equipo, o sus iniciales cuando aún no tiene uno. */
+export const TeamCrest = ({
+  logoUrl,
+  name,
+  shortName,
+  color,
+  className = 'size-12',
+}: {
+  logoUrl?: string | null;
+  name: string;
+  shortName?: string | null;
+  color?: string;
+  className?: string;
+}) => {
+  const resolved = mediaUrl(logoUrl);
+
+  if (resolved) {
+    return (
+      <img
+        src={resolved}
+        alt={name}
+        loading="lazy"
+        decoding="async"
+        className={`${className} shrink-0 rounded-box object-contain`}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${className} flex shrink-0 items-center justify-center rounded-box text-sm font-bold text-white`}
+      style={{ backgroundColor: color ?? '#1f2937' }}
+    >
+      {shortName ?? name.slice(0, 3).toUpperCase()}
     </div>
   );
 };

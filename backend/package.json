@@ -1,7 +1,7 @@
 {
   "name": "mfl-backend",
   "version": "1.0.0",
-  "description": "Master Flag League \u2014 API",
+  "description": "Master Flag League — API",
   "type": "module",
   "main": "dist/index.js",
   "engines": {
@@ -24,7 +24,8 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.3.0",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

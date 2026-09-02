@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { Season } from '../../lib/types';
-import { Alert, Card, Field, Spinner } from '../../components/ui';
+import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
 import { useAuth } from '../../store/auth';
 
 interface DocumentSettings {
@@ -212,17 +212,16 @@ export default function SeasonConfig() {
           </span>
         </label>
 
-        <button
+        <Button
+          tone="primary"
+          size="sm"
           onClick={() => saveSeason.mutate()}
-          className="btn btn-primary btn-sm w-full sm:w-auto"
-          disabled={saveSeason.isPending || !isSuperAdmin}
+          loading={saveSeason.isPending}
+          disabled={!isSuperAdmin}
+          className="w-full sm:w-auto"
         >
-          {saveSeason.isPending ? (
-            <span className="loading loading-spinner loading-xs" />
-          ) : (
-            'Guardar cambios'
-          )}
-        </button>
+          {saveSeason.isPending ? 'Guardando…' : 'Guardar cambios'}
+        </Button>
         {!isSuperAdmin && (
           <p className="text-xs text-base-content/50">
             Solo un Super Administrador puede modificar la temporada.
@@ -254,13 +253,14 @@ export default function SeasonConfig() {
             value={newCategory}
             onChange={(e) => setNewCategory(e.target.value)}
           />
-          <button
+          <Button
+            size="sm"
             onClick={() => addCategory.mutate()}
-            className="btn btn-sm"
-            disabled={addCategory.isPending || !newCategory.trim()}
+            loading={addCategory.isPending}
+            disabled={!newCategory.trim()}
           >
             Agregar
-          </button>
+          </Button>
         </div>
       </Card>
 
@@ -281,13 +281,14 @@ export default function SeasonConfig() {
             value={newField}
             onChange={(e) => setNewField(e.target.value)}
           />
-          <button
+          <Button
+            size="sm"
             onClick={() => addField.mutate()}
-            className="btn btn-sm"
-            disabled={addField.isPending || !newField.trim()}
+            loading={addField.isPending}
+            disabled={!newField.trim()}
           >
             Agregar
-          </button>
+          </Button>
         </div>
       </Card>
 
@@ -348,22 +349,18 @@ export default function SeasonConfig() {
             />
           </Field>
 
-          <button
+          <Button
+            tone="primary"
+            size="sm"
             onClick={() => saveDocs.mutate()}
-            className="btn btn-primary btn-sm w-full sm:w-auto"
+            loading={saveDocs.isPending}
             disabled={
-              saveDocs.isPending ||
-              !isSuperAdmin ||
-              docs.required.length === 0 ||
-              docs.allowed_mime.length === 0
+              !isSuperAdmin || docs.required.length === 0 || docs.allowed_mime.length === 0
             }
+            className="w-full sm:w-auto"
           >
-            {saveDocs.isPending ? (
-              <span className="loading loading-spinner loading-xs" />
-            ) : (
-              'Guardar y reevaluar'
-            )}
-          </button>
+            {saveDocs.isPending ? 'Reevaluando…' : 'Guardar y reevaluar'}
+          </Button>
         </Card>
       )}
     </div>

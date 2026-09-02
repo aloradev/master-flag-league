@@ -1,10 +1,25 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth, isAdmin } from '../store/auth';
+import { Logo } from './Logo';
+import { ThemeToggle } from './ThemeToggle';
+import {
+  IconDashboard,
+  IconCheckCircle,
+  IconShield,
+  IconUsers,
+  IconSettings,
+  IconClipboard,
+  IconPlus,
+  IconDocument,
+  IconFootball,
+  IconLogout,
+} from './icons';
+import type { ComponentType } from 'react';
 
 interface NavItem {
   to: string;
   label: string;
-  icon: string;
+  Icon: ComponentType<{ size?: number; className?: string }>;
   /** La barra inferior del celular solo muestra los primarios: más de
    *  cuatro iconos dejan de ser tocables con el pulgar. */
   primary?: boolean;
@@ -13,19 +28,19 @@ interface NavItem {
 
 const NAV_BY_ROLE: Record<string, NavItem[]> = {
   ADMIN: [
-    { to: '/admin', label: 'Panel', icon: '📊', primary: true },
-    { to: '/admin/validacion', label: 'Validación', icon: '✅', primary: true },
-    { to: '/admin/equipos', label: 'Equipos', icon: '🛡️', primary: true },
-    { to: '/admin/usuarios', label: 'Usuarios', icon: '👤', primary: true },
-    { to: '/admin/temporada', label: 'Temporada', icon: '⚙️' },
-    { to: '/admin/auditoria', label: 'Auditoría', icon: '📋', superAdminOnly: true },
+    { to: '/admin', label: 'Panel', Icon: IconDashboard, primary: true },
+    { to: '/admin/validacion', label: 'Validación', Icon: IconCheckCircle, primary: true },
+    { to: '/admin/equipos', label: 'Equipos', Icon: IconShield, primary: true },
+    { to: '/admin/usuarios', label: 'Usuarios', Icon: IconUsers, primary: true },
+    { to: '/admin/temporada', label: 'Temporada', Icon: IconSettings },
+    { to: '/admin/auditoria', label: 'Auditoría', Icon: IconClipboard, superAdminOnly: true },
   ],
   TEAM_MANAGER: [
-    { to: '/equipo', label: 'Mi equipo', icon: '🛡️', primary: true },
-    { to: '/equipo/jugadores/nuevo', label: 'Agregar', icon: '➕', primary: true },
-    { to: '/equipo/roster', label: 'Roster', icon: '📄', primary: true },
+    { to: '/equipo', label: 'Mi equipo', Icon: IconShield, primary: true },
+    { to: '/equipo/jugadores/nuevo', label: 'Agregar', Icon: IconPlus, primary: true },
+    { to: '/equipo/roster', label: 'Roster', Icon: IconDocument, primary: true },
   ],
-  REFEREE: [{ to: '/arbitro', label: 'Mis partidos', icon: '🏈', primary: true }],
+  REFEREE: [{ to: '/arbitro', label: 'Mis partidos', Icon: IconFootball, primary: true }],
 };
 
 /**
@@ -50,13 +65,11 @@ export const Layout = () => {
     <div className="min-h-dvh md:flex">
       {/* Navegación lateral — escritorio */}
       <aside className="hidden w-60 shrink-0 border-r border-base-300 bg-base-200/50 md:flex md:flex-col">
-        <div className="flex items-center gap-2 px-5 py-5">
-          <span className="text-xl" aria-hidden>
-            🏆
-          </span>
+        <div className="flex items-center gap-2.5 px-4 py-4">
+          <Logo size="sm" className="size-10 shrink-0" />
           <div className="leading-tight">
-            <div className="text-sm font-bold">Master Flag</div>
-            <div className="text-xs text-base-content/50">League</div>
+            <div className="text-sm font-bold">Master Flag League</div>
+            <div className="text-xs text-base-content/50">Cancún</div>
           </div>
         </div>
 
@@ -74,18 +87,20 @@ export const Layout = () => {
                 }`
               }
             >
-              <span aria-hidden>{item.icon}</span>
+              <item.Icon size={18} />
               {item.label}
             </NavLink>
           ))}
         </nav>
 
-        <div className="border-t border-base-300 p-3">
+        <div className="space-y-2 border-t border-base-300 p-3">
+          <ThemeToggle />
           <div className="truncate px-2 text-xs text-base-content/50">{user?.email}</div>
           <button
             onClick={handleLogout}
-            className="mt-2 w-full rounded-field px-3 py-2 text-left text-sm text-base-content/70 hover:bg-base-300/60"
+            className="flex w-full items-center gap-3 rounded-field px-3 py-2 text-left text-sm text-base-content/70 hover:bg-base-300/60"
           >
+            <IconLogout size={18} />
             Cerrar sesión
           </button>
         </div>
@@ -93,18 +108,22 @@ export const Layout = () => {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Encabezado — celular */}
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-base-300 bg-base-100/95 px-4 py-3 backdrop-blur md:hidden">
-          <div className="flex items-center gap-2">
-            <span aria-hidden>🏆</span>
-            <span className="text-sm font-bold">Master Flag League</span>
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-base-300 bg-base-100/95 px-3 py-2 backdrop-blur md:hidden">
+          <div className="flex min-w-0 items-center gap-2">
+            <Logo size="sm" className="size-8 shrink-0" />
+            <span className="truncate text-sm font-bold">Master Flag League</span>
           </div>
-          <button
-            onClick={handleLogout}
-            className="text-xs text-base-content/60"
-            aria-label="Cerrar sesión"
-          >
-            Salir
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <ThemeToggle compact />
+            <button
+              onClick={handleLogout}
+              className="btn btn-ghost btn-sm btn-square"
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+            >
+              <IconLogout size={18} />
+            </button>
+          </div>
         </header>
 
         <main className="min-w-0 flex-1 px-4 pb-24 pt-4 md:px-8 md:pb-10 md:pt-6">
@@ -125,9 +144,7 @@ export const Layout = () => {
                   }`
                 }
               >
-                <span className="text-lg" aria-hidden>
-                  {item.icon}
-                </span>
+                <item.Icon size={22} />
                 {item.label}
               </NavLink>
             ))}

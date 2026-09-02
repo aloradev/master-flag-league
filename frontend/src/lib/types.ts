@@ -55,7 +55,10 @@ export interface RosterPlayer {
   last_name_maternal?: string | null;
   jersey_number: number | null;
   position: string | null;
+  /** Endpoint autenticado del original privado. */
   photo_url: string | null;
+  /** Derivado público de 512 px, cacheable. Es el que se muestra. */
+  avatar_url: string | null;
   status: PlayerStatus;
   is_eligible: boolean;
   eligibility_reason: string | null;
@@ -140,7 +143,10 @@ export interface QueuePlayer {
   last_name_paternal: string;
   jersey_number: number | null;
   position: string | null;
+  /** Endpoint autenticado del original privado. */
   photo_url: string | null;
+  /** Derivado público de 512 px, cacheable. Es el que se muestra. */
+  avatar_url: string | null;
   status: PlayerStatus;
   team_id: string;
   team_name: string;

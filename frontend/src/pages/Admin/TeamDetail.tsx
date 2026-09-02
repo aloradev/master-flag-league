@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { TeamDetail as Team } from '../../lib/types';
-import { Alert, Card, Field, Spinner } from '../../components/ui';
+import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
 import { StatusBadge, EligibilityBadge } from '../../components/StatusBadge';
-import { PlayerAvatar } from '../../components/AuthImage';
+import { PlayerAvatar, TeamCrest } from '../../components/AuthImage';
 
 interface ManagerOption {
   id: string;
@@ -23,6 +23,7 @@ export default function AdminTeamDetail() {
   const [assigning, setAssigning] = useState(false);
   const [selected, setSelected] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const team = useQuery({
     queryKey: ['team', id],
@@ -53,6 +54,25 @@ export default function AdminTeamDetail() {
       refresh();
     },
     onError: (err) => setError(err instanceof ApiError ? err.message : 'No se pudo asignar'),
+  });
+
+  /**
+   * El logo se redimensiona en el servidor a 512 px WebP: se sube el
+   * archivo original tal como salió del diseñador y la API se encarga
+   * de que no pese 4 MB en cada listado.
+   */
+  const uploadLogo = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return api.upload(`/teams/${id}/logo`, formData);
+    },
+    onSuccess: () => {
+      setError(null);
+      refresh();
+    },
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : 'No se pudo subir el logo'),
   });
 
   const remove = useMutation({
@@ -86,17 +106,42 @@ export default function AdminTeamDetail() {
       {/* Identidad */}
       <Card className="p-4">
         <div className="flex items-center gap-4">
-          <div
-            className="flex size-14 shrink-0 items-center justify-center rounded-box text-lg font-bold"
-            style={{ backgroundColor: data.color_primary }}
-          >
-            {data.short_name ?? data.name.slice(0, 3).toUpperCase()}
-          </div>
+          <TeamCrest
+            logoUrl={data.logo_url}
+            name={data.name}
+            shortName={data.short_name}
+            color={data.color_primary}
+            className="size-16 text-lg"
+          />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-bold">{data.name}</h1>
             <p className="text-sm text-base-content/60">
               {data.category_name} · {data.season_name}
             </p>
+            <div className="mt-1.5">
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadLogo.mutate(file);
+                  if (logoInputRef.current) logoInputRef.current.value = '';
+                }}
+              />
+              <Button
+                size="xs"
+                onClick={() => logoInputRef.current?.click()}
+                loading={uploadLogo.isPending}
+              >
+                {uploadLogo.isPending
+                  ? 'Subiendo…'
+                  : data.logo_url
+                    ? 'Cambiar logo'
+                    : 'Subir logo'}
+              </Button>
+            </div>
           </div>
           <Link to={`/admin/equipos/${id}/roster`} className="btn btn-sm shrink-0">
             Roster
@@ -156,9 +201,9 @@ export default function AdminTeamDetail() {
                   No hay managers disponibles. Crea un usuario con rol Manager de Equipo.
                 </p>
                 <div className="flex gap-2">
-                  <button onClick={() => setAssigning(false)} className="btn btn-ghost btn-sm flex-1">
+                  <Button tone="ghost" size="sm" onClick={() => setAssigning(false)} className="flex-1">
                     Cerrar
-                  </button>
+                  </Button>
                   <Link to="/admin/usuarios" className="btn btn-primary btn-sm flex-1">
                     Crear usuario
                   </Link>
@@ -181,26 +226,27 @@ export default function AdminTeamDetail() {
                   </select>
                 </Field>
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    tone="ghost"
+                    size="sm"
                     onClick={() => {
                       setAssigning(false);
                       setSelected('');
                     }}
-                    className="btn btn-ghost btn-sm flex-1"
+                    className="flex-1"
                   >
                     Cancelar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    tone="primary"
+                    size="sm"
                     onClick={() => selected && assign.mutate(selected)}
-                    className="btn btn-primary btn-sm flex-1"
-                    disabled={!selected || assign.isPending}
+                    loading={assign.isPending}
+                    disabled={!selected}
+                    className="flex-1"
                   >
-                    {assign.isPending ? (
-                      <span className="loading loading-spinner loading-xs" />
-                    ) : (
-                      'Asignar'
-                    )}
-                  </button>
+                    {assign.isPending ? 'Asignando…' : 'Asignar'}
+                  </Button>
                 </div>
               </>
             )}
@@ -215,13 +261,15 @@ export default function AdminTeamDetail() {
                   <p className="truncate text-sm font-medium">{manager.name}</p>
                   <p className="truncate text-xs text-base-content/60">{manager.email}</p>
                 </div>
-                <button
+                <Button
+                  tone="ghost"
+                  size="xs"
                   onClick={() => remove.mutate(manager.id)}
-                  className="btn btn-ghost btn-xs shrink-0 text-error"
-                  disabled={remove.isPending}
+                  loading={remove.isPending}
+                  className="shrink-0 text-error"
                 >
                   Remover
-                </button>
+                </Button>
               </Card>
             ))}
           </ul>
@@ -243,7 +291,7 @@ export default function AdminTeamDetail() {
             {data.roster.map((player) => (
               <Card as="li" key={player.id} className="flex items-center gap-3 p-3">
                 <PlayerAvatar
-                  photoUrl={player.photo_url}
+                  avatarUrl={player.avatar_url}
                   name={`${player.first_name} ${player.last_name_paternal}`}
                   jersey={player.jersey_number}
                   size="sm"

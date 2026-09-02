@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS teams (
   name             VARCHAR(255) NOT NULL,
   short_name       VARCHAR(20),
   logo_url         TEXT,
+  logo_storage_key TEXT,
   image_url        TEXT,
   color_primary    VARCHAR(20) DEFAULT '#1f2937',
   color_secondary  VARCHAR(20) DEFAULT '#f9fafb',
@@ -113,7 +114,9 @@ CREATE TABLE IF NOT EXISTS players (
   date_of_birth         DATE NOT NULL,
   jersey_number         INTEGER,
   position              VARCHAR(60),
+  -- Original privado (endpoint autenticado) y derivado público de 512 px.
   photo_url             TEXT,
+  avatar_url            TEXT,
   phone                 VARCHAR(30),
   email                 VARCHAR(255),
   -- Req. 7: 🟡 PENDING / 🟢 APPROVED / 🔴 REJECTED / ⚫ BLOCKED
@@ -232,3 +235,12 @@ CREATE INDEX IF NOT EXISTS idx_approvals_player   ON player_approvals(player_id)
 CREATE INDEX IF NOT EXISTS idx_audit_user         ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created      ON audit_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_entity       ON audit_logs(entity_type, entity_id);
+
+-- ============================================================
+-- MIGRACIONES INCREMENTALES
+-- Para bases ya creadas antes de que existieran estas columnas.
+-- Postgres 9.6+ soporta IF NOT EXISTS en ADD COLUMN, así que esto
+-- es seguro de correr en cada despliegue.
+-- ============================================================
+ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE teams   ADD COLUMN IF NOT EXISTS logo_storage_key TEXT;

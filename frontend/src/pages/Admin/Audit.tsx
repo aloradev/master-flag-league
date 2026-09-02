@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { Alert, Card, EmptyState, Spinner } from '../../components/ui';
+import { IconClipboard } from '../../components/icons';
 
 interface AuditLog {
   id: string;
@@ -168,7 +169,7 @@ export default function AdminAudit() {
       {rows.length === 0 ? (
         <Card>
           <EmptyState
-            icon="📋"
+            icon={<IconClipboard size={40} />}
             title="Sin registros en este filtro"
             description="Las acciones sobre jugadores, documentos y usuarios se registran automáticamente."
           />

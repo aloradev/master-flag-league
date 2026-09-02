@@ -124,3 +124,18 @@ export const fetchProtectedBlob = async (path: string): Promise<string> => {
 /** Normaliza la URL que guarda el backend (/api/v1/documents/:id/file). */
 export const documentPath = (fileUrl: string): string =>
   fileUrl.replace(/^\/api\/v1/, '');
+
+/**
+ * Resuelve la URL de un archivo público (avatar, logo).
+ *
+ * El backend devuelve rutas relativas como /media/avatares/img_x.webp en
+ * modo local, y URLs absolutas de Cloudinary en producción. Esta función
+ * absorbe la diferencia para que los componentes no tengan que saber cuál
+ * de los dos está activo.
+ */
+export const mediaUrl = (path?: string | null): string | undefined => {
+  if (!path) return undefined;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const base = import.meta.env.VITE_API_URL ?? '';
+  return `${base}${path}`;
+};

@@ -641,6 +641,194 @@ const run = async () => {
     refEligibility.body?.data?.eligible_count === 1,
     `${refEligibility.body?.data?.eligible_count} elegibles`);
 
+  console.log('\n═══ 16. IMÁGENES: AVATAR PÚBLICO Y PRIVACIDAD ═══');
+
+  // Foto real con coordenadas GPS incrustadas en EXIF.
+  const sharpMod = await import('sharp');
+  const sharpFn = sharpMod.default;
+
+  const fotoConGps = await sharpFn({
+    create: { width: 900, height: 1200, channels: 3, background: { r: 40, g: 90, b: 160 } },
+  })
+    .withExifMerge({
+      IFD0: { Make: 'Apple', Model: 'iPhone 15' },
+      GPS: { GPSLatitudeRef: 'N', GPSLongitudeRef: 'W' },
+    })
+    .jpeg({ quality: 90 })
+    .toBuffer();
+
+  const exifOriginal = await sharpFn(fotoConGps).metadata();
+  check('La foto de prueba SÍ trae metadatos EXIF',
+    Boolean(exifOriginal.exif),
+    `exif=${exifOriginal.exif ? exifOriginal.exif.length + ' bytes' : 'ninguno'}`);
+
+  // Se registra un jugador nuevo para no alterar los anteriores.
+  const p3 = await call('POST', '/players', {
+    token: mgrToken,
+    body: {
+      teamId: sharksId,
+      firstName: 'Ana',
+      lastNamePaternal: 'Ramírez',
+      dateOfBirth: '2001-03-15',
+      jerseyNumber: 23,
+      position: 'WR',
+    },
+  });
+  const player3Id = p3.body?.data?.id;
+  check('Registra un jugador para la prueba de imagen', p3.status === 201);
+
+  const fotoSubida = await uploadDoc(mgrToken, player3Id, 'PHOTO', fotoConGps, 'image/jpeg');
+  check('Sube una fotografía JPEG de 900x1200', fotoSubida.status === 201,
+    JSON.stringify(fotoSubida.body).slice(0, 140));
+
+  const avatarUrl = fotoSubida.body?.data?.avatarUrl;
+  check('Devuelve la URL del avatar derivado', Boolean(avatarUrl), String(avatarUrl));
+
+  // El avatar debe abrirse SIN sesión: es lo que permite el perfil público.
+  const avatarAnonimo = await fetch(`http://localhost:5000${avatarUrl}`);
+  check('El avatar se sirve sin token', avatarAnonimo.status === 200,
+    `status ${avatarAnonimo.status}`);
+  check('Se entrega como WebP',
+    (avatarAnonimo.headers.get('content-type') ?? '').includes('webp'),
+    avatarAnonimo.headers.get('content-type'));
+  check('Se puede cachear un mes',
+    /max-age=2592000/.test(avatarAnonimo.headers.get('cache-control') ?? ''),
+    avatarAnonimo.headers.get('cache-control'));
+
+  const avatarBuffer = Buffer.from(await avatarAnonimo.arrayBuffer());
+  const avatarMeta = await sharpFn(avatarBuffer).metadata();
+
+  check('El avatar es cuadrado de 512',
+    avatarMeta.width === 512 && avatarMeta.height === 512,
+    `${avatarMeta.width}x${avatarMeta.height}`);
+  check('PRIVACIDAD: el avatar ya no tiene metadatos EXIF',
+    !avatarMeta.exif,
+    avatarMeta.exif ? `conserva ${avatarMeta.exif.length} bytes de EXIF` : 'limpio');
+  check('El avatar pesa mucho menos que el original',
+    avatarBuffer.length < fotoConGps.length / 3,
+    `${(fotoConGps.length/1024).toFixed(0)} KB → ${(avatarBuffer.length/1024).toFixed(0)} KB`);
+
+  // El ORIGINAL sigue siendo privado.
+  const originalDoc = fotoSubida.body?.data?.id;
+  const originalAnonimo = await fetch(`http://localhost:5000/api/v1/documents/${originalDoc}/file`);
+  check('El original de la foto sigue exigiendo sesión', originalAnonimo.status === 401,
+    `status ${originalAnonimo.status}`);
+
+  // Rechazos de entrada.
+  const pdfComoFoto = await uploadDoc(
+    mgrToken, player3Id, 'PHOTO', Buffer.from('%PDF-1.4 falso'), 'application/pdf'
+  );
+  check('Rechaza un PDF como fotografía del jugador', pdfComoFoto.status === 400,
+    pdfComoFoto.body?.error);
+
+  const imagenRota = await uploadDoc(
+    mgrToken, player3Id, 'PHOTO', Buffer.from('no soy una imagen aunque diga png'), 'image/png'
+  );
+  check('Rechaza un archivo que dice ser imagen pero está dañado',
+    imagenRota.status === 400, imagenRota.body?.error);
+
+  console.log('\n═══ 17. LOGO DE EQUIPO ═══');
+
+  // PNG con transparencia y proporción no cuadrada, como un escudo real.
+  // Fondo transparente con un rectángulo opaco encima: así hay alfa real
+  // y se puede comprobar que el derivado lo conserva.
+  const escudo = await sharpFn({
+    create: { width: 1200, height: 900, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite([
+      {
+        input: await sharpFn({
+          create: { width: 700, height: 500, channels: 4, background: { r: 240, g: 24, b: 156, alpha: 1 } },
+        }).png().toBuffer(),
+        gravity: 'centre',
+      },
+    ])
+    .png()
+    .toBuffer();
+
+  const escudoMeta = await sharpFn(escudo).metadata();
+  check('El escudo de prueba tiene transparencia real',
+    escudoMeta.hasAlpha === true, `alpha=${escudoMeta.hasAlpha}`);
+
+  const subirLogo = async (token, teamId, buffer, mime = 'image/png') => {
+    const form = new FormData();
+    form.append('file', new Blob([buffer], { type: mime }), 'escudo.png');
+    const res = await fetch(`${API}/teams/${teamId}/logo`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+
+  const logo = await subirLogo(adminToken, sharksId, escudo);
+  check('El admin sube el logo del equipo', logo.status === 201,
+    JSON.stringify(logo.body).slice(0, 140));
+
+  const logoUrl = logo.body?.data?.logoUrl;
+  check('Devuelve la URL del logo', Boolean(logoUrl));
+  check('NO recorta a cuadrado: conserva la proporción del escudo',
+    logo.body?.data?.width === 512 && logo.body?.data?.height === 384,
+    `${logo.body?.data?.width}x${logo.body?.data?.height}`);
+
+  const logoAnonimo = await fetch(`http://localhost:5000${logoUrl}`);
+  check('El logo se sirve sin token', logoAnonimo.status === 200);
+
+  const logoMeta = await sharpFn(Buffer.from(await logoAnonimo.arrayBuffer())).metadata();
+  check('El logo conserva el canal alfa (transparencia)',
+    logoMeta.channels === 4 || logoMeta.hasAlpha === true,
+    `canales=${logoMeta.channels} alpha=${logoMeta.hasAlpha}`);
+
+  const logoEnEquipo = await call('GET', `/teams/${sharksId}`, { token: adminToken });
+  check('El equipo ya expone su logo', Boolean(logoEnEquipo.body?.data?.logo_url));
+
+  const logoManagerPropio = await subirLogo(mgrToken, sharksId, escudo);
+  check('El encargado puede cambiar el logo de SU equipo',
+    logoManagerPropio.status === 201, `status ${logoManagerPropio.status}`);
+
+  const logoAjeno = await subirLogo(mgr2Token, sharksId, escudo);
+  check('Un encargado ajeno NO puede cambiarlo', logoAjeno.status === 403,
+    `status ${logoAjeno.status}`);
+
+  const logoTexto = await subirLogo(adminToken, sharksId, Buffer.from('texto'), 'text/plain');
+  check('Rechaza un archivo que no es imagen como logo', logoTexto.status === 400);
+
+  console.log('\n═══ 18. AVATAR EN LAS CONSULTAS ═══');
+
+  const plantilla = await call('GET', `/teams/${sharksId}`, { token: mgrToken });
+  const ana = plantilla.body?.data?.roster?.find((p) => p.jersey_number === 23);
+  check('La plantilla incluye avatar_url', Boolean(ana?.avatar_url), String(ana?.avatar_url));
+  // Guardia general: ninguna respuesta debe llevar identificadores
+  // internos del almacenamiento. Antes se filtraban por `SELECT t.*`.
+  const respuestas = await Promise.all([
+    call('GET', '/teams', { token: adminToken }),
+    call('GET', `/teams/${sharksId}`, { token: adminToken }),
+    call('GET', '/players', { token: adminToken }),
+    call('GET', `/players/${player3Id}`, { token: adminToken }),
+    call('GET', '/admin/validation/queue', { token: adminToken }),
+    call('GET', '/seasons/active', { token: adminToken }),
+  ]);
+  const conFuga = respuestas
+    .map((r, i) => ({ i, leak: JSON.stringify(r.body).includes('storage_key') }))
+    .filter((r) => r.leak);
+  check('Ninguna respuesta expone claves internas de almacenamiento',
+    conFuga.length === 0,
+    conFuga.length ? `fugan los endpoints ${conFuga.map((c) => c.i).join(', ')}` : '');
+
+  // Aprobar a Ana para poder revisar su perfil público.
+  await uploadDoc(mgrToken, player3Id, 'ID_FRONT');
+  await uploadDoc(mgrToken, player3Id, 'ID_BACK');
+  await call('POST', `/admin/players/${player3Id}/review`, {
+    token: adminToken,
+    body: { action: 'APPROVE' },
+  });
+
+  const perfilPublico = await fetch(`${API}/public/players/${player3Id}`);
+  const perfilBody = await perfilPublico.json();
+  check('El perfil público muestra el avatar', Boolean(perfilBody?.data?.avatar_url));
+  check('El perfil público NO expone el endpoint privado de la foto',
+    !JSON.stringify(perfilBody).includes('/documents/'));
+
   console.log(`\n${'═'.repeat(52)}`);
   console.log(`  RESULTADO: ${passed} pasaron · ${failed} fallaron`);
   console.log('═'.repeat(52));

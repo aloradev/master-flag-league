@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth, homeFor } from '../store/auth';
-import { Alert, Field } from '../components/ui';
+import { Alert, Button, Field } from '../components/ui';
+import { Logo } from '../components/Logo';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -10,7 +12,12 @@ export default function Login() {
   const navigate = useNavigate();
 
   if (status === 'authenticated' && user) {
-    return <Navigate to={user.mustChangePassword ? '/cambiar-contrasena' : homeFor(user.role)} replace />;
+    return (
+      <Navigate
+        to={user.mustChangePassword ? '/cambiar-contrasena' : homeFor(user.role)}
+        replace
+      />
+    );
   }
 
   const handleSubmit = async (event: FormEvent) => {
@@ -21,24 +28,27 @@ export default function Login() {
         replace: true,
       });
     } catch {
-      /* el mensaje ya está en el store */
+      /* el mensaje ya quedó en el store */
     }
   };
 
   return (
-    <div className="hero-gradient flex min-h-dvh items-center justify-center px-4 py-10">
+    <div className="hero-gradient relative flex min-h-dvh items-center justify-center px-4 py-10">
+      <div className="absolute right-3 top-3">
+        <ThemeToggle compact />
+      </div>
+
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <div className="text-5xl" aria-hidden>
-            🏆
-          </div>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight">Master Flag League</h1>
-          <p className="mt-1 text-sm text-base-content/60">Liga de Flag Football · Cancún</p>
+        <div className="mb-7 flex flex-col items-center text-center">
+          <Logo size="md" className="w-36 drop-shadow-lg sm:w-40" priority />
+          <p className="mt-4 text-sm text-base-content/60">
+            Sistema de gestión de la liga
+          </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-box border border-base-300/70 bg-base-200/70 p-6 backdrop-blur"
+          className="space-y-4 rounded-box border border-base-300 bg-base-200/80 p-6 shadow-lg backdrop-blur"
         >
           <Field label="Correo electrónico" required>
             <input
@@ -54,6 +64,7 @@ export default function Login() {
               }}
               required
               autoFocus
+              disabled={submitting}
             />
           </Field>
 
@@ -69,18 +80,21 @@ export default function Login() {
                 if (error) clearError();
               }}
               required
+              disabled={submitting}
             />
           </Field>
 
           {error && <Alert tone="error">{error}</Alert>}
 
-          <button
+          <Button
             type="submit"
-            className="btn btn-primary w-full"
-            disabled={submitting || !email || !password}
+            tone="primary"
+            block
+            loading={submitting}
+            disabled={!email || !password}
           >
-            {submitting ? <span className="loading loading-spinner loading-sm" /> : 'Ingresar'}
-          </button>
+            {submitting ? 'Verificando…' : 'Ingresar'}
+          </Button>
         </form>
 
         <p className="mt-6 text-center text-xs text-base-content/40">

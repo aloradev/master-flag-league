@@ -50,7 +50,7 @@ export const getValidationQueue = asyncHandler(async (req: AuthRequest, res: Res
 
   const result = await query(
     `SELECT p.id, p.first_name, p.last_name_paternal, p.last_name_maternal,
-            p.jersey_number, p.position, p.photo_url, p.status, p.date_of_birth,
+            p.jersey_number, p.position, p.avatar_url, p.status, p.date_of_birth,
             p.is_eligible, p.eligibility_reason, p.created_at, p.season_id,
             t.id AS team_id, t.name AS team_name, t.color_primary AS team_color,
             c.name AS category_name,

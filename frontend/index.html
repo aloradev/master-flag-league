@@ -1,12 +1,36 @@
 <!doctype html>
-<html lang="es" data-theme="mfl">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/logo-256.webp" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b1120" />
-    <meta name="description" content="Sistema de gestión de la Liga de Flag Football de Cancún" />
-    <title>Master Flag League</title>
+    <meta name="description" content="Sistema de gestión de la Master Flag League Cancún" />
+    <title>Master Flag League Cancún</title>
+
+    <!--
+      El tema se aplica antes del primer pintado. Si esperara a React, el
+      usuario en modo oscuro vería un destello blanco en cada carga.
+    -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('mfl.theme');
+          var dark =
+            saved === 'dark' ||
+            (saved !== 'light' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var theme = dark ? 'mfl-dark' : 'mfl-light';
+          document.documentElement.setAttribute('data-theme', theme);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'mfl-light');
+        }
+      })();
+    </script>
+    <!-- El color de la barra del navegador acompaña al tema. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d1420" />
   </head>
   <body>
     <div id="root"></div>

@@ -42,6 +42,13 @@ router.get('/seasons/:seasonId/settings', seasons.getSettings);
 router.get('/teams', loadManagedTeams, teams.listTeams);
 router.get('/teams/:id', loadManagedTeams, teams.getTeam);
 router.put('/teams/:id', loadManagedTeams, teams.updateTeam);
+// El logo lo puede subir administración o el propio encargado del equipo.
+router.post(
+  '/teams/:id/logo',
+  loadManagedTeams,
+  teams.logoUploadMiddleware,
+  teams.uploadTeamLogo
+);
 
 // Vista del árbitro: solo semáforo de elegibilidad, sin documentos (req. 9).
 router.get(

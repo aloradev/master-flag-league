@@ -4,7 +4,8 @@ import { api } from '../../lib/api';
 import type { TeamDetail, TeamSummary } from '../../lib/types';
 import { Card, Spinner, Alert, EmptyState, Stat } from '../../components/ui';
 import { StatusBadge, EligibilityBadge } from '../../components/StatusBadge';
-import { PlayerAvatar } from '../../components/AuthImage';
+import { PlayerAvatar, TeamCrest } from '../../components/AuthImage';
+import { IconShield, IconUsers } from '../../components/icons';
 
 const playerName = (p: TeamDetail['roster'][number]) =>
   `${p.first_name} ${p.last_name_paternal}`;
@@ -32,7 +33,7 @@ export default function MyTeam() {
   if (!teamId) {
     return (
       <EmptyState
-        icon="🛡️"
+        icon={<IconShield size={40} />}
         title="Todavía no tienes un equipo asignado"
         description="La administración de la liga debe asignarte como encargado antes de que puedas registrar jugadores."
       />
@@ -57,12 +58,13 @@ export default function MyTeam() {
     <div className="mx-auto max-w-3xl space-y-5">
       {/* Encabezado con la identidad del equipo */}
       <div className="flex items-center gap-4">
-        <div
-          className="flex size-14 shrink-0 items-center justify-center rounded-box text-lg font-bold"
-          style={{ backgroundColor: data.color_primary }}
-        >
-          {data.short_name ?? data.name.slice(0, 3).toUpperCase()}
-        </div>
+        <TeamCrest
+          logoUrl={data.logo_url}
+          name={data.name}
+          shortName={data.short_name}
+          color={data.color_primary}
+          className="size-14 text-lg"
+        />
         <div className="min-w-0">
           <h1 className="truncate text-xl font-bold">{data.name}</h1>
           <p className="text-sm text-base-content/60">
@@ -138,7 +140,7 @@ export default function MyTeam() {
         {data.roster.length === 0 ? (
           <Card>
             <EmptyState
-              icon="👥"
+              icon={<IconUsers size={40} />}
               title="Aún no hay jugadores"
               description="Registra a tu primer jugador y sube su documentación para que administración lo valide."
               action={
@@ -157,7 +159,7 @@ export default function MyTeam() {
                   className="flex items-center gap-3 p-3 transition-colors hover:bg-base-300/40"
                 >
                   <PlayerAvatar
-                    photoUrl={player.photo_url}
+                    avatarUrl={player.avatar_url}
                     name={playerName(player)}
                     jersey={player.jersey_number}
                   />
