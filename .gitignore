@@ -37,3 +37,7 @@ out/
 # OS
 Thumbs.db
 .DS_Store
+
+# PGlite (base de datos local de desarrollo)
+.pglite/
+storage/
