@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { Season, TeamSummary } from '../../lib/types';
@@ -166,8 +167,11 @@ export default function AdminTeams() {
             const pending = Number(team.players_pending);
 
             return (
-              <Card as="li" key={team.id} className="p-3">
-                <div className="flex items-center gap-3">
+              <Card as="li" key={team.id}>
+                <Link
+                  to={`/admin/equipos/${team.id}`}
+                  className="flex items-center gap-3 p-3 transition-colors hover:bg-base-300/40"
+                >
                   <div
                     className="flex size-11 shrink-0 items-center justify-center rounded-field text-xs font-bold"
                     style={{ backgroundColor: team.color_primary }}
@@ -199,7 +203,7 @@ export default function AdminTeams() {
                       ⚠️
                     </span>
                   )}
-                </div>
+                </Link>
               </Card>
             );
           })}

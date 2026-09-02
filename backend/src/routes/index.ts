@@ -36,6 +36,7 @@ router.get('/seasons', seasons.listSeasons);
 router.get('/seasons/active', seasons.getActiveSeason);
 router.get('/seasons/:seasonId/categories', seasons.listCategories);
 router.get('/seasons/:seasonId/fields', seasons.listFields);
+router.get('/seasons/:seasonId/settings', seasons.getSettings);
 
 // ═════════════════ EQUIPOS (admin: todos · manager: los suyos) ════════════
 router.get('/teams', loadManagedTeams, teams.listTeams);
@@ -81,6 +82,13 @@ router.post('/admin/seasons', requireRole(ROLES.SUPER_ADMIN), seasons.createSeas
 router.put('/admin/seasons/:id', requireRole(ROLES.SUPER_ADMIN), seasons.updateSeason);
 router.post('/admin/seasons/:seasonId/categories', requireAdmin, seasons.createCategory);
 router.post('/admin/seasons/:seasonId/fields', requireAdmin, seasons.createField);
+router.put('/admin/categories/:id', requireAdmin, seasons.updateCategory);
+router.put('/admin/fields/:id', requireAdmin, seasons.updateField);
+router.put(
+  '/admin/seasons/:seasonId/settings/:key',
+  requireRole(ROLES.SUPER_ADMIN),
+  seasons.updateSetting
+);
 
 router.post('/admin/teams', requireAdmin, teams.createTeam);
 router.post('/admin/teams/:id/managers', requireAdmin, teams.assignManager);

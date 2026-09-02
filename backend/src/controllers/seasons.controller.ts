@@ -5,6 +5,7 @@ import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
 import { slugify } from '../utils/slug.js';
 import type { AuthRequest } from '../middleware/auth.js';
+import { refreshSeasonEligibility } from '../services/eligibility.service.js';
 
 
 // ─────────────────────────────── TEMPORADAS ───────────────────────────────
@@ -187,4 +188,152 @@ export const createField = asyncHandler(async (req: AuthRequest, res: Response) 
 
   await audit(req, { action: 'CREATE_FIELD', entityType: 'field', entityId: id, newValue: req.body });
   res.status(201).json({ success: true, data: { id, name } });
+});
+
+/** PUT /api/v1/admin/categories/:id */
+export const updateCategory = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const before = await query('SELECT * FROM categories WHERE id = $1', [id]);
+  if (!before.rows[0]) throw new AppError('Categoría no encontrada', 404);
+
+  const { name, color, sortOrder } = req.body ?? {};
+
+  await query(
+    `UPDATE categories SET
+       name = COALESCE($1, name),
+       slug = COALESCE($2, slug),
+       color = COALESCE($3, color),
+       sort_order = COALESCE($4, sort_order)
+     WHERE id = $5`,
+    [name ?? null, name ? slugify(name) : null, color ?? null, sortOrder ?? null, id]
+  );
+
+  await audit(req, {
+    action: 'UPDATE_CATEGORY',
+    entityType: 'category',
+    entityId: id,
+    oldValue: before.rows[0],
+    newValue: req.body,
+  });
+  res.json({ success: true, message: 'Categoría actualizada' });
+});
+
+/** PUT /api/v1/admin/fields/:id */
+export const updateField = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const before = await query('SELECT * FROM fields WHERE id = $1', [id]);
+  if (!before.rows[0]) throw new AppError('Campo no encontrado', 404);
+
+  const { name, location, capacity, status } = req.body ?? {};
+
+  await query(
+    `UPDATE fields SET
+       name = COALESCE($1, name),
+       location = COALESCE($2, location),
+       capacity = COALESCE($3, capacity),
+       status = COALESCE($4, status)
+     WHERE id = $5`,
+    [name ?? null, location ?? null, capacity ?? null, status ?? null, id]
+  );
+
+  await audit(req, {
+    action: 'UPDATE_FIELD',
+    entityType: 'field',
+    entityId: id,
+    oldValue: before.rows[0],
+    newValue: req.body,
+  });
+  res.json({ success: true, message: 'Campo actualizado' });
+});
+
+// ────────────────────────── CONFIGURACIÓN ──────────────────────────
+
+/** GET /api/v1/seasons/:seasonId/settings */
+export const getSettings = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const result = await query<{ key: string; value: unknown }>(
+    'SELECT key, value FROM settings WHERE season_id = $1',
+    [req.params.seasonId]
+  );
+
+  const settings = Object.fromEntries(result.rows.map((row) => [row.key, row.value]));
+  res.json({ success: true, data: settings });
+});
+
+/**
+ * PUT /api/v1/admin/seasons/:seasonId/settings/:key
+ * Req. 5 y 6: documentos requeridos, formatos y tamaño máximo configurables
+ * sin tocar código.
+ */
+export const updateSetting = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { seasonId, key } = req.params;
+  const value = req.body?.value;
+
+  if (value === undefined) throw new AppError('El cuerpo debe incluir "value"', 400);
+
+  // Un cambio mal hecho aquí puede volver inelegible a toda la liga,
+  // así que se valida la forma de la configuración de documentos.
+  if (key === 'documents') {
+    const required = (value as any)?.required;
+    const allowed = (value as any)?.allowed_mime;
+    const maxSize = (value as any)?.max_size_mb;
+
+    if (!Array.isArray(required) || required.length === 0) {
+      throw new AppError('"required" debe listar al menos un tipo de documento', 400);
+    }
+    const validTypes = ['PHOTO', 'ID_FRONT', 'ID_BACK'];
+    const invalid = required.filter((type: string) => !validTypes.includes(type));
+    if (invalid.length > 0) {
+      throw new AppError(`Tipos inválidos: ${invalid.join(', ')}`, 400);
+    }
+    if (!Array.isArray(allowed) || allowed.length === 0) {
+      throw new AppError('"allowed_mime" debe listar al menos un formato', 400);
+    }
+    if (typeof maxSize !== 'number' || maxSize <= 0 || maxSize > 25) {
+      throw new AppError('"max_size_mb" debe ser un número entre 1 y 25', 400);
+    }
+  }
+
+  const existing = await query('SELECT id, value FROM settings WHERE season_id = $1 AND key = $2', [
+    seasonId,
+    key,
+  ]);
+
+  if (existing.rows[0]) {
+    await query('UPDATE settings SET value = $1, updated_at = NOW() WHERE id = $2', [
+      JSON.stringify(value),
+      existing.rows[0].id,
+    ]);
+  } else {
+    const season = await query<{ league_id: string }>(
+      'SELECT league_id FROM seasons WHERE id = $1',
+      [seasonId]
+    );
+    if (!season.rows[0]) throw new AppError('Temporada no encontrada', 404);
+
+    await query(
+      'INSERT INTO settings (id, league_id, season_id, key, value) VALUES ($1,$2,$3,$4,$5)',
+      [newPrefixedId('set'), season.rows[0].league_id, seasonId, key, JSON.stringify(value)]
+    );
+  }
+
+  await audit(req, {
+    action: 'UPDATE_SETTING',
+    entityType: 'setting',
+    entityId: `${seasonId}:${key}`,
+    oldValue: existing.rows[0]?.value ?? null,
+    newValue: value,
+  });
+
+  // Cambiar los documentos exigidos altera quién es elegible: se recalcula
+  // en el momento, en lugar de dejar valores obsoletos en la base.
+  let recalculated: { evaluated: number; changed: number } | undefined;
+  if (key === 'documents') {
+    recalculated = await refreshSeasonEligibility(seasonId);
+  }
+
+  res.json({
+    success: true,
+    message: 'Configuración actualizada',
+    ...(recalculated ? { data: { recalculated } } : {}),
+  });
 });

@@ -5,19 +5,27 @@ interface NavItem {
   to: string;
   label: string;
   icon: string;
+  /** La barra inferior del celular solo muestra los primarios: más de
+   *  cuatro iconos dejan de ser tocables con el pulgar. */
+  primary?: boolean;
+  superAdminOnly?: boolean;
 }
 
 const NAV_BY_ROLE: Record<string, NavItem[]> = {
   ADMIN: [
-    { to: '/admin', label: 'Panel', icon: '📊' },
-    { to: '/admin/validacion', label: 'Validación', icon: '✅' },
-    { to: '/admin/equipos', label: 'Equipos', icon: '🛡️' },
+    { to: '/admin', label: 'Panel', icon: '📊', primary: true },
+    { to: '/admin/validacion', label: 'Validación', icon: '✅', primary: true },
+    { to: '/admin/equipos', label: 'Equipos', icon: '🛡️', primary: true },
+    { to: '/admin/usuarios', label: 'Usuarios', icon: '👤', primary: true },
+    { to: '/admin/temporada', label: 'Temporada', icon: '⚙️' },
+    { to: '/admin/auditoria', label: 'Auditoría', icon: '📋', superAdminOnly: true },
   ],
   TEAM_MANAGER: [
-    { to: '/equipo', label: 'Mi equipo', icon: '🛡️' },
-    { to: '/equipo/jugadores/nuevo', label: 'Agregar', icon: '➕' },
+    { to: '/equipo', label: 'Mi equipo', icon: '🛡️', primary: true },
+    { to: '/equipo/jugadores/nuevo', label: 'Agregar', icon: '➕', primary: true },
+    { to: '/equipo/roster', label: 'Roster', icon: '📄', primary: true },
   ],
-  REFEREE: [{ to: '/arbitro', label: 'Mis partidos', icon: '🏈' }],
+  REFEREE: [{ to: '/arbitro', label: 'Mis partidos', icon: '🏈', primary: true }],
 };
 
 /**
@@ -28,9 +36,10 @@ export const Layout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const items = isAdmin(user?.role)
-    ? NAV_BY_ROLE.ADMIN
-    : NAV_BY_ROLE[user?.role ?? ''] ?? [];
+  const items = (isAdmin(user?.role) ? NAV_BY_ROLE.ADMIN : NAV_BY_ROLE[user?.role ?? ''] ?? [])
+    .filter((item) => !item.superAdminOnly || user?.role === 'SUPER_ADMIN');
+
+  const primaryItems = items.filter((item) => item.primary);
 
   const handleLogout = () => {
     logout();
@@ -103,9 +112,9 @@ export const Layout = () => {
         </main>
 
         {/* Navegación inferior — celular */}
-        {items.length > 0 && (
+        {primaryItems.length > 0 && (
           <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-base-300 bg-base-200/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-            {items.map((item) => (
+            {primaryItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

@@ -74,3 +74,36 @@ body {
 .no-scrollbar {
   scrollbar-width: none;
 }
+
+/**
+ * Impresión: el roster se entrega en papel el día de partido.
+ * El tema oscuro gastaría el tóner, así que se invierte a tinta sobre blanco.
+ */
+@media print {
+  @page {
+    margin: 1.5cm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    padding: 0;
+  }
+
+  /* Fuera navegación, botones y todo lo que no sea el documento. */
+  nav,
+  aside,
+  header,
+  .btn {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  a {
+    text-decoration: none;
+    color: #000 !important;
+  }
+}

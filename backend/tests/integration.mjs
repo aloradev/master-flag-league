@@ -341,6 +341,13 @@ const run = async () => {
   check('AHORA SÍ es elegible', approve.body?.data?.eligibility?.isEligible === true);
   check('Sin motivo de bloqueo', approve.body?.data?.eligibility?.reason === null);
 
+  const afterApprove = await call('GET', `/players/${playerId}`, { token: mgrToken });
+  check('Al aprobar se limpia la observación anterior del documento',
+    afterApprove.body?.data?.documents?.every((d) => !d.review_notes) === true,
+    JSON.stringify(afterApprove.body?.data?.documents?.map((d) => d.review_notes)));
+  check('Los documentos quedan marcados como aprobados',
+    afterApprove.body?.data?.documents?.every((d) => d.status === 'APPROVED') === true);
+
   console.log('\n═══ 8. APROBACIÓN INCOMPLETA (no debe permitirse) ═══');
 
   const p2 = await call('POST', '/players', {
@@ -504,6 +511,135 @@ const run = async () => {
     body: { email: 'manager.sharks@test.mx', password: tempPassword },
   });
   check('La contraseña anterior ya no sirve', oldPassword.status === 401);
+
+  console.log('\n═══ 14. CONFIGURACIÓN DE TEMPORADA ═══');
+
+  const cat = await call('POST', `/admin/seasons/${seasonId}/categories`, {
+    token: adminToken,
+    body: { name: 'Veteranos +40', color: '#0d9488' },
+  });
+  check('Crea una categoría nueva', cat.status === 201);
+
+  const catUpdate = await call('PUT', `/admin/categories/${cat.body?.data?.id}`, {
+    token: adminToken,
+    body: { name: 'Veteranos 40+', color: '#065f46' },
+  });
+  check('Edita una categoría', catUpdate.status === 200);
+
+  const field3 = await call('POST', `/admin/seasons/${seasonId}/fields`, {
+    token: adminToken,
+    body: { name: 'Campo 3', location: 'Cancha norte' },
+  });
+  check('Crea un campo nuevo', field3.status === 201);
+
+  const fieldUpdate = await call('PUT', `/admin/fields/${field3.body?.data?.id}`, {
+    token: adminToken,
+    body: { status: 'INACTIVE' },
+  });
+  check('Edita un campo', fieldUpdate.status === 200);
+
+  const seasonUpdate = await call('PUT', `/admin/seasons/${seasonId}`, {
+    token: adminToken,
+    body: { registrationDeadline: '2026-09-30', defaultStartTime: '20:00' },
+  });
+  check('Edita la temporada', seasonUpdate.status === 200);
+
+  const settings = await call('GET', `/seasons/${seasonId}/settings`, { token: adminToken });
+  check('Lee la configuración de la temporada', settings.status === 200);
+  check('Incluye los documentos requeridos',
+    settings.body?.data?.documents?.required?.length === 3,
+    JSON.stringify(settings.body?.data?.documents?.required));
+
+  const badSetting = await call('PUT', `/admin/seasons/${seasonId}/settings/documents`, {
+    token: adminToken,
+    body: { value: { required: [], allowed_mime: ['image/png'], max_size_mb: 5 } },
+  });
+  check('Rechaza dejar la lista de documentos vacía', badSetting.status === 400);
+
+  const badSize = await call('PUT', `/admin/seasons/${seasonId}/settings/documents`, {
+    token: adminToken,
+    body: { value: { required: ['PHOTO'], allowed_mime: ['image/png'], max_size_mb: 500 } },
+  });
+  check('Rechaza un tamaño máximo absurdo', badSize.status === 400);
+
+  const unknownDocType = await call('PUT', `/admin/seasons/${seasonId}/settings/documents`, {
+    token: adminToken,
+    body: { value: { required: ['CURP'], allowed_mime: ['image/png'], max_size_mb: 5 } },
+  });
+  check('Rechaza un tipo de documento inexistente', unknownDocType.status === 400);
+
+  const mgrSetting = await call('PUT', `/admin/seasons/${seasonId}/settings/documents`, {
+    token: mgrToken,
+    body: { value: { required: ['PHOTO'], allowed_mime: ['image/png'], max_size_mb: 5 } },
+  });
+  check('Un manager NO cambia la configuración', mgrSetting.status === 403);
+
+  console.log('\n═══ 15. RECÁLCULO DE ELEGIBILIDAD ═══');
+
+  // Carlos (#12) solo tiene fotografía. Si la liga pasara a exigir solo la
+  // fotografía, debería volverse elegible sin que nadie lo capture a mano.
+  const beforeRelax = await call('GET', `/players/${player2Id}`, { token: adminToken });
+  check('Carlos aún no es elegible', beforeRelax.body?.data?.is_eligible === false);
+
+  // Primero hay que aprobarlo: la elegibilidad exige aprobación Y documentos.
+  await call('POST', `/admin/players/${player2Id}/review`, {
+    token: adminToken,
+    body: { action: 'APPROVE' },
+  }); // debe fallar por documentación incompleta
+
+  const relax = await call('PUT', `/admin/seasons/${seasonId}/settings/documents`, {
+    token: adminToken,
+    body: {
+      value: {
+        required: ['PHOTO'],
+        allowed_mime: ['image/jpeg', 'image/png', 'application/pdf'],
+        max_size_mb: 5,
+      },
+    },
+  });
+  check('Reduce los documentos requeridos a solo la fotografía', relax.status === 200);
+  check('Informa cuántos jugadores reevaluó',
+    (relax.body?.data?.recalculated?.evaluated ?? 0) >= 2,
+    JSON.stringify(relax.body?.data?.recalculated));
+
+  const nowApprovable = await call('POST', `/admin/players/${player2Id}/review`, {
+    token: adminToken,
+    body: { action: 'APPROVE' },
+  });
+  check('Con la nueva regla Carlos ya puede aprobarse', nowApprovable.status === 200,
+    `status ${nowApprovable.status}`);
+  check('Y queda elegible', nowApprovable.body?.data?.eligibility?.isEligible === true);
+
+  // Volver a exigir los tres documentos debe quitarle la elegibilidad sola.
+  const tighten = await call('PUT', `/admin/seasons/${seasonId}/settings/documents`, {
+    token: adminToken,
+    body: {
+      value: {
+        required: ['PHOTO', 'ID_FRONT', 'ID_BACK'],
+        allowed_mime: ['image/jpeg', 'image/png', 'application/pdf'],
+        max_size_mb: 5,
+      },
+    },
+  });
+  check('Vuelve a exigir los tres documentos', tighten.status === 200);
+  check('El recálculo detecta que alguien cambió de estado',
+    (tighten.body?.data?.recalculated?.changed ?? 0) >= 1,
+    JSON.stringify(tighten.body?.data?.recalculated));
+
+  const afterTighten = await call('GET', `/players/${player2Id}`, { token: adminToken });
+  check('Carlos deja de ser elegible automáticamente',
+    afterTighten.body?.data?.is_eligible === false,
+    `is_eligible=${afterTighten.body?.data?.is_eligible}`);
+  check('Sigue APPROVED pero sin elegibilidad',
+    afterTighten.body?.data?.status === 'APPROVED');
+  check('Y el motivo señala la documentación faltante',
+    /[Dd]ocumentación incompleta/.test(afterTighten.body?.data?.eligibility?.reason ?? ''),
+    afterTighten.body?.data?.eligibility?.reason);
+
+  const refEligibility = await call('GET', `/teams/${sharksId}/eligibility`, { token: refToken });
+  check('El árbitro ve el cambio reflejado',
+    refEligibility.body?.data?.eligible_count === 1,
+    `${refEligibility.body?.data?.eligible_count} elegibles`);
 
   console.log(`\n${'═'.repeat(52)}`);
   console.log(`  RESULTADO: ${passed} pasaron · ${failed} fallaron`);

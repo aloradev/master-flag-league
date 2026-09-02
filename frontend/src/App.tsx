@@ -19,6 +19,11 @@ import PlayerDetail from './pages/manager/PlayerDetail';
 import AdminDashboard from './pages/admin/Dashboard';
 import ValidationQueue from './pages/admin/ValidationQueue';
 import AdminTeams from './pages/admin/Teams';
+import AdminTeamDetail from './pages/admin/TeamDetail';
+import AdminUsers from './pages/admin/Users';
+import AdminAudit from './pages/admin/Audit';
+import SeasonConfig from './pages/admin/SeasonConfig';
+import Roster from './pages/Roster';
 
 /** Puerta de acceso: exige sesión y, si se indica, un rol permitido. */
 const Protected = ({
@@ -79,6 +84,7 @@ const App = () => {
           <Route path="/equipo" element={<MyTeam />} />
           <Route path="/equipo/jugadores/nuevo" element={<PlayerForm />} />
           <Route path="/equipo/jugadores/:id" element={<PlayerDetail />} />
+          <Route path="/equipo/roster" element={<Roster />} />
         </Route>
 
         {/* Administración */}
@@ -92,6 +98,20 @@ const App = () => {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/validacion" element={<ValidationQueue />} />
           <Route path="/admin/equipos" element={<AdminTeams />} />
+          <Route path="/admin/equipos/:id" element={<AdminTeamDetail />} />
+          <Route path="/admin/equipos/:id/roster" element={<Roster />} />
+          <Route path="/admin/usuarios" element={<AdminUsers />} />
+          <Route path="/admin/temporada" element={<SeasonConfig />} />
+        </Route>
+
+        <Route
+          element={
+            <Protected allow={(role) => role === 'SUPER_ADMIN'}>
+              <Layout />
+            </Protected>
+          }
+        >
+          <Route path="/admin/auditoria" element={<AdminAudit />} />
         </Route>
 
         <Route

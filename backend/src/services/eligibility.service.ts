@@ -102,3 +102,27 @@ export const documentLabel = (type: string): string =>
     ID_FRONT: 'identificación (frente)',
     ID_BACK: 'identificación (reverso)',
   }[type] ?? type);
+
+/**
+ * Recalcula la elegibilidad de todos los jugadores de una temporada.
+ *
+ * Necesario cuando cambia la configuración de documentos requeridos: el
+ * valor guardado en is_eligible quedaría obsoleto y un jugador podría
+ * aparecer elegible sin cumplir la nueva regla.
+ */
+export const refreshSeasonEligibility = async (
+  seasonId: string
+): Promise<{ evaluated: number; changed: number }> => {
+  const players = await query<{ id: string; is_eligible: boolean }>(
+    'SELECT id, is_eligible FROM players WHERE season_id = $1',
+    [seasonId]
+  );
+
+  let changed = 0;
+  for (const player of players.rows) {
+    const result = await refreshEligibility(player.id);
+    if (result.isEligible !== player.is_eligible) changed += 1;
+  }
+
+  return { evaluated: players.rows.length, changed };
+};

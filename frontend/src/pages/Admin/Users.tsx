@@ -1,0 +1,393 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api, ApiError } from '../../lib/api';
+import type { Role } from '../../lib/types';
+import { Alert, Card, EmptyState, Field, Spinner } from '../../components/ui';
+import { useAuth } from '../../store/auth';
+
+interface UserRow {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  active: boolean;
+  role: Role;
+  role_label: string;
+  last_login_at: string | null;
+  teams: { id: string; name: string }[];
+}
+
+const ROLE_OPTIONS: { value: Role; label: string; help: string }[] = [
+  { value: 'TEAM_MANAGER', label: 'Manager de Equipo', help: 'Registra jugadores de su equipo' },
+  { value: 'REFEREE', label: 'Árbitro', help: 'Registra marcador y estadísticas' },
+  { value: 'SPORTS_ADMIN', label: 'Admin Deportivo', help: 'Valida jugadores y administra partidos' },
+  { value: 'FINANCE_ADMIN', label: 'Admin Financiero', help: 'Pagos, ingresos y gastos' },
+  { value: 'SUPER_ADMIN', label: 'Super Administrador', help: 'Control total de la plataforma' },
+];
+
+/** La contraseña temporal se muestra una sola vez: hay que poder copiarla. */
+const CredentialsPanel = ({
+  email,
+  password,
+  onClose,
+}: {
+  email: string;
+  password: string;
+  onClose: () => void;
+}) => {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(`Usuario: ${email}\nContraseña temporal: ${password}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <Alert tone="success" title="Usuario creado">
+      <p className="text-base-content/80">
+        Entrégale estos datos. La contraseña no se vuelve a mostrar y se le pedirá
+        cambiarla al ingresar.
+      </p>
+      <div className="mt-2 space-y-1 rounded-field bg-base-100/60 p-3 font-mono text-sm text-base-content">
+        <div>{email}</div>
+        <div className="text-lg font-bold tracking-wider">{password}</div>
+      </div>
+      <div className="mt-2 flex gap-2">
+        <button onClick={copy} className="btn btn-sm">
+          {copied ? '✓ Copiado' : 'Copiar'}
+        </button>
+        <button onClick={onClose} className="btn btn-ghost btn-sm">
+          Entendido
+        </button>
+      </div>
+    </Alert>
+  );
+};
+
+const NewUserForm = ({
+  onCreated,
+  onCancel,
+  canCreateSuperAdmin,
+}: {
+  onCreated: (credentials: { email: string; password: string }) => void;
+  onCancel: () => void;
+  canCreateSuperAdmin: boolean;
+}) => {
+  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'TEAM_MANAGER' as Role });
+  const [error, setError] = useState<string | null>(null);
+
+  const create = useMutation({
+    mutationFn: () =>
+      api.post<{ id: string; email: string; temporaryPassword?: string }>('/admin/users', {
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone.trim() || undefined,
+        role: form.role,
+      }),
+    onSuccess: (data) => {
+      setError(null);
+      onCreated({ email: data.email, password: data.temporaryPassword ?? '—' });
+      setForm({ name: '', email: '', phone: '', role: 'TEAM_MANAGER' });
+    },
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : 'No se pudo crear el usuario'),
+  });
+
+  const options = canCreateSuperAdmin
+    ? ROLE_OPTIONS
+    : ROLE_OPTIONS.filter((option) => option.value !== 'SUPER_ADMIN');
+  const selected = options.find((option) => option.value === form.role);
+
+  return (
+    <Card className="space-y-3 p-4">
+      <h2 className="font-semibold">Nuevo usuario</h2>
+
+      <Field label="Nombre completo" required>
+        <input
+          className="input input-bordered w-full"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          autoFocus
+        />
+      </Field>
+
+      <Field label="Correo electrónico" hint="Será su usuario para ingresar" required>
+        <input
+          type="email"
+          inputMode="email"
+          className="input input-bordered w-full"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+        />
+      </Field>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Teléfono">
+          <input
+            type="tel"
+            inputMode="tel"
+            className="input input-bordered w-full"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+        </Field>
+
+        <Field label="Rol" hint={selected?.help} required>
+          <select
+            className="select select-bordered w-full"
+            value={form.role}
+            onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
+          >
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      {error && <Alert tone="error">{error}</Alert>}
+
+      <div className="flex gap-2">
+        <button onClick={onCancel} className="btn btn-ghost btn-sm flex-1">
+          Cancelar
+        </button>
+        <button
+          onClick={() => create.mutate()}
+          className="btn btn-primary btn-sm flex-1"
+          disabled={create.isPending || !form.name.trim() || !form.email.trim()}
+        >
+          {create.isPending ? <span className="loading loading-spinner loading-xs" /> : 'Crear'}
+        </button>
+      </div>
+    </Card>
+  );
+};
+
+const UserRowCard = ({ user, onChanged }: { user: UserRow; onChanged: () => void }) => {
+  const { user: current } = useAuth();
+  const [expanded, setExpanded] = useState(false);
+  const [resetPassword, setResetPassword] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const isSelf = user.id === current?.id;
+  const canChangeRole = current?.role === 'SUPER_ADMIN';
+
+  const update = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api.put(`/admin/users/${user.id}`, body),
+    onSuccess: () => {
+      setError(null);
+      onChanged();
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : 'No se pudo actualizar'),
+  });
+
+  const reset = useMutation({
+    mutationFn: () =>
+      api.post<{ temporaryPassword: string }>(`/admin/users/${user.id}/reset-password`),
+    onSuccess: (data) => setResetPassword(data.temporaryPassword),
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : 'No se pudo restablecer la contraseña'),
+  });
+
+  return (
+    <Card as="li" className="p-3">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-3 text-left"
+      >
+        <div
+          className={`size-2 shrink-0 rounded-full ${user.active ? 'bg-success' : 'bg-base-content/30'}`}
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">
+            {user.name}
+            {isSelf && <span className="ml-1.5 text-xs text-base-content/50">(tú)</span>}
+          </p>
+          <p className="truncate text-xs text-base-content/60">{user.email}</p>
+          <p className="mt-0.5 text-xs text-base-content/40">
+            {user.role_label}
+            {user.teams.length > 0 && ` · ${user.teams.map((t) => t.name).join(', ')}`}
+            {!user.active && ' · Desactivado'}
+          </p>
+        </div>
+        <span className="shrink-0 text-base-content/40" aria-hidden>
+          {expanded ? '▴' : '▾'}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-2 border-t border-base-300 pt-3">
+          {resetPassword && (
+            <div className="rounded-field bg-success/10 p-3">
+              <p className="text-xs text-base-content/70">Nueva contraseña temporal:</p>
+              <p className="font-mono text-lg font-bold tracking-wider">{resetPassword}</p>
+            </div>
+          )}
+
+          {error && <Alert tone="error">{error}</Alert>}
+
+          {canChangeRole && !isSelf && (
+            <Field label="Rol">
+              <select
+                className="select select-bordered select-sm w-full"
+                value={user.role}
+                onChange={(e) => update.mutate({ role: e.target.value })}
+                disabled={update.isPending}
+              >
+                {ROLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => reset.mutate()}
+              className="btn btn-sm"
+              disabled={reset.isPending}
+            >
+              {reset.isPending ? (
+                <span className="loading loading-spinner loading-xs" />
+              ) : (
+                'Restablecer contraseña'
+              )}
+            </button>
+
+            {!isSelf && (
+              <button
+                onClick={() => update.mutate({ active: !user.active })}
+                className={`btn btn-sm ${user.active ? 'btn-error btn-outline' : 'btn-success btn-outline'}`}
+                disabled={update.isPending}
+              >
+                {user.active ? 'Desactivar' : 'Reactivar'}
+              </button>
+            )}
+          </div>
+
+          {user.last_login_at && (
+            <p className="text-xs text-base-content/40">
+              Último ingreso:{' '}
+              {new Date(user.last_login_at).toLocaleDateString('es-MX', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </p>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+};
+
+export default function AdminUsers() {
+  const queryClient = useQueryClient();
+  const { user: current } = useAuth();
+  const [creating, setCreating] = useState(false);
+  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [roleFilter, setRoleFilter] = useState('');
+
+  const users = useQuery({
+    queryKey: ['users', roleFilter],
+    queryFn: () => api.get<UserRow[]>(`/admin/users${roleFilter ? `?role=${roleFilter}` : ''}`),
+  });
+
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ['users'] });
+    void queryClient.invalidateQueries({ queryKey: ['teams'] });
+  };
+
+  if (users.isLoading) return <Spinner />;
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold">Usuarios</h1>
+          <p className="text-sm text-base-content/60">
+            {users.data?.length ?? 0} usuario(s) con acceso a la plataforma
+          </p>
+        </div>
+        {!creating && (
+          <button onClick={() => setCreating(true)} className="btn btn-primary btn-sm">
+            Nuevo usuario
+          </button>
+        )}
+      </div>
+
+      {credentials && (
+        <CredentialsPanel
+          email={credentials.email}
+          password={credentials.password}
+          onClose={() => setCredentials(null)}
+        />
+      )}
+
+      {creating && (
+        <NewUserForm
+          canCreateSuperAdmin={current?.role === 'SUPER_ADMIN'}
+          onCreated={(data) => {
+            setCredentials(data);
+            setCreating(false);
+            refresh();
+          }}
+          onCancel={() => setCreating(false)}
+        />
+      )}
+
+      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        <button
+          onClick={() => setRoleFilter('')}
+          className={`shrink-0 rounded-full border px-3 py-1 text-xs ${
+            roleFilter === ''
+              ? 'border-primary bg-primary/15 text-primary'
+              : 'border-base-content/20 text-base-content/60'
+          }`}
+        >
+          Todos
+        </button>
+        {ROLE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => setRoleFilter(option.value)}
+            className={`shrink-0 rounded-full border px-3 py-1 text-xs ${
+              roleFilter === option.value
+                ? 'border-primary bg-primary/15 text-primary'
+                : 'border-base-content/20 text-base-content/60'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {(users.data?.length ?? 0) === 0 ? (
+        <Card>
+          <EmptyState
+            icon="👤"
+            title="Sin usuarios en este filtro"
+            description="Crea los encargados de equipo y árbitros para que puedan usar la plataforma."
+          />
+        </Card>
+      ) : (
+        <ul className="space-y-2">
+          {users.data?.map((user) => (
+            <UserRowCard key={user.id} user={user} onChanged={refresh} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
