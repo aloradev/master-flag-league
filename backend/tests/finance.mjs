@@ -90,11 +90,52 @@ const run = async () => {
   check('Y dice qué configurar',
     /monto de inscripción está en cero/i.test(sinMonto.body?.error ?? ''), sinMonto.body?.error);
 
-  const conf = await call('PUT', `/admin/seasons/${seasonId}/settings/finance`, {
+  /**
+   * Se configuran por el endpoint PROPIO de finanzas, en pesos.
+   *
+   * Antes esta prueba usaba el endpoint genérico de ajustes mandando
+   * centavos, que es exactamente lo que el usuario no podía hacer desde
+   * la aplicación: no había pantalla, y el endpoint genérico además
+   * exige Super Administrador.
+   */
+  const conf = await call('PUT', '/finance/settings', {
     token: admin,
-    body: { value: { currency: 'MXN', inscription_cents: 250000, round_fee_cents: 50000, referee_fee_cents: 25000 } },
+    body: { seasonId, inscription: 2500, roundFee: 500, refereeFee: 250, roundsPlanned: 8 },
   });
-  check('Se configuran los montos', conf.status === 200, JSON.stringify(conf.body).slice(0, 150));
+  check('Se configuran los montos por el endpoint de finanzas', conf.status === 200,
+    JSON.stringify(conf.body).slice(0, 200));
+  check('Convierte pesos a centavos', conf.body?.data?.rules?.inscription_cents === 250000,
+    `${conf.body?.data?.rules?.inscription_cents}`);
+  check('Y proyecta el total por equipo: inscripción + arbitraje × jornadas',
+    conf.body?.data?.projection?.total_per_team_cents === 250000 + 50000 * 8,
+    `$${pesos(conf.body?.data?.projection?.total_per_team_cents ?? 0)}`);
+  check('Guardando las jornadas planeadas',
+    conf.body?.data?.projection?.rounds_planned === 8,
+    `${conf.body?.data?.projection?.rounds_planned}`);
+
+  const inscripcionCero = await call('PUT', '/finance/settings', {
+    token: admin, body: { seasonId, inscription: 0 },
+  });
+  check('Cero es válido: una liga puede no cobrar inscripción',
+    inscripcionCero.status === 200 &&
+      inscripcionCero.body?.data?.rules?.inscription_cents === 0,
+    `${inscripcionCero.body?.data?.rules?.inscription_cents}`);
+
+  const montoNegativo = await call('PUT', '/finance/settings', {
+    token: admin, body: { seasonId, inscription: -100 },
+  });
+  check('Un monto negativo se rechaza', montoNegativo.status === 400, `${montoNegativo.status}`);
+
+  const jornadasMal = await call('PUT', '/finance/settings', {
+    token: admin, body: { seasonId, roundsPlanned: 500 },
+  });
+  check('Un número absurdo de jornadas se rechaza', jornadasMal.status === 400,
+    `${jornadasMal.status}`);
+
+  // Se restauran los montos con los que sigue el resto de la prueba.
+  await call('PUT', '/finance/settings', {
+    token: admin, body: { seasonId, inscription: 2500, roundFee: 500, refereeFee: 250, roundsPlanned: 8 },
+  });
 
   console.log('\n═══ 3. GENERAR LOS CARGOS DE INSCRIPCIÓN ═══');
 
@@ -490,6 +531,112 @@ const run = async () => {
   check('Y sí puede registrar un pago', suPago.status === 201,
     `${suPago.status} ${JSON.stringify(suPago.body).slice(0, 120)}`);
 
+  console.log('\n═══ 15. ELIMINAR UN CARGO HECHO POR ERROR ═══');
+  /**
+   * Eliminar y cancelar son dos cosas distintas y las dos hacen falta:
+   * cancelar deja el registro visible para el cargo que el equipo ya
+   * vio; eliminar lo borra, para el que nunca debió existir —equipo
+   * equivocado, monto mal capturado, generación repetida—. Dejar esas
+   * filas como CANCELADO para siempre convierte la lista en ruido.
+   */
+  const porError = await call('POST', '/finance/fees', {
+    token: admin,
+    body: { teamId: equipos[3].id, concept: 'OTHER', description: 'Cargo capturado por error',
+            amount: 999, dueDate: '2028-10-01' },
+  });
+  check('Se crea un cargo por error', porError.status === 201);
+  const idPorError = porError.body?.data?.id;
+
+  const borrado = await call('DELETE', `/finance/fees/${idPorError}`, { token: admin });
+  check('Se elimina', borrado.status === 200, `${borrado.status} ${borrado.body?.error ?? ''}`);
+  check('Y dice de quién era y por cuánto',
+    borrado.body?.data?.amount_cents === 99900 && Boolean(borrado.body?.data?.team_name),
+    `${borrado.body?.data?.team_name} ${borrado.body?.data?.amount_cents}`);
+
+  const yaNoEsta = (await call('GET', `/finance/fees?seasonId=${seasonId}`, { token: admin }))
+    .body.data.find((f) => f.id === idPorError);
+  check('Desaparece de la lista, no queda como CANCELADO', !yaNoEsta);
+
+  const enAuditoria = await call('GET', '/admin/audit?entityType=fee', { token: admin });
+  const rastro = (enAuditoria.body?.data ?? []).find(
+    (a) => a.entity_id === idPorError && a.action === 'DELETE_FEE'
+  );
+  check('Pero SÍ queda en la auditoría, con la fila completa', Boolean(rastro),
+    (enAuditoria.body?.data ?? []).map((a) => a.action).slice(0, 4).join(','));
+  check('Incluido el monto que se borró', rastro?.old_value?.amount_cents === 99900,
+    JSON.stringify(rastro?.old_value)?.slice(0, 120));
+
+  const conPago = await call('DELETE', `/finance/fees/${c2.id}`, { token: admin });
+  check('Un cargo CON pagos no se puede eliminar', conPago.status === 409, `${conPago.status}`);
+  check('Y el mensaje ofrece la alternativa',
+    /cancélalo si quieres dejar el registro/i.test(conPago.body?.error ?? ''),
+    conPago.body?.error);
+
+  const noExiste = await call('DELETE', '/finance/fees/no_existe', { token: admin });
+  check('Eliminar algo inexistente da 404, no 500', noExiste.status === 404, `${noExiste.status}`);
+
+  const elManagerBorra = await call('DELETE', `/finance/fees/${c1.id}`, { token: manager });
+  check('Un encargado NO puede eliminar cargos', elManagerBorra.status === 403,
+    `${elManagerBorra.status}`);
+
+  console.log('\n═══ 16. BORRADO EN BLOQUE: EL MONTO MAL CONFIGURADO ═══');
+  /**
+   * El error probable de la pantalla: configurar mal el monto, generar
+   * los doce cargos y darse cuenta después. Deshacerlo de uno en uno son
+   * doce confirmaciones, y a la tercera alguien deja la mitad a medias.
+   */
+  /**
+   * Se paga UNO de los cargos de arbitraje antes de borrar en bloque.
+   * Sin esto, "conserva los pagados" pasaba en vacío —no había ninguno—
+   * y la prueba no demostraba nada del caso que importa.
+   */
+  const paraConservar = (await call('GET', `/finance/fees?seasonId=${seasonId}&concept=ROUND`,
+    { token: admin })).body.data[0];
+  const pagoParcialRonda = await call('POST', '/finance/payments', {
+    token: admin, body: { feeId: paraConservar.id, amount: 100 },
+  });
+  check('Se abona a uno de los cargos de arbitraje', pagoParcialRonda.status === 201,
+    `${pagoParcialRonda.status}`);
+
+  const antesDelBloque = (await call('GET', `/finance/fees?seasonId=${seasonId}&concept=ROUND`,
+    { token: admin })).body.data;
+  const conPagoEnBloque = antesDelBloque.filter((f) => f.paid_cents > 0).length;
+  check('Hay cargos de arbitraje y exactamente uno con pago',
+    antesDelBloque.length >= 2 && conPagoEnBloque === 1,
+    `${antesDelBloque.length} cargos, ${conPagoEnBloque} con pago`);
+
+  const bloque = await call('POST', '/finance/fees/delete-unpaid', {
+    token: admin, body: { seasonId, concept: 'ROUND' },
+  });
+  check('El borrado en bloque responde', bloque.status === 200,
+    JSON.stringify(bloque.body).slice(0, 200));
+  check('Elimina solo los que no tienen pagos',
+    bloque.body?.data?.deleted === antesDelBloque.length - conPagoEnBloque,
+    `borró ${bloque.body?.data?.deleted} de ${antesDelBloque.length}`);
+  check('Conserva los pagados y dice cuáles',
+    bloque.body?.data?.kept_with_payments === conPagoEnBloque &&
+      (bloque.body?.data?.kept_teams ?? []).length === conPagoEnBloque,
+    JSON.stringify(bloque.body?.data?.kept_teams));
+
+  const despuesDelBloque = (await call('GET', `/finance/fees?seasonId=${seasonId}&concept=ROUND`,
+    { token: admin })).body.data;
+  check('Y en la base queda exactamente lo pagado',
+    despuesDelBloque.length === conPagoEnBloque &&
+      despuesDelBloque.every((f) => f.paid_cents > 0),
+    `${despuesDelBloque.length} cargos`);
+
+  const conceptoInventado = await call('POST', '/finance/fees/delete-unpaid', {
+    token: admin, body: { seasonId, concept: 'CERVEZAS' },
+  });
+  check('Un concepto inventado se rechaza', conceptoInventado.status === 400,
+    `${conceptoInventado.status}`);
+
+  const elManagerEnBloque = await call('POST', '/finance/fees/delete-unpaid', {
+    token: manager, body: { seasonId, concept: 'ROUND' },
+  });
+  check('Un encargado tampoco puede borrar en bloque', elManagerEnBloque.status === 403,
+    `${elManagerEnBloque.status}`);
+
   console.log('\n═══ 15. PETICIONES SIN CUERPO ═══');
   const sinCuerpo = [
     ['POST', '/finance/fees', admin],
@@ -499,6 +646,8 @@ const run = async () => {
     ['POST', `/finance/payments/${suPago.body?.data?.id ?? 'x'}/void`, admin],
     ['POST', '/finance/expenses', admin],
     ['POST', `/finance/expenses/${gasto.body?.data?.id}/void`, admin],
+    ['POST', '/finance/fees/delete-unpaid', admin],
+    ['PUT', '/finance/settings', admin],
   ];
   const quinientos = [];
   for (const [m, ruta, token] of sinCuerpo) {

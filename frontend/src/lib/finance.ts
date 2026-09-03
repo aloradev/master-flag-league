@@ -106,16 +106,35 @@ export interface EstadoDeCuenta {
   payments: Pago[];
 }
 
+export interface ReglasFinanzas {
+  currency: string;
+  inscription_cents: number;
+  round_fee_cents: number;
+  referee_fee_cents: number;
+}
+
+export interface Proyeccion {
+  inscription_cents: number;
+  round_fee_cents: number;
+  rounds_planned: number;
+  rounds_published: number;
+  total_per_team_cents: number;
+  committed_per_team_cents: number;
+}
+
 export interface Catalogo {
   concepts: Record<string, string>;
   methods: Record<string, string>;
   expense_categories: Record<string, string>;
-  rules: {
-    currency: string;
-    inscription_cents: number;
-    round_fee_cents: number;
-    referee_fee_cents: number;
-  } | null;
+  rules: ReglasFinanzas | null;
+  projection: Proyeccion | null;
+}
+
+export interface ResultadoBorrado {
+  deleted: number;
+  kept_with_payments: number;
+  deleted_cents: number;
+  kept_teams: string[];
 }
 
 export interface ResultadoGeneracion {
@@ -146,6 +165,17 @@ export const finance = {
   }) => api.post<Cargo>('/finance/fees', datos),
   cancelFee: (id: string, reason: string) =>
     api.post<{ id: string }>(`/finance/fees/${id}/cancel`, { reason }),
+  deleteFee: (id: string) =>
+    api.del<{ id: string; team_name: string; amount_cents: number }>(`/finance/fees/${id}`),
+  deleteUnpaid: (seasonId: string, concept?: string, roundId?: string) =>
+    api.post<ResultadoBorrado>('/finance/fees/delete-unpaid', { seasonId, concept, roundId }),
+  updateSettings: (datos: {
+    seasonId: string;
+    inscription?: string;
+    roundFee?: string;
+    refereeFee?: string;
+    roundsPlanned?: string;
+  }) => api.put<{ rules: ReglasFinanzas; projection: Proyeccion }>('/finance/settings', datos),
   generateInscription: (seasonId: string) =>
     api.post<ResultadoGeneracion>('/finance/fees/generate-inscription', { seasonId }),
   generateRound: (roundId: string) =>

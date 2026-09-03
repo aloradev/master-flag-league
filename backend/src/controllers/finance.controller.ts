@@ -15,6 +15,7 @@ import {
   generarCargosDeInscripcion,
   generarCargosDeJornada,
   pagosPorArbitro,
+  proyeccionDeTemporada,
 } from '../services/finance.service.js';
 
 const puedeEscribir = (req: AuthRequest) =>
@@ -67,10 +68,12 @@ const aCentavos = (valor: unknown, campo = 'amount'): number => {
 
 // ─────────────────────────────── CATÁLOGOS ────────────────────────────────
 
-/** GET /api/v1/finance/catalog */
+/** GET /api/v1/finance/catalog?seasonId= */
 export const getCatalog = asyncHandler(async (req: AuthRequest, res: Response) => {
   const seasonId = req.query.seasonId as string | undefined;
-  const rules = seasonId ? await cargarReglasFinanzas(seasonId) : null;
+  const [rules, projection] = seasonId
+    ? await Promise.all([cargarReglasFinanzas(seasonId), proyeccionDeTemporada(seasonId)])
+    : [null, null];
   res.json({
     success: true,
     data: {
@@ -78,6 +81,97 @@ export const getCatalog = asyncHandler(async (req: AuthRequest, res: Response) =
       methods: METODOS,
       expense_categories: CATEGORIAS_GASTO,
       rules,
+      projection,
+    },
+  });
+});
+
+/**
+ * PUT /api/v1/finance/settings
+ * Body: { seasonId, inscription, roundFee, refereeFee, roundsPlanned }
+ *
+ * Los montos se podían cambiar solo mandando JSON al endpoint genérico
+ * de ajustes, que además exige rol de Super Administrador. Es decir: el
+ * sistema se negaba a cobrar montos sin configurar y no había forma de
+ * configurarlos desde la aplicación. Esto lo arregla, y de paso deja el
+ * cambio en manos del Administrador Financiero, que es quien decide
+ * cuánto se cobra.
+ *
+ * Se reciben PESOS y se guardan CENTAVOS, con la misma conversión que
+ * los pagos: un solo lugar donde el dinero deja de ser texto.
+ */
+export const updateFinanceSettings = asyncHandler(async (req: AuthRequest, res: Response) => {
+  exigirEscritura(req);
+  const { seasonId, inscription, roundFee, refereeFee, roundsPlanned } = req.body ?? {};
+  if (!seasonId) throw new AppError('Falta seasonId', 400);
+
+  const actuales = await cargarReglasFinanzas(seasonId);
+
+  /** Cero SÍ es válido aquí: una liga puede no cobrar inscripción. */
+  const aCentavosOCero = (valor: unknown, campo: string, actual: number): number => {
+    if (valor === undefined || valor === null || valor === '') return actual;
+    const n = typeof valor === 'number' ? valor : Number(String(valor).replace(/[$,\s]/g, ''));
+    if (!Number.isFinite(n) || n < 0) throw new AppError(`${campo} no es una cantidad válida`, 400);
+    const centavos = Math.round(n * 100);
+    if (centavos > 2_000_000_000) throw new AppError(`${campo} es demasiado grande`, 400);
+    return centavos;
+  };
+
+  const nuevas = {
+    currency: actuales.currency,
+    inscription_cents: aCentavosOCero(inscription, 'La inscripción', actuales.inscription_cents),
+    round_fee_cents: aCentavosOCero(roundFee, 'El arbitraje', actuales.round_fee_cents),
+    referee_fee_cents: aCentavosOCero(refereeFee, 'El pago al árbitro', actuales.referee_fee_cents),
+  };
+
+  await query(
+    `INSERT INTO settings (id, league_id, season_id, key, value)
+     VALUES ($1, (SELECT league_id FROM seasons WHERE id = $2), $2, 'finance', $3)
+     ON CONFLICT (league_id, season_id, key)
+       DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [newPrefixedId('set'), seasonId, JSON.stringify(nuevas)]
+  );
+
+  // Las jornadas planeadas son del formato del torneo, no de finanzas:
+  // se guardan donde viven las reglas de competencia y aquí solo se
+  // actualiza ese campo sin pisar el resto.
+  if (roundsPlanned !== undefined && roundsPlanned !== null && roundsPlanned !== '') {
+    const n = Number(roundsPlanned);
+    if (!Number.isInteger(n) || n < 0 || n > 60) {
+      throw new AppError('Las jornadas planeadas deben ser un número entre 0 y 60', 400);
+    }
+    /**
+     * UPSERT y no UPDATE: una temporada creada desde la aplicación no
+     * trae fila de ajustes de competencia —solo la del seed la tiene—,
+     * así que el UPDATE no afectaba a ninguna fila y las jornadas
+     * planeadas se descartaban en silencio. Un guardado que dice que
+     * guardó y no guardó nada es peor que un error.
+     */
+    await query(
+      `INSERT INTO settings (id, league_id, season_id, key, value)
+       VALUES ($1, (SELECT league_id FROM seasons WHERE id = $2), $2, 'competition',
+               jsonb_build_object('rounds_planned', $3::int))
+       ON CONFLICT (league_id, season_id, key)
+         DO UPDATE SET
+           value = settings.value || jsonb_build_object('rounds_planned', $3::int),
+           updated_at = NOW()`,
+      [newPrefixedId('set'), seasonId, n]
+    );
+  }
+
+  await audit(req, {
+    action: 'UPDATE_FINANCE_SETTINGS',
+    entityType: 'season',
+    entityId: seasonId,
+    oldValue: actuales,
+    newValue: { ...nuevas, rounds_planned: roundsPlanned },
+  });
+
+  res.json({
+    success: true,
+    data: {
+      rules: await cargarReglasFinanzas(seasonId),
+      projection: await proyeccionDeTemporada(seasonId),
     },
   });
 });
@@ -194,6 +288,138 @@ export const cancelFee = asyncHandler(async (req: AuthRequest, res: Response) =>
   });
 
   res.json({ success: true, data: { id, cancelled: true } });
+});
+
+/**
+ * DELETE /api/v1/finance/fees/:id
+ *
+ * Borra de verdad, y existe además de `cancel` porque son dos cosas
+ * distintas:
+ *
+ * - CANCELAR es para el cargo que fue real y la liga decidió perdonar.
+ *   El equipo ya lo vio, así que tiene que seguir viéndolo como
+ *   cancelado; que desapareciera sin más se lee como un descuadre.
+ * - ELIMINAR es para el cargo que nunca debió existir: equipo
+ *   equivocado, monto mal capturado, generación repetida. Dejar esas
+ *   filas como "CANCELADO" para siempre convierte la lista en ruido y
+ *   esconde los cargos que sí importan.
+ *
+ * El guardia es el mismo que en cancelar: si tiene un peso aplicado, no
+ * se borra. Un cargo con dinero encima que desaparece deja el pago
+ * huérfano y la cuenta sin cuadrar.
+ *
+ * La auditoría conserva la fila completa, así que "se borró" sigue
+ * siendo explicable meses después; simplemente no estorba en la lista.
+ */
+export const deleteFee = asyncHandler(async (req: AuthRequest, res: Response) => {
+  exigirEscritura(req);
+  const { id } = req.params;
+
+  const f = await query(
+    `SELECT f.*, t.name AS team_name,
+            COALESCE((SELECT SUM(p.amount_cents)::int FROM payments p
+                      WHERE p.fee_id = f.id AND p.voided_at IS NULL), 0) AS pagado,
+            (SELECT COUNT(*)::int FROM payments p WHERE p.fee_id = f.id) AS pagos_totales
+     FROM fees f JOIN teams t ON t.id = f.team_id
+     WHERE f.id = $1`,
+    [id]
+  );
+  const cargo = f.rows[0];
+  if (!cargo) throw new AppError('Cargo no encontrado', 404);
+
+  if (cargo.pagos_totales > 0) {
+    throw new AppError(
+      cargo.pagado > 0
+        ? `Este cargo tiene $${(cargo.pagado / 100).toFixed(2)} pagados. ` +
+          `Anula primero los pagos, o cancélalo si quieres dejar el registro.`
+        : 'Este cargo tiene pagos anulados en su historial. ' +
+          'Cancélalo en lugar de borrarlo, para no perder ese rastro.',
+      409
+    );
+  }
+
+  await audit(req, {
+    action: 'DELETE_FEE',
+    entityType: 'fee',
+    entityId: id,
+    oldValue: {
+      team: cargo.team_name,
+      concept: cargo.concept,
+      description: cargo.description,
+      amount_cents: cargo.amount_cents,
+      due_date: cargo.due_date,
+    },
+  });
+
+  await query(`DELETE FROM fees WHERE id = $1`, [id]);
+
+  res.json({
+    success: true,
+    data: { id, deleted: true, team_name: cargo.team_name, amount_cents: cargo.amount_cents },
+  });
+});
+
+/**
+ * POST /api/v1/finance/fees/delete-unpaid
+ * Body: { seasonId, concept, roundId? }
+ *
+ * Borrado en bloque de los cargos SIN PAGOS de una generación.
+ *
+ * Existe por el error más probable de esta pantalla: configurar mal el
+ * monto, generar los doce cargos de inscripción y darse cuenta después.
+ * Deshacer eso de uno en uno son doce confirmaciones, y a la tercera
+ * alguien deja la mitad a medias.
+ *
+ * Los que ya tienen pagos se quedan, y se informa cuántos: quien lo
+ * ejecuta necesita saber que no quedó limpio y por qué.
+ */
+export const deleteUnpaidFees = asyncHandler(async (req: AuthRequest, res: Response) => {
+  exigirEscritura(req);
+  const { seasonId, concept, roundId } = req.body ?? {};
+  if (!seasonId) throw new AppError('Falta seasonId', 400);
+  if (concept && !Object.prototype.hasOwnProperty.call(CONCEPTOS, concept)) {
+    throw new AppError(`Concepto inválido. Válidos: ${Object.keys(CONCEPTOS).join(', ')}`, 400);
+  }
+
+  const candidatos = await query(
+    `SELECT f.id, f.amount_cents, f.concept, t.name AS team_name,
+            (SELECT COUNT(*)::int FROM payments p WHERE p.fee_id = f.id) AS pagos
+     FROM fees f JOIN teams t ON t.id = f.team_id
+     WHERE f.season_id = $1
+       AND ($2::text IS NULL OR f.concept = $2)
+       AND ($3::text IS NULL OR f.round_id = $3)`,
+    [seasonId, concept ?? null, roundId ?? null]
+  );
+
+  const borrables = candidatos.rows.filter((c) => c.pagos === 0);
+  const conservados = candidatos.rows.filter((c) => c.pagos > 0);
+
+  if (borrables.length > 0) {
+    await audit(req, {
+      action: 'DELETE_UNPAID_FEES',
+      entityType: 'season',
+      entityId: seasonId,
+      oldValue: {
+        concept: concept ?? 'TODOS',
+        deleted: borrables.map((c) => ({
+          team: c.team_name,
+          amount_cents: c.amount_cents,
+          concept: c.concept,
+        })),
+      },
+    });
+    await query(`DELETE FROM fees WHERE id = ANY($1::text[])`, [borrables.map((c) => c.id)]);
+  }
+
+  res.json({
+    success: true,
+    data: {
+      deleted: borrables.length,
+      kept_with_payments: conservados.length,
+      deleted_cents: borrables.reduce((t, c) => t + c.amount_cents, 0),
+      kept_teams: conservados.map((c) => c.team_name),
+    },
+  });
 });
 
 /** POST /api/v1/finance/fees/generate-inscription */

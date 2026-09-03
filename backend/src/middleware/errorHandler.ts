@@ -52,6 +52,20 @@ export const errorHandler = (
     return res.status(400).json({ success: false, error: 'Valor no permitido' });
   }
 
+  /**
+   * Fallos del almacenamiento de imágenes.
+   *
+   * Se responde 502 y con el mensaje real, no con "Error interno del
+   * servidor": el problema NO está en la petición del usuario sino en un
+   * servicio externo mal configurado, y el mensaje nombra la variable de
+   * entorno que hay que revisar. Un 500 genérico aquí costó media hora
+   * de diagnóstico la primera vez que pasó.
+   */
+  if (err.name === 'StorageError') {
+    console.error('[storage]', err.message, (err as { cause?: unknown }).cause);
+    return res.status(502).json({ success: false, error: err.message });
+  }
+
   console.error('[error]', err);
   res.status(500).json({ success: false, error: 'Error interno del servidor' });
 };

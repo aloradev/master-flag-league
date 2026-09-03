@@ -45,8 +45,9 @@ const WARNINGS: Check[] = [
     key: 'CLOUDINARY_NAME',
     required: false,
     message:
-      'Sin Cloudinary los documentos se guardan en el disco de Render, que es ' +
-      'EFÍMERO: las identificaciones de los jugadores se borran en cada despliegue.',
+      'Sin Cloudinary (las tres variables: NAME, API_KEY y API_SECRET) los documentos ' +
+      'se guardan en el disco de Render, que es EFÍMERO: las identificaciones de los ' +
+      'jugadores se borran en cada despliegue.',
   },
   {
     key: 'RESEND_API_KEY',
@@ -81,6 +82,30 @@ export const validateEnvironment = (): void => {
     } else if (check.valid && !check.valid(value)) {
       problems.push(`  ✗ ${check.key} — valor inválido. ${check.message}`);
     }
+  }
+
+  /**
+   * Cloudinary a medias es peor que sin Cloudinary.
+   *
+   * Antes solo se avisaba de CLOUDINARY_NAME, así que con el nombre
+   * puesto y el secreto olvidado la aplicación arrancaba sin decir nada
+   * y cada subida de imagen devolvía "Error interno del servidor". El
+   * fallo aparecía cuando alguien intentaba subir un escudo, no al
+   * desplegar.
+   *
+   * Ahora, si hay ALGUNA de las tres, se exigen las tres: es la
+   * diferencia entre enterarse en el log del despliegue y enterarse por
+   * un encargado que no puede subir su logo.
+   */
+  const cloudinaryKeys = ['CLOUDINARY_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+  const cloudinaryPuestas = cloudinaryKeys.filter((k) => process.env[k]);
+  if (cloudinaryPuestas.length > 0 && cloudinaryPuestas.length < cloudinaryKeys.length) {
+    const faltan = cloudinaryKeys.filter((k) => !process.env[k]);
+    problems.push(
+      `  ✗ Cloudinary a medias — están ${cloudinaryPuestas.join(', ')} y falta(n) ` +
+        `${faltan.join(', ')}. Con las tres o con ninguna: a medias, la aplicación ` +
+        `arranca y cada subida de imagen falla con un 403.`
+    );
   }
 
   for (const check of WARNINGS) {

@@ -11,6 +11,7 @@ import * as audit from '../controllers/audit.controller.js';
 import * as rounds from '../controllers/rounds.controller.js';
 import * as games from '../controllers/games.controller.js';
 import * as finance from '../controllers/finance.controller.js';
+import * as diagnostics from '../controllers/diagnostics.controller.js';
 
 import {
   requireAuth,
@@ -156,14 +157,26 @@ router.get('/finance/balance', loadManagedTeams, finance.getBalance);
 // comprobación vive además dentro de cada controlador, porque una ruta
 // nueva puede olvidarse de poner el middleware.
 const soloFinanzas = requireRole(ROLES.SUPER_ADMIN, ROLES.FINANCE_ADMIN);
+router.put('/finance/settings', soloFinanzas, finance.updateFinanceSettings);
 router.post('/finance/fees', soloFinanzas, finance.createFee);
 router.post('/finance/fees/:id/cancel', soloFinanzas, finance.cancelFee);
+// El borrado en bloque es POST y el individual DELETE, así que no se
+// pisan aunque compartan el prefijo: no hay ningún POST '/finance/fees/:id'
+// que pudiera capturar "delete-unpaid".
+router.post('/finance/fees/delete-unpaid', soloFinanzas, finance.deleteUnpaidFees);
+router.delete('/finance/fees/:id', soloFinanzas, finance.deleteFee);
 router.post('/finance/fees/generate-inscription', soloFinanzas, finance.generateInscriptionFees);
 router.post('/finance/fees/generate-round/:roundId', soloFinanzas, finance.generateRoundFees);
 router.post('/finance/payments', soloFinanzas, finance.createPayment);
 router.post('/finance/payments/:id/void', soloFinanzas, finance.voidPayment);
 router.post('/finance/expenses', soloFinanzas, finance.createExpense);
 router.post('/finance/expenses/:id/void', soloFinanzas, finance.voidExpense);
+
+/**
+ * Diagnóstico del almacenamiento de imágenes. Solo administración: dice
+ * qué credenciales llegaron —enmascaradas— y si Cloudinary las acepta.
+ */
+router.get('/admin/diagnostics/storage', requireAdmin, diagnostics.storageDiagnostics);
 
 // Auditoría: solo Super Admin (req. 42).
 router.get('/admin/audit', requireRole(ROLES.SUPER_ADMIN), audit.listAuditLogs);

@@ -150,6 +150,89 @@ celular.
 
 ---
 
+## Corrección: montos, borrado de cargos y almacenamiento
+
+### Los montos eran inventados y no se podían cambiar
+El seed traía $2,500 de inscripción, que salió de mi cabeza y no de la
+liga. Los reales: **$1,000 de inscripción** y **$500 por partido
+jugado**.
+
+Y el hueco de fondo: el sistema se negaba a cobrar montos sin
+configurar, pero no había pantalla para configurarlos. Solo se podían
+cambiar mandando JSON al endpoint genérico de ajustes, que además exige
+Super Administrador.
+
+Ahora hay un panel «Cuánto se cobra» en Finanzas, con endpoint propio
+(`PUT /finance/settings`) accesible también al Administrador Financiero,
+que es quien decide cuánto se cobra. Se reciben pesos y se guardan
+centavos, con la misma conversión que los pagos.
+
+### El total depende del torneo, no es un monto fijo
+Lo señaló el usuario y el modelo ya lo hacía bien: el arbitraje se cobra
+**por partido jugado** —los que descansan no pagan—, así que el total de
+la temporada es inscripción + arbitraje × jornadas.
+
+Lo que faltaba era decirlo. Se agregó `rounds_planned` a los ajustes de
+competencia y la proyección: «con 10 jornadas planeadas, cada equipo
+pagará $6,000». Es la primera pregunta de un encargado al inscribirse, y
+se recalcula mientras se teclea, lo que hace evidente un monto mal
+capturado antes de guardarlo.
+
+Se distinguen dos cifras: lo **planeado** (para informar al equipo) y lo
+**comprometido** (con las jornadas ya publicadas, que es lo único
+cobrable hoy).
+
+### Eliminar un cargo, además de cancelarlo
+Son dos cosas distintas y las dos hacen falta:
+
+- **Cancelar** es para el cargo que fue real y la liga perdonó. El
+  equipo ya lo vio, así que tiene que seguir viéndolo como cancelado.
+- **Eliminar** es para el que nunca debió existir: equipo equivocado,
+  monto mal capturado, generación repetida. Dejar esas filas como
+  CANCELADO para siempre convierte la lista en ruido.
+
+Las dos exigen que no haya ningún pago aplicado. El borrado conserva la
+fila completa en la auditoría, así que sigue siendo explicable meses
+después; simplemente no estorba en la lista.
+
+Y un **borrado en bloque** de los cargos sin pagos de una generación,
+por el error probable: configurar mal el monto, generar los doce cargos
+y darse cuenta después. Los pagados se conservan y se informa cuáles.
+
+### El «Error interno del servidor» al subir una foto
+Reportado desde la aplicación y reproducido: no era la imagen ni el
+código de subida, eran las credenciales de Cloudinary. Con la llave
+equivocada, Cloudinary responde 403 y eso llegaba al usuario como un 500
+genérico.
+
+Tres defectos alrededor:
+
+1. El driver se activaba con solo `CLOUDINARY_NAME` y
+   `CLOUDINARY_API_KEY`, sin el secreto. Con el secreto olvidado, la
+   aplicación decía «Almacenaje: cloudinary» y cada subida moría.
+2. `validateEnvironment` solo avisaba de `CLOUDINARY_NAME`, así que una
+   configuración a medias arrancaba sin decir nada y el fallo aparecía
+   media hora después, cuando alguien subía un escudo.
+3. El fallo se respondía como «Error interno del servidor», que no dice
+   qué revisar.
+
+Ahora: las tres variables o ninguna, una configuración a medias **aborta
+el arranque** nombrando la que falta, y un fallo del almacenamiento
+responde **502** con el mensaje real. Detalle completo en
+`DESPLIEGUE.md`.
+
+### Verificación
+641 comprobaciones (`npm run test:all`): 161 del generador, 154 de
+Fase 1, 114 de Fase 2, 123 de Fase 4, 56 de edición, 23 de
+almacenamiento y 10 de CORS.
+
+Dos defectos más que salieron al probar: las jornadas planeadas se
+descartaban en silencio si la temporada no tenía fila de ajustes de
+competencia (`UPDATE` sobre cero filas → ahora `UPSERT`), y la prueba
+del borrado en bloque pasaba en vacío porque ningún cargo tenía pago.
+
+---
+
 ## Movimiento
 
 Solo donde la animación **lleva información**. Nada decorativo, y nada

@@ -439,6 +439,59 @@ compilada con `FRONTEND_URL` **con** barra y comprueba los diez casos,
 incluido el preflight real del login. Verificado que esa prueba falla
 (7 de 10) con el código anterior.
 
+### «Error interno del servidor» al subir una foto o un logo
+
+Las credenciales de Cloudinary están mal o incompletas. El servicio
+arranca sin queja, todo lo demás funciona, y solo las subidas de imagen
+fallan.
+
+Reproducido: con una llave equivocada, Cloudinary responde 403 y eso
+llegaba al usuario como un 500 genérico. En el log de Render se veía
+solo esto, sin más contexto:
+
+```
+[error] {
+  message: 'Server returned unexpected status code - 403',
+  http_code: 403,
+  name: 'UnexpectedResponse'
+}
+```
+
+Tres cosas cambiaron para que no vuelva a costar media hora:
+
+1. **Cloudinary se activa solo con las TRES variables.** Antes bastaban
+   `CLOUDINARY_NAME` y `CLOUDINARY_API_KEY`, así que con el secreto
+   olvidado la aplicación decía «Almacenaje: cloudinary» y cada subida
+   moría.
+2. **Una configuración a medias ABORTA el arranque**, nombrando la
+   variable que falta. Es mejor enterarse en el log del despliegue que
+   por un encargado que no puede subir su logo:
+
+   ```
+   ✗ Cloudinary a medias — están CLOUDINARY_NAME, CLOUDINARY_API_KEY y
+     falta(n) CLOUDINARY_API_SECRET. Con las tres o con ninguna: a
+     medias, la aplicación arranca y cada subida de imagen falla con un
+     403.
+   ```
+3. **El fallo responde 502 con el mensaje real**, no 500 genérico:
+   «El almacenamiento de imágenes (Cloudinary) rechazó la petición.
+   Revisa CLOUDINARY_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET en
+   el servidor.» El problema no está en la petición del usuario, sino en
+   un servicio externo mal configurado.
+
+Qué revisar en Render, en este orden:
+
+- Que estén **las tres** variables y sin espacios al final. El secreto
+  es el que más se corta al copiar.
+- Que el **cloud name** sea el corto que aparece en el panel de
+  Cloudinary (Dashboard → Product Environment Credentials), no el correo
+  ni el nombre de la cuenta.
+- Que la llave y el secreto sean del **mismo** entorno de Cloudinary.
+
+Comprobación rápida sin subir nada: el arranque del servicio en Render
+debe decir `Almacenaje:   cloudinary`. Si dice `local`, falta al menos
+una variable y las imágenes se están guardando en el disco efímero.
+
 ### Render eligió una versión de Node distinta
 
 `engines.node` está en `>=20` para no estorbar a quien desarrolle con

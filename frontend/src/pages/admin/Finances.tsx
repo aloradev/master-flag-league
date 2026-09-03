@@ -38,6 +38,7 @@ export default function AdminFinances() {
   const [cobrando, setCobrando] = useState<Cargo | null>(null);
   const [nuevoGasto, setNuevoGasto] = useState(false);
   const [expandido, setExpandido] = useState<string | null>(null);
+  const [ajustando, setAjustando] = useState(false);
 
   const season = useQuery({
     queryKey: ['season-active'],
@@ -114,11 +115,40 @@ export default function AdminFinances() {
     onError: (e: Error) => { setAviso(null); setError(e.message); },
   });
 
+  const borrarUno = useMutation({
+    mutationFn: (id: string) => finance.deleteFee(id),
+    onSuccess: (r) => {
+      setError(null);
+      setAviso(`Cargo de ${r.team_name} eliminado (${pesos(r.amount_cents)}).`);
+      invalidar();
+    },
+    onError: (e: Error) => { setAviso(null); setError(e.message); },
+  });
+
+  const borrarBloque = useMutation({
+    mutationFn: (concepto: string) => finance.deleteUnpaid(seasonId!, concepto),
+    onSuccess: (r) => {
+      setError(null);
+      setAviso(
+        r.deleted === 0
+          ? 'No había cargos sin pagos que eliminar.'
+          : `${r.deleted} ${r.deleted === 1 ? 'cargo' : 'cargos'} eliminados ` +
+            `(${pesos(r.deleted_cents)}).` +
+            (r.kept_with_payments > 0
+              ? ` Se conservaron ${r.kept_with_payments} con pagos: ${r.kept_teams.join(', ')}.`
+              : '')
+      );
+      invalidar();
+    },
+    onError: (e: Error) => { setAviso(null); setError(e.message); },
+  });
+
   if (season.isLoading) return <Spinner />;
   if (season.error) return <Alert tone="error">No hay temporada activa.</Alert>;
 
   const b = balance.data;
   const reglas = catalogo.data?.rules;
+  const proyeccion = catalogo.data?.projection;
   const sinConfigurar = reglas && reglas.inscription_cents === 0 && reglas.round_fee_cents === 0;
   const cobrables = (jornadas.data ?? []).filter((j) => j.status !== 'DRAFT' && j.status !== 'CANCELLED');
 
@@ -142,10 +172,56 @@ export default function AdminFinances() {
 
       {sinConfigurar && (
         <Alert tone="warning" title="Los montos están en cero">
-          Configura la inscripción y el costo de arbitraje en los ajustes de la temporada
-          antes de generar cargos. El sistema se niega a cobrar una cantidad que nadie
-          decidió.
+          El sistema se niega a cobrar una cantidad que nadie decidió. Configúralos en
+          «Cuánto se cobra», aquí abajo.
         </Alert>
+      )}
+
+      {/* ─────────── CUÁNTO SE COBRA ─────────── */}
+      {reglas && (
+        <Card className="p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold">Cuánto se cobra</h2>
+              <p className="mt-1 text-sm text-base-content/70">
+                <span className="tabular font-semibold">{pesos(reglas.inscription_cents)}</span>{' '}
+                de inscripción, una vez ·{' '}
+                <span className="tabular font-semibold">{pesos(reglas.round_fee_cents)}</span>{' '}
+                de arbitraje por partido jugado
+              </p>
+              {proyeccion && proyeccion.rounds_planned > 0 && (
+                <p className="mt-2 text-sm">
+                  Con {proyeccion.rounds_planned} jornadas planeadas, cada equipo pagará{' '}
+                  <strong className="tabular">{pesos(proyeccion.total_per_team_cents)}</strong>{' '}
+                  en la temporada.
+                  <span className="block text-xs text-base-content/55">
+                    {pesos(proyeccion.inscription_cents)} + {pesos(proyeccion.round_fee_cents)} ×{' '}
+                    {proyeccion.rounds_planned}. Hoy hay {proyeccion.rounds_published}{' '}
+                    {proyeccion.rounds_published === 1 ? 'jornada' : 'jornadas'} publicada
+                    {proyeccion.rounds_published === 1 ? '' : 's'}, así que lo cobrable es{' '}
+                    {pesos(proyeccion.committed_per_team_cents)}.
+                  </span>
+                </p>
+              )}
+              {proyeccion && proyeccion.rounds_planned === 0 && (
+                <p className="mt-2 text-xs text-base-content/55">
+                  Sin jornadas planeadas no se puede proyectar el total de la temporada.
+                  Indícalas al editar los montos.
+                </p>
+              )}
+            </div>
+            {puedeEscribir && (
+              <Button size="sm" onClick={() => { setAjustando(true); setError(null); setAviso(null); }}>
+                Editar montos
+              </Button>
+            )}
+          </div>
+          <p className="mt-3 border-t border-base-300/60 pt-2 text-xs text-base-content/50">
+            El arbitraje se cobra por partido JUGADO, no por jornada: los equipos que
+            descansan no pagan. Por eso el total depende de cuántas jornadas tenga el
+            torneo, y no es un monto fijo.
+          </p>
+        </Card>
       )}
 
       {/* ─────────── BALANCE ─────────── */}
@@ -210,6 +286,40 @@ export default function AdminFinances() {
             </Button>
           </div>
 
+          {(b?.expected_cents ?? 0) > 0 && (
+            <div className="rounded-field border border-base-300/60 px-3 py-2">
+              <p className="text-xs text-base-content/70">
+                ¿Generaste con el monto equivocado? Se pueden eliminar los cargos que
+                todavía no tienen ningún pago. Los pagados se conservan.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(['INSCRIPTION', 'ROUND'] as const).map((concepto) => (
+                  <Button
+                    key={concepto}
+                    size="xs"
+                    tone="error"
+                    outline
+                    loading={borrarBloque.isPending && borrarBloque.variables === concepto}
+                    onClick={() => {
+                      const etiqueta =
+                        concepto === 'INSCRIPTION' ? 'inscripción' : 'arbitraje';
+                      if (
+                        window.confirm(
+                          `Eliminar todos los cargos de ${etiqueta} que no tengan pagos. ` +
+                            `Los que ya recibieron dinero se conservan. ¿Continuar?`
+                        )
+                      ) {
+                        borrarBloque.mutate(concepto);
+                      }
+                    }}
+                  >
+                    Eliminar {concepto === 'INSCRIPTION' ? 'inscripciones' : 'arbitrajes'} sin pagos
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {cobrables.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs text-base-content/60">
@@ -272,7 +382,20 @@ export default function AdminFinances() {
           cargos={cargos.data ?? []}
           cargando={cargos.isLoading}
           puedeEscribir={puedeEscribir}
+          borrando={borrarUno.isPending ? (borrarUno.variables as string) : null}
           onCobrar={(c) => { setCobrando(c); setError(null); setAviso(null); }}
+          onEliminar={(c) => {
+            if (
+              window.confirm(
+                `Eliminar «${c.description || c.concept_label}» de ${c.team_name} ` +
+                  `(${pesos(c.amount_cents)}).\n\nDesaparece de la lista como si nunca ` +
+                  `hubiera existido. Si el equipo ya lo vio y quieres dejar el registro, ` +
+                  `usa Cancelar en su lugar.`
+              )
+            ) {
+              borrarUno.mutate(c.id);
+            }
+          }}
           onCancelar={async (c) => {
             const motivo = window.prompt(`Cancelar «${c.concept_label}» de ${c.team_name}. Motivo:`);
             if (!motivo) return;
@@ -316,6 +439,22 @@ export default function AdminFinances() {
           onListo={(mensaje) => {
             setCobrando(null);
             setAviso(mensaje);
+            invalidar();
+          }}
+          onError={setError}
+        />
+      )}
+
+      {ajustando && seasonId && reglas && (
+        <HojaMontos
+          seasonId={seasonId}
+          reglas={reglas}
+          proyeccion={proyeccion ?? null}
+          onCerrar={() => setAjustando(false)}
+          onListo={(mensaje) => {
+            setAjustando(false);
+            setAviso(mensaje);
+            void qc.invalidateQueries({ queryKey: ['fin-catalog'] });
             invalidar();
           }}
           onError={setError}
@@ -531,14 +670,18 @@ const ListaCargos = ({
   cargos,
   cargando,
   puedeEscribir,
+  borrando,
   onCobrar,
   onCancelar,
+  onEliminar,
 }: {
   cargos: Cargo[];
   cargando: boolean;
   puedeEscribir: boolean;
+  borrando: string | null;
   onCobrar: (c: Cargo) => void;
   onCancelar: (c: Cargo) => void;
+  onEliminar: (c: Cargo) => void;
 }) => {
   if (cargando) return <Spinner />;
   if (cargos.length === 0) {
@@ -595,9 +738,25 @@ const ListaCargos = ({
                         Cobrar
                       </Button>
                     )}
+                    {/* Dos acciones distintas a propósito:
+                        · CANCELAR deja el registro visible como cancelado,
+                          para el cargo que el equipo ya vio.
+                        · ELIMINAR lo borra, para el que nunca debió existir.
+                        Las dos exigen que no haya ningún pago aplicado. */}
                     {f.status !== 'CANCELLED' && f.paid_cents === 0 && (
                       <Button size="xs" tone="ghost" onClick={() => onCancelar(f)}>
                         Cancelar
+                      </Button>
+                    )}
+                    {f.paid_cents === 0 && (
+                      <Button
+                        size="xs"
+                        tone="error"
+                        outline
+                        loading={borrando === f.id}
+                        onClick={() => onEliminar(f)}
+                      >
+                        Eliminar
                       </Button>
                     )}
                   </td>
@@ -864,6 +1023,152 @@ const HojaCobro = ({
       <Button tone="primary" block loading={ocupado} onClick={enviar}>
         Registrar pago
       </Button>
+    </HojaInferior>
+  );
+};
+
+// ─────────────────────── HOJA: CUÁNTO SE COBRA ────────────────────────────
+
+/**
+ * Los montos, editables desde la aplicación.
+ *
+ * Vivían solo en `settings` y se cambiaban mandando JSON al endpoint
+ * genérico de ajustes. Es decir: el sistema se negaba a cobrar montos
+ * sin configurar y no había forma de configurarlos sin abrir Postman.
+ *
+ * Se piden en PESOS, porque es como los piensa quien cobra, y la
+ * conversión a centavos ocurre en la API. La proyección se muestra
+ * mientras se teclea: es la cifra que un encargado pregunta al
+ * inscribirse y la que hace evidente si un monto quedó mal.
+ */
+const HojaMontos = ({
+  seasonId,
+  reglas,
+  proyeccion,
+  onCerrar,
+  onListo,
+  onError,
+}: {
+  seasonId: string;
+  reglas: import('../../lib/finance').ReglasFinanzas;
+  proyeccion: import('../../lib/finance').Proyeccion | null;
+  onCerrar: () => void;
+  onListo: (m: string) => void;
+  onError: (m: string) => void;
+}) => {
+  const enPesos = (c: number) => (c / 100).toFixed(2);
+  const [inscripcion, setInscripcion] = useState(enPesos(reglas.inscription_cents));
+  const [arbitraje, setArbitraje] = useState(enPesos(reglas.round_fee_cents));
+  const [pagoArbitro, setPagoArbitro] = useState(enPesos(reglas.referee_fee_cents));
+  const [jornadas, setJornadas] = useState(String(proyeccion?.rounds_planned ?? ''));
+  const [guardando, setGuardando] = useState(false);
+
+  const nInscripcion = Number(inscripcion) || 0;
+  const nArbitraje = Number(arbitraje) || 0;
+  const nJornadas = Number(jornadas) || 0;
+  const totalProyectado = Math.round((nInscripcion + nArbitraje * nJornadas) * 100);
+
+  const enviar = async () => {
+    setGuardando(true);
+    try {
+      const r = await finance.updateSettings({
+        seasonId,
+        inscription: inscripcion,
+        roundFee: arbitraje,
+        refereeFee: pagoArbitro,
+        roundsPlanned: jornadas,
+      });
+      onListo(
+        `Montos guardados: ${pesos(r.rules.inscription_cents)} de inscripción y ` +
+          `${pesos(r.rules.round_fee_cents)} por partido.` +
+          (r.projection.rounds_planned > 0
+            ? ` Total por equipo en la temporada: ${pesos(r.projection.total_per_team_cents)}.`
+            : '')
+      );
+    } catch (e) {
+      onError((e as Error).message);
+      onCerrar();
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <HojaInferior titulo="Cuánto se cobra" onCerrar={onCerrar}>
+      <label className="block">
+        <span className="mb-1 block text-xs font-semibold text-base-content/70">
+          Inscripción <span className="font-normal opacity-60">(una vez por equipo)</span>
+        </span>
+        <input
+          type="number" step="0.01" min="0" inputMode="decimal"
+          className="input input-bordered w-full text-lg font-semibold"
+          value={inscripcion}
+          onChange={(e) => setInscripcion(e.target.value)}
+        />
+      </label>
+
+      <label className="block">
+        <span className="mb-1 block text-xs font-semibold text-base-content/70">
+          Arbitraje <span className="font-normal opacity-60">(por partido jugado)</span>
+        </span>
+        <input
+          type="number" step="0.01" min="0" inputMode="decimal"
+          className="input input-bordered w-full text-lg font-semibold"
+          value={arbitraje}
+          onChange={(e) => setArbitraje(e.target.value)}
+        />
+        <span className="mt-1 block text-[11px] text-base-content/50">
+          Solo se cobra a los equipos que juegan esa noche. Los que descansan no pagan.
+        </span>
+      </label>
+
+      <label className="block">
+        <span className="mb-1 block text-xs font-semibold text-base-content/70">
+          Jornadas planeadas del torneo
+        </span>
+        <input
+          type="number" step="1" min="0" max="60" inputMode="numeric"
+          className="input input-bordered w-full"
+          value={jornadas}
+          onChange={(e) => setJornadas(e.target.value)}
+        />
+        <span className="mt-1 block text-[11px] text-base-content/50">
+          No genera cargos: sirve para proyectar el total y poder decirle a un equipo
+          cuánto va a pagar en la temporada.
+        </span>
+      </label>
+
+      {/* La proyección se recalcula mientras se teclea: es lo que hace
+          evidente un monto mal capturado antes de guardarlo. */}
+      <Card className="px-4 py-3 text-center">
+        <p className="text-xs text-base-content/60">Cada equipo pagará en la temporada</p>
+        <p className="tabular mt-1 text-2xl font-black">{pesos(totalProyectado)}</p>
+        <p className="mt-1 text-[11px] text-base-content/55">
+          {pesos(Math.round(nInscripcion * 100))} + {pesos(Math.round(nArbitraje * 100))} ×{' '}
+          {nJornadas} {nJornadas === 1 ? 'jornada' : 'jornadas'}
+        </p>
+      </Card>
+
+      <label className="block">
+        <span className="mb-1 block text-xs font-semibold text-base-content/70">
+          Pago a cada árbitro por partido{' '}
+          <span className="font-normal opacity-60">(es un gasto, no un cobro)</span>
+        </span>
+        <input
+          type="number" step="0.01" min="0" inputMode="decimal"
+          className="input input-bordered w-full"
+          value={pagoArbitro}
+          onChange={(e) => setPagoArbitro(e.target.value)}
+        />
+      </label>
+
+      <Button tone="primary" block loading={guardando} onClick={enviar}>
+        Guardar montos
+      </Button>
+      <p className="text-xs text-base-content/50">
+        Cambiar los montos NO modifica los cargos ya generados. Si te equivocaste,
+        elimina los que no tienen pagos y vuelve a generarlos.
+      </p>
     </HojaInferior>
   );
 };

@@ -22,7 +22,7 @@ export type CategoriaGasto =
 
 export const CONCEPTOS: Record<ConceptoCargo, string> = {
   INSCRIPTION: 'Inscripción',
-  ROUND: 'Arbitraje de jornada',
+  ROUND: 'Arbitraje por partido',
   FINE: 'Multa',
   OTHER: 'Otro',
 };
@@ -49,6 +49,58 @@ export interface ReglasFinanzas {
   round_fee_cents: number;
   referee_fee_cents: number;
 }
+
+export interface ProyeccionTemporada {
+  inscription_cents: number;
+  round_fee_cents: number;
+  /** Jornadas que la liga planea jugar. Sale de los ajustes de competencia. */
+  rounds_planned: number;
+  /** Jornadas ya publicadas: lo que de verdad se puede cobrar hoy. */
+  rounds_published: number;
+  /** inscripción + arbitraje × jornadas planeadas. */
+  total_per_team_cents: number;
+  /** Lo mismo con las jornadas ya publicadas. */
+  committed_per_team_cents: number;
+}
+
+/**
+ * Cuánto va a pagar un equipo en toda la temporada.
+ *
+ * El total NO es un monto fijo: es inscripción + arbitraje × partidos
+ * jugados, así que depende del formato del torneo. Es la primera
+ * pregunta de un encargado al inscribirse —"¿cuánto voy a pagar en
+ * total?"— y hasta ahora había que sacarla con calculadora.
+ *
+ * Se distinguen dos cifras a propósito: lo PLANEADO (con las jornadas
+ * que la liga piensa jugar) y lo COMPROMETIDO (con las ya publicadas).
+ * La primera sirve para informar al equipo; la segunda es la única que
+ * el sistema puede cobrar hoy.
+ */
+export const proyeccionDeTemporada = async (
+  seasonId: string
+): Promise<ProyeccionTemporada> => {
+  const [reglas, comp, publicadas] = await Promise.all([
+    cargarReglasFinanzas(seasonId),
+    query(`SELECT value FROM settings WHERE season_id = $1 AND key = 'competition'`, [seasonId]),
+    query(
+      `SELECT COUNT(*)::int AS n FROM rounds
+       WHERE season_id = $1 AND status NOT IN ('DRAFT', 'CANCELLED')`,
+      [seasonId]
+    ),
+  ]);
+
+  const planeadas = Number(comp.rows[0]?.value?.rounds_planned ?? 0);
+  const yaPublicadas = publicadas.rows[0].n;
+
+  return {
+    inscription_cents: reglas.inscription_cents,
+    round_fee_cents: reglas.round_fee_cents,
+    rounds_planned: planeadas,
+    rounds_published: yaPublicadas,
+    total_per_team_cents: reglas.inscription_cents + reglas.round_fee_cents * planeadas,
+    committed_per_team_cents: reglas.inscription_cents + reglas.round_fee_cents * yaPublicadas,
+  };
+};
 
 const POR_OMISION: ReglasFinanzas = {
   currency: 'MXN',

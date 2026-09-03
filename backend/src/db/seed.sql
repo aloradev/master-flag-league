@@ -98,7 +98,8 @@ INSERT INTO settings (id, league_id, season_id, key, value) VALUES
   "points_loss": 0,
   "walkover_score": [20, 0],
   "periods": 2,
-  "tiebreakers": ["points", "wins", "point_diff", "points_for", "head_to_head"]
+  "tiebreakers": ["points", "wins", "point_diff", "points_for", "head_to_head"],
+  "rounds_planned": 10
 }'),
 -- Montos en CENTAVOS enteros. Las fechas de vencimiento NO se configuran
 -- aquí: la de la inscripción es el cierre de registro de la temporada y
@@ -107,7 +108,7 @@ INSERT INTO settings (id, league_id, season_id, key, value) VALUES
 -- contradecirse.
 ('set_fin_2026', 'league_cancun', 'season_2026', 'finance', '{
   "currency": "MXN",
-  "inscription_cents": 250000,
+  "inscription_cents": 100000,
   "round_fee_cents": 50000,
   "referee_fee_cents": 25000
 }')
