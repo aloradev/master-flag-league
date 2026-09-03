@@ -75,18 +75,40 @@ Cuando termine el despliegue, copia la URL del servicio
 
 ## 4. Migraciones
 
-Crea las tablas y siembra la liga. Desde tu máquina, con
-`backend/.env` apuntando a Neon:
+Crea las tablas y siembra la liga. Se corre desde tu máquina, **una sola
+vez**, y es idempotente: repetirlo no rompe nada.
 
-```bash
+Primero crea `backend/.env` con la cadena de Neon. Este camino funciona
+igual en PowerShell, CMD y bash, y evita pelear con comillas:
+
+```
+DATABASE_URL=postgresql://usuario:clave@ep-algo-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
+JWT_SECRET=desarrollo-local-cambiar-en-produccion-1234
+FRONTEND_URL=http://localhost:5173
+PORT=5000
+NODE_ENV=development
+```
+
+El archivo está en `.gitignore`, así que no se sube al repositorio.
+
+Luego, **desde la carpeta `backend`** —no desde la raíz, que no tiene
+`package.json`—:
+
+```
 cd backend
 npm install
-DATABASE_URL="tu-cadena-de-neon" npm run migrate -- \
-  --admin=tu@correo.com --password=TuClaveSegura1 --name="Tu Nombre"
+npm run migrate -- --admin=tu@correo.com --password=TuClaveSegura1 --name="Tu Nombre"
 ```
 
 Eso crea el esquema, la liga de Cancún, la temporada 2026 con Varonil,
 Femenil y Mixto, los dos campos, y tu usuario Super Administrador.
+
+> **Nota para Windows.** No uses `DATABASE_URL="..." npm run migrate`:
+> poner una variable delante del comando es sintaxis de bash y PowerShell
+> no la tiene. Si prefieres no usar `.env`, en PowerShell sería
+> `$env:DATABASE_URL = "..."` en una línea aparte. Y ojo con el `&` de
+> `&channel_binding=require`: en PowerShell es un operador reservado y
+> parte el comando. Ese parámetro no hace falta — el código ya fuerza SSL.
 
 Se corre **una sola vez**; es idempotente, así que repetirlo no rompe
 nada.
@@ -213,4 +235,99 @@ Pruebas de integración, con la API corriendo:
 
 ```bash
 cd backend && npm test      # 153 verificaciones
+```
+
+---
+
+## Problemas que ya se encontraron y su causa
+
+Los tres primeros intentos de despliegue fallaron. Quedan documentados
+porque son fáciles de repetir.
+
+### El build de Render falla con `TS5108: moduleResolution=node10 removido`
+
+Dos causas a la vez.
+
+`render.yaml` define `NODE_ENV=production`, y con esa variable presente
+`npm ci` **omite las devDependencies** — donde vive TypeScript. Nunca se
+instalaba, así que `tsc` resolvía a la versión de la imagen de Render, más
+nueva que la del lock, que ya no acepta esa opción. Por eso el build usa
+`npm ci --include=dev`.
+
+Y el `tsconfig` pedía `"moduleResolution": "node"` en un paquete
+`"type": "module"`. Ahora usa `NodeNext`, que es la semántica real del
+runtime.
+
+### El build de Vercel falla con `Cannot find module './pages/admin/...'`
+
+git tenía las rutas con mayúscula (`pages/Admin/`) y el disco en
+minúscula. Windows y macOS no distinguen mayúsculas, así que localmente
+todo resolvía; Vercel compila en Linux, donde son carpetas distintas.
+
+En Windows git viene con `core.ignorecase` activado y un renombrado que
+solo cambia mayúsculas le pasa desapercibido. Para auditarlo hay que
+comparar `git ls-files` contra el disco, no mirar el disco: son cosas
+distintas.
+
+Si vuelve a pasar, se arregla sacando la ruta del índice y volviendo a
+agregarla:
+
+```
+git rm -r --cached frontend/src/pages/Admin
+git add frontend/src/pages/admin
+```
+
+### `npm install` dice que no encuentra `package.json`
+
+Estás en la raíz del repositorio. Hay dos aplicaciones independientes,
+`backend` y `frontend`, cada una con su propio `package.json`; en la raíz
+no hay ninguno.
+
+### Render eligió una versión de Node distinta
+
+`engines.node` está en `>=20` para no estorbar a quien desarrolle con
+Node 20, y la versión de producción se fija aparte en `.node-version`
+(22.11.0), que es lo que lee Render. Sin ese archivo, Render toma la más
+nueva que exista: en el primer intento eligió Node 26.8.1.
+
+### La API arranca pero todo devuelve 500
+
+Falta una variable de entorno. Ya no debería ocurrir: en producción la
+API valida su configuración al arrancar y **se niega a iniciar** listando
+lo que falta y por qué importa. Ese mensaje sale en el log de despliegue
+de Render:
+
+```
+❌ No se puede arrancar: faltan variables de entorno
+
+  ✗ DATABASE_URL — falta. Cadena de conexión de Neon (usa la variante con -pooler).
+  ✗ JWT_SECRET — falta. Secreto para firmar sesiones. Render lo genera solo.
+  ✗ FRONTEND_URL — falta. Sin ella CORS bloquea todas las llamadas.
+```
+
+Cloudinary y Resend solo advierten, porque degradan la plataforma sin
+romperla.
+
+---
+
+## Cómo se verifica un cambio antes de desplegar
+
+La lección de los tres fallos: revisar el código en la máquina de
+desarrollo no basta. Windows no distingue mayúsculas, `tsx` no es `tsc`,
+y `npm install` no es `npm ci` con `NODE_ENV=production`.
+
+La comprobación que sí sirve reproduce el entorno de despliegue:
+
+```
+# Exportar el árbol TAL COMO GIT LO TIENE, no como está el disco
+git archive --format=tar HEAD > arbol.tar
+
+# Extraerlo y compilarlo en un sistema sensible a mayúsculas (Linux)
+mkdir verificacion && tar -xf arbol.tar -C verificacion
+
+cd verificacion/frontend && npm install && npm run build
+cd ../backend && NODE_ENV=production npm install --include=dev && npm run build
+
+# Y correr el JavaScript compilado, no el TypeScript con tsx
+npm start
 ```
