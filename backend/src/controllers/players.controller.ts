@@ -27,8 +27,80 @@ const PLAYER_COLUMNS = `
   p.created_at, p.updated_at
 `;
 
-/** Estados en los que el manager todavía puede editar (req. 4). */
+/** Estados en los que el registro todavía no está resuelto (req. 4). */
 const MANAGER_EDITABLE_STATUSES = ['PENDING', 'CORRECTIONS_REQUIRED'];
+
+/**
+ * QUIÉN PUEDE CAMBIAR QUÉ
+ *
+ * La primera versión bloqueaba la edición COMPLETA de un jugador ya
+ * revisado, y eso trataba igual dos cosas distintas. Cambiarle el
+ * teléfono a un jugador aprobado no afecta a nada de lo que se
+ * certificó; cambiarle la fecha de nacimiento sí.
+ *
+ * CERTIFICADOS son los datos que la identificación respalda. La
+ * aprobación dice "vi un documento que decía esto", así que si cambian
+ * después de aprobar, la aprobación deja de significar algo. Solo
+ * administración los toca una vez revisado el registro.
+ *
+ * El número de camiseta va en el mismo grupo por otra razón: no está en
+ * la identificación, pero sí en el roster oficial que se imprime y que
+ * los árbitros tienen en la mano. Un cambio silencioso ahí deja al
+ * árbitro con una lista que no coincide con la cancha.
+ */
+const CAMPOS_CERTIFICADOS = [
+  'firstName',
+  'lastNamePaternal',
+  'lastNameMaternal',
+  'dateOfBirth',
+  'jerseyNumber',
+] as const;
+
+/** Datos de contacto y deportivos: el encargado los mantiene siempre. */
+const CAMPOS_LIBRES = ['position', 'phone', 'email'] as const;
+
+const ETIQUETA_CAMPO: Record<string, string> = {
+  firstName: 'nombre',
+  lastNamePaternal: 'apellido paterno',
+  lastNameMaternal: 'apellido materno',
+  dateOfBirth: 'fecha de nacimiento',
+  jerseyNumber: 'número de camiseta',
+  position: 'posición',
+  phone: 'teléfono',
+  email: 'correo',
+};
+
+/** Columna de la base que corresponde a cada campo de la petición. */
+const COLUMNA: Record<string, string> = {
+  firstName: 'first_name',
+  lastNamePaternal: 'last_name_paternal',
+  lastNameMaternal: 'last_name_maternal',
+  dateOfBirth: 'date_of_birth',
+  jerseyNumber: 'jersey_number',
+  position: 'position',
+  phone: 'phone',
+  email: 'email',
+};
+
+/**
+ * Compara lo que llega con lo que hay, para saber qué cambia DE VERDAD.
+ *
+ * Importa porque el formulario manda todos los campos en cada guardado.
+ * Si se rechazara por "traer" un campo restringido en lugar de por
+ * cambiarlo, el encargado no podría corregir un teléfono sin que la
+ * petición completa fuera rechazada.
+ */
+const cambiaDeVerdad = (campo: string, valor: unknown, fila: Record<string, unknown>): boolean => {
+  if (valor === undefined || valor === null) return false;
+  const actual = fila[COLUMNA[campo]];
+  if (campo === 'dateOfBirth') {
+    const antes = actual ? new Date(actual as string).toISOString().slice(0, 10) : null;
+    const ahora = String(valor).slice(0, 10);
+    return antes !== ahora;
+  }
+  if (campo === 'jerseyNumber') return Number(valor) !== Number(actual ?? NaN);
+  return String(valor) !== String(actual ?? '');
+};
 
 const isAdmin = (req: AuthRequest) => ADMIN_ROLES.includes(req.user!.role as any);
 
@@ -165,6 +237,16 @@ export const getPlayer = asyncHandler(async (req: AuthRequest, res: Response) =>
       eligibility,
       approval_history: history.rows,
       can_edit: isAdmin(req) || MANAGER_EDITABLE_STATUSES.includes(player.status),
+      /**
+       * Qué campos puede tocar QUIEN CONSULTA. Se manda desde aquí y no
+       * se deduce en la pantalla para que la regla viva en un solo
+       * lugar: si mañana cambia, no hay que acordarse de cambiarla en
+       * dos sitios y que uno se quede atrás.
+       */
+      editable_fields:
+        isAdmin(req) || MANAGER_EDITABLE_STATUSES.includes(player.status)
+          ? [...CAMPOS_CERTIFICADOS, ...CAMPOS_LIBRES]
+          : [...CAMPOS_LIBRES],
     },
   });
 });
@@ -288,14 +370,7 @@ export const updatePlayer = asyncHandler(async (req: AuthRequest, res: Response)
     throw new AppError('No tienes acceso a este jugador', 403);
   }
 
-  // Req. 4: el manager edita solo mientras el registro no esté resuelto.
-  if (!isAdmin(req) && !MANAGER_EDITABLE_STATUSES.includes(before.status)) {
-    throw new AppError(
-      'Este jugador ya fue revisado. Solicita el cambio a administración.',
-      403
-    );
-  }
-
+  const body = (req.body ?? {}) as Record<string, unknown>;
   const {
     firstName,
     lastNamePaternal,
@@ -305,7 +380,34 @@ export const updatePlayer = asyncHandler(async (req: AuthRequest, res: Response)
     position,
     phone,
     email,
-  } = req.body ?? {};
+  } = body;
+
+  /**
+   * Req. 4: el encargado mantiene contacto y posición siempre, pero los
+   * datos certificados solo mientras el registro no esté resuelto.
+   *
+   * Se comprueba qué CAMBIA, no qué llega: el formulario manda todos los
+   * campos en cada guardado, así que rechazar por traerlos impediría
+   * corregir un teléfono.
+   */
+  const restringidosQueCambian = CAMPOS_CERTIFICADOS.filter((c) =>
+    cambiaDeVerdad(c, body[c], before)
+  );
+
+  if (
+    !isAdmin(req) &&
+    restringidosQueCambian.length > 0 &&
+    !MANAGER_EDITABLE_STATUSES.includes(before.status)
+  ) {
+    const lista = restringidosQueCambian.map((c) => ETIQUETA_CAMPO[c]).join(', ');
+    throw new AppError(
+      `Este jugador ya fue revisado, así que ${lista} solo ${
+        restringidosQueCambian.length === 1 ? 'lo cambia' : 'los cambia'
+      } administración. ` +
+        `Teléfono, correo y posición sí los puedes actualizar tú.`,
+      403
+    );
+  }
 
   if (jerseyNumber != null && jerseyNumber !== before.jersey_number) {
     const taken = await query(
@@ -342,15 +444,62 @@ export const updatePlayer = asyncHandler(async (req: AuthRequest, res: Response)
     ]
   );
 
+  /**
+   * Cambiar la fecha de nacimiento de un jugador APROBADO lo devuelve a
+   * revisión.
+   *
+   * Es el único campo que hace esto, y es deliberado. La aprobación
+   * significa "vi una identificación que decía esta fecha"; si la fecha
+   * cambia después, la aprobación ya no respalda lo que está en el
+   * expediente. Y en una liga con categorías esa fecha es la que decide
+   * en cuál puede jugar: dejarla editable sin volver a revisar sería
+   * dejar abierta la puerta a aprobar con una fecha y jugar con otra.
+   *
+   * Los nombres NO devuelven a revisión: corregir un acento o un
+   * apellido mal escrito es lo más común que va a pasar, y sacar a un
+   * jugador de la cancha por eso sería peor que el problema. Queda en la
+   * auditoría con el antes y el después.
+   */
+  const nacimientoCambio = cambiaDeVerdad('dateOfBirth', dateOfBirth, before);
+  const vuelveARevision = nacimientoCambio && before.status === 'APPROVED';
+
+  if (vuelveARevision) {
+    await query(
+      `UPDATE players SET status = 'PENDING', reviewed_by_user_id = NULL,
+              reviewed_at = NULL, updated_at = NOW()
+       WHERE id = $1`,
+      [id]
+    );
+  }
+
+  // La elegibilidad se recalcula siempre: si el estado cambió, tiene que
+  // reflejarlo, y si no cambió, recalcular no cuesta nada y evita que se
+  // desincronice por un camino que nadie previó.
+  const eligibility = await refreshEligibility(id);
+
   await audit(req, {
-    action: 'UPDATE_PLAYER',
+    action: vuelveARevision ? 'UPDATE_PLAYER_BACK_TO_REVIEW' : 'UPDATE_PLAYER',
     entityType: 'player',
     entityId: id,
     oldValue: before,
-    newValue: req.body,
+    newValue: { ...body, status: vuelveARevision ? 'PENDING' : before.status },
   });
 
-  res.json({ success: true, message: 'Jugador actualizado' });
+  const after = await query(`SELECT ${PLAYER_COLUMNS} FROM players p WHERE p.id = $1`, [id]);
+
+  res.json({
+    success: true,
+    message: vuelveARevision
+      ? 'Jugador actualizado. Al cambiar la fecha de nacimiento volvió a revisión: la aprobación anterior ya no respalda el expediente.'
+      : 'Jugador actualizado',
+    data: {
+      ...after.rows[0],
+      full_name: fullName(after.rows[0]),
+      eligibility,
+      back_to_review: vuelveARevision,
+      can_edit: isAdmin(req) || MANAGER_EDITABLE_STATUSES.includes(after.rows[0].status),
+    },
+  });
 });
 
 /**

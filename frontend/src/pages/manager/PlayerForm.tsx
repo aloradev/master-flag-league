@@ -1,86 +1,193 @@
-import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
-import type { TeamSummary } from '../../lib/types';
+import type { PlayerDetail, TeamSummary } from '../../lib/types';
 import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
+import { IconWarning } from '../../components/icons';
 
 /** Posiciones habituales en flag football. */
 const POSITIONS = ['QB', 'WR', 'RB', 'C', 'TE', 'DB', 'LB', 'RUSH', 'SAFETY'];
 
+const VACIO = {
+  firstName: '',
+  lastNamePaternal: '',
+  lastNameMaternal: '',
+  dateOfBirth: '',
+  jerseyNumber: '',
+  position: '',
+  phone: '',
+  email: '',
+};
+
+/**
+ * ALTA Y EDICIÓN DE JUGADOR
+ *
+ * Un solo formulario para las dos cosas. Existía únicamente el alta: el
+ * endpoint de edición estaba en la API desde la Fase 1 y ninguna
+ * pantalla lo llamaba nunca, así que en la práctica un jugador
+ * registrado no se podía corregir ni siendo Super Admin.
+ *
+ * Los campos que quien consulta no puede tocar llegan deshabilitados y
+ * con el motivo escrito, en lugar de aceptar el cambio y rechazarlo al
+ * guardar. Que la regla se vea antes de teclear es la diferencia entre
+ * una restricción y una sorpresa.
+ */
 export default function PlayerForm() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { id } = useParams();
+  const editando = Boolean(id);
 
   const teams = useQuery({
     queryKey: ['teams'],
     queryFn: () => api.get<TeamSummary[]>('/teams'),
+    enabled: !editando,
   });
 
-  const [form, setForm] = useState({
-    firstName: '',
-    lastNamePaternal: '',
-    lastNameMaternal: '',
-    dateOfBirth: '',
-    jerseyNumber: '',
-    position: '',
-    phone: '',
-    email: '',
+  const jugador = useQuery({
+    queryKey: ['player', id],
+    queryFn: () => api.get<PlayerDetail>(`/players/${id}`),
+    enabled: editando,
   });
+
+  const [form, setForm] = useState(VACIO);
   const [teamId, setTeamId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const selectedTeam = teamId || teams.data?.[0]?.id || '';
+  // Precarga al abrir en modo edición.
+  useEffect(() => {
+    const p = jugador.data;
+    if (!p) return;
+    setForm({
+      firstName: p.first_name ?? '',
+      lastNamePaternal: p.last_name_paternal ?? '',
+      lastNameMaternal: p.last_name_maternal ?? '',
+      dateOfBirth: (p.date_of_birth ?? '').slice(0, 10),
+      jerseyNumber: p.jersey_number != null ? String(p.jersey_number) : '',
+      position: p.position ?? '',
+      phone: p.phone ?? '',
+      email: p.email ?? '',
+    });
+  }, [jugador.data]);
 
+  const selectedTeam = teamId || teams.data?.[0]?.id || '';
   const update = (key: keyof typeof form) => (value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const permitidos = jugador.data?.editable_fields;
+  /** En alta todo es editable; en edición manda la API. */
+  const puede = (campo: keyof typeof form) => !editando || !permitidos || permitidos.includes(campo);
+
+  const bloqueados = editando && permitidos
+    ? (Object.keys(VACIO) as (keyof typeof form)[]).filter((c) => !permitidos.includes(c))
+    : [];
+
+  /**
+   * Aviso antes de guardar, no después: cambiar la fecha de nacimiento de
+   * un jugador aprobado lo devuelve a revisión, y eso se tiene que saber
+   * antes de tocar el botón.
+   */
+  const nacimientoCambia =
+    editando &&
+    jugador.data?.status === 'APPROVED' &&
+    form.dateOfBirth &&
+    form.dateOfBirth !== (jugador.data?.date_of_birth ?? '').slice(0, 10);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
     setError(null);
 
-    try {
-      const created = await api.post<{ id: string }>('/players', {
-        teamId: selectedTeam,
-        firstName: form.firstName.trim(),
-        lastNamePaternal: form.lastNamePaternal.trim(),
-        lastNameMaternal: form.lastNameMaternal.trim() || undefined,
-        dateOfBirth: form.dateOfBirth,
-        jerseyNumber: form.jerseyNumber ? Number(form.jerseyNumber) : undefined,
-        position: form.position || undefined,
-        phone: form.phone.trim() || undefined,
-        email: form.email.trim() || undefined,
-      });
+    const cuerpo = {
+      firstName: form.firstName.trim(),
+      lastNamePaternal: form.lastNamePaternal.trim(),
+      lastNameMaternal: form.lastNameMaternal.trim() || undefined,
+      dateOfBirth: form.dateOfBirth,
+      jerseyNumber: form.jerseyNumber ? Number(form.jerseyNumber) : undefined,
+      position: form.position || undefined,
+      phone: form.phone.trim() || undefined,
+      email: form.email.trim() || undefined,
+    };
 
-      // El jugador ya existe; el siguiente paso es su documentación.
-      navigate(`/equipo/jugadores/${created.id}?nuevo=1`, { replace: true });
+    try {
+      if (editando) {
+        const r = await api.put<{ back_to_review?: boolean }>(`/players/${id}`, cuerpo);
+        void qc.invalidateQueries({ queryKey: ['player', id] });
+        void qc.invalidateQueries({ queryKey: ['team'] });
+        void qc.invalidateQueries({ queryKey: ['teams'] });
+        navigate(`/equipo/jugadores/${id}${r?.back_to_review ? '?revision=1' : '?guardado=1'}`, {
+          replace: true,
+        });
+      } else {
+        const created = await api.post<{ id: string }>('/players', {
+          teamId: selectedTeam,
+          ...cuerpo,
+        });
+        // El jugador ya existe; el siguiente paso es su documentación.
+        navigate(`/equipo/jugadores/${created.id}?nuevo=1`, { replace: true });
+      }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo registrar al jugador');
+      setError(err instanceof ApiError ? err.message : 'No se pudo guardar');
       setSaving(false);
     }
   };
 
-  if (teams.isLoading) return <Spinner />;
+  if (editando ? jugador.isLoading : teams.isLoading) return <Spinner />;
+  if (editando && jugador.error) {
+    return <Alert tone="error">{(jugador.error as Error).message}</Alert>;
+  }
 
   const complete =
-    form.firstName.trim() && form.lastNamePaternal.trim() && form.dateOfBirth && selectedTeam;
+    form.firstName.trim() &&
+    form.lastNamePaternal.trim() &&
+    form.dateOfBirth &&
+    (editando || selectedTeam);
+
+  const volverA = editando ? `/equipo/jugadores/${id}` : '/equipo';
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <div>
-        <Link to="/equipo" className="text-sm text-base-content/60 hover:text-base-content">
-          ← Mi equipo
+        <Link to={volverA} className="text-sm text-base-content/60 hover:text-base-content">
+          ← {editando ? jugador.data?.full_name ?? 'Jugador' : 'Mi equipo'}
         </Link>
-        <h1 className="mt-1 text-xl font-bold">Agregar jugador</h1>
+        <h1 className="mt-1 text-xl font-bold">
+          {editando ? 'Editar jugador' : 'Agregar jugador'}
+        </h1>
         <p className="text-sm text-base-content/60">
-          Paso 1 de 2 · Después subirás su fotografía e identificación.
+          {editando
+            ? `${jugador.data?.team_name} · ${jugador.data?.category_name}`
+            : 'Paso 1 de 2 · Después subirás su fotografía e identificación.'}
         </p>
       </div>
 
+      {bloqueados.length > 0 && (
+        <Alert tone="info" title="Algunos datos solo los cambia administración">
+          Este jugador ya fue revisado, así que su nombre, apellidos, fecha de nacimiento y
+          número quedaron fijos: son los datos que respalda la identificación aprobada y el
+          roster que firman los árbitros. El teléfono, el correo y la posición sí los puedes
+          actualizar.
+        </Alert>
+      )}
+
+      {nacimientoCambia && (
+        <Alert tone="warning" title="Esto devolverá al jugador a revisión">
+          <span className="flex items-start gap-2">
+            <IconWarning size={16} />
+            <span>
+              Cambiar la fecha de nacimiento de un jugador aprobado lo regresa a revisión, y
+              mientras tanto deja de ser elegible para jugar. La aprobación anterior ya no
+              respaldaría el expediente.
+            </span>
+          </span>
+        </Alert>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <Card className="space-y-4 p-4">
-          {(teams.data?.length ?? 0) > 1 && (
+          {!editando && (teams.data?.length ?? 0) > 1 && (
             <Field label="Equipo" required>
               <select
                 className="select select-bordered w-full"
@@ -102,8 +209,9 @@ export default function PlayerForm() {
               className="input input-bordered w-full"
               value={form.firstName}
               onChange={(e) => update('firstName')(e.target.value)}
+              disabled={!puede('firstName')}
               required
-              autoFocus
+              autoFocus={!editando}
             />
           </Field>
 
@@ -113,6 +221,7 @@ export default function PlayerForm() {
                 className="input input-bordered w-full"
                 value={form.lastNamePaternal}
                 onChange={(e) => update('lastNamePaternal')(e.target.value)}
+                disabled={!puede('lastNamePaternal')}
                 required
               />
             </Field>
@@ -122,16 +231,26 @@ export default function PlayerForm() {
                 className="input input-bordered w-full"
                 value={form.lastNameMaternal}
                 onChange={(e) => update('lastNameMaternal')(e.target.value)}
+                disabled={!puede('lastNameMaternal')}
               />
             </Field>
           </div>
 
-          <Field label="Fecha de nacimiento" required>
+          <Field
+            label="Fecha de nacimiento"
+            required
+            hint={
+              editando && puede('dateOfBirth')
+                ? 'Es la que decide en qué categoría puede jugar.'
+                : undefined
+            }
+          >
             <input
               type="date"
               className="input input-bordered w-full"
               value={form.dateOfBirth}
               onChange={(e) => update('dateOfBirth')(e.target.value)}
+              disabled={!puede('dateOfBirth')}
               max={new Date().toISOString().slice(0, 10)}
               required
             />
@@ -147,6 +266,7 @@ export default function PlayerForm() {
                 className="input input-bordered w-full tabular"
                 value={form.jerseyNumber}
                 onChange={(e) => update('jerseyNumber')(e.target.value)}
+                disabled={!puede('jerseyNumber')}
               />
             </Field>
 
@@ -155,6 +275,7 @@ export default function PlayerForm() {
                 className="select select-bordered w-full"
                 value={form.position}
                 onChange={(e) => update('position')(e.target.value)}
+                disabled={!puede('position')}
               >
                 <option value="">Sin especificar</option>
                 {POSITIONS.map((position) => (
@@ -180,6 +301,7 @@ export default function PlayerForm() {
                 className="input input-bordered w-full"
                 value={form.phone}
                 onChange={(e) => update('phone')(e.target.value)}
+                disabled={!puede('phone')}
               />
             </Field>
 
@@ -190,6 +312,7 @@ export default function PlayerForm() {
                 className="input input-bordered w-full"
                 value={form.email}
                 onChange={(e) => update('email')(e.target.value)}
+                disabled={!puede('email')}
               />
             </Field>
           </div>
@@ -198,7 +321,7 @@ export default function PlayerForm() {
         {error && <Alert tone="error">{error}</Alert>}
 
         <div className="flex gap-2">
-          <Link to="/equipo" className="btn btn-ghost flex-1">
+          <Link to={volverA} className="btn btn-ghost flex-1">
             Cancelar
           </Link>
           <Button
@@ -208,7 +331,7 @@ export default function PlayerForm() {
             loading={saving}
             disabled={!complete}
           >
-            {saving ? 'Registrando…' : 'Continuar'}
+            {editando ? 'Guardar cambios' : 'Continuar'}
           </Button>
         </div>
       </form>

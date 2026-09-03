@@ -94,6 +94,9 @@ export const homeFor = (role?: Role): string => {
   if (isAdmin(role)) return '/admin';
   if (role === 'TEAM_MANAGER') return '/equipo';
   if (role === 'REFEREE') return '/arbitro';
-  if (role === 'FINANCE_ADMIN') return '/admin';
+  // El Administrador Financiero NO pasa el guardia de /admin, así que
+  // mandarlo ahí lo dejaba en un bucle: el guardia lo redirigía a su
+  // pantalla de inicio, que era /admin otra vez. Su casa es finanzas.
+  if (role === 'FINANCE_ADMIN') return '/admin/finanzas';
   return '/';
 };

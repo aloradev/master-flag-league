@@ -23,6 +23,7 @@ export default function AdminTeamDetail() {
   const [assigning, setAssigning] = useState(false);
   const [selected, setSelected] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [editando, setEditando] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const team = useQuery({
@@ -143,9 +144,14 @@ export default function AdminTeamDetail() {
               </Button>
             </div>
           </div>
-          <Link to={`/admin/equipos/${id}/roster`} className="btn btn-sm shrink-0">
-            Roster
-          </Link>
+          <div className="flex shrink-0 gap-2">
+            <Button size="sm" onClick={() => { setEditando(true); setError(null); }}>
+              Editar
+            </Button>
+            <Link to={`/admin/equipos/${id}/roster`} className="btn btn-sm">
+              Roster
+            </Link>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-4 gap-2 border-t border-base-300 pt-3 text-center">
@@ -287,9 +293,16 @@ export default function AdminTeamDetail() {
             Sin jugadores registrados
           </Card>
         ) : (
+          // Cada renglón es un ENLACE al jugador. Hasta ahora la
+          // plantilla era un callejón sin salida para administración: se
+          // veía el nombre y no había forma de abrir la ficha.
           <ul className="space-y-2">
             {data.roster.map((player) => (
-              <Card as="li" key={player.id} className="flex items-center gap-3 p-3">
+              <Card as="li" key={player.id}>
+                <Link
+                  to={`/equipo/jugadores/${player.id}`}
+                  className="flex items-center gap-3 rounded-box p-3 transition-colors hover:bg-base-300/40"
+                >
                 <PlayerAvatar
                   avatarUrl={player.avatar_url}
                   name={`${player.first_name} ${player.last_name_paternal}`}
@@ -312,11 +325,152 @@ export default function AdminTeamDetail() {
                   </div>
                 </div>
                 <EligibilityBadge isEligible={player.is_eligible} />
+                </Link>
               </Card>
             ))}
           </ul>
         )}
       </section>
+
+      {editando && (
+        <EditarEquipo
+          equipo={data}
+          onCerrar={() => setEditando(false)}
+          onGuardado={() => { setEditando(false); refresh(); }}
+          onError={setError}
+        />
+      )}
     </div>
   );
 }
+
+/**
+ * Editar los datos del equipo.
+ *
+ * `PUT /teams/:id` existía desde la Fase 1 y ninguna pantalla lo llamaba:
+ * cambiar el nombre de un equipo mal escrito no se podía hacer desde la
+ * aplicación. El caso llega el primer día de inscripciones, con un
+ * dedazo en un nombre.
+ *
+ * El estado (activo / suspendido) va aparte y con su explicación, porque
+ * suspender saca al equipo del generador de jornadas y de la tabla: no
+ * es lo mismo que corregirle el nombre.
+ */
+const EditarEquipo = ({
+  equipo,
+  onCerrar,
+  onGuardado,
+  onError,
+}: {
+  equipo: Team;
+  onCerrar: () => void;
+  onGuardado: () => void;
+  onError: (m: string) => void;
+}) => {
+  const [form, setForm] = useState({
+    name: equipo.name,
+    shortName: equipo.short_name ?? '',
+    colorPrimary: equipo.color_primary || '#1f2937',
+    colorSecondary: equipo.color_secondary || '#f9fafb',
+    status: equipo.status ?? 'ACTIVE',
+  });
+  const [guardando, setGuardando] = useState(false);
+
+  const enviar = async () => {
+    setGuardando(true);
+    try {
+      await api.put(`/teams/${equipo.id}`, {
+        name: form.name.trim(),
+        shortName: form.shortName.trim() || undefined,
+        colorPrimary: form.colorPrimary,
+        colorSecondary: form.colorSecondary,
+        status: form.status,
+      });
+      onGuardado();
+    } catch (e) {
+      onError(e instanceof ApiError ? e.message : 'No se pudo guardar el equipo');
+      onCerrar();
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      <div aria-hidden="true" onClick={onCerrar} className="absolute inset-0 bg-black/60" />
+      <div
+        role="dialog"
+        aria-label="Editar equipo"
+        className="relative max-h-[85vh] w-full max-w-lg space-y-4 overflow-y-auto
+                   rounded-t-box border-t border-base-300 bg-base-200 p-4 shadow-2xl
+                   sm:rounded-box sm:border"
+      >
+        <div className="flex items-center justify-between border-b border-base-300/60 pb-3">
+          <h2 className="text-sm font-bold">Editar equipo</h2>
+          <Button size="xs" tone="ghost" onClick={onCerrar}>Cerrar</Button>
+        </div>
+
+        <Field label="Nombre" required>
+          <input
+            className="input input-bordered w-full"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            required
+          />
+        </Field>
+
+        <Field label="Nombre corto" hint="Tres o cuatro letras. Es lo que cabe en el marcador.">
+          <input
+            className="input input-bordered w-full uppercase"
+            maxLength={20}
+            value={form.shortName}
+            onChange={(e) => setForm({ ...form, shortName: e.target.value })}
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Color principal">
+            <input
+              type="color"
+              className="input input-bordered h-10 w-full p-1"
+              value={form.colorPrimary}
+              onChange={(e) => setForm({ ...form, colorPrimary: e.target.value })}
+            />
+          </Field>
+          <Field label="Color secundario">
+            <input
+              type="color"
+              className="input input-bordered h-10 w-full p-1"
+              value={form.colorSecondary}
+              onChange={(e) => setForm({ ...form, colorSecondary: e.target.value })}
+            />
+          </Field>
+        </div>
+
+        <Field
+          label="Estado"
+          hint="Un equipo suspendido sale del generador de jornadas y de la tabla de posiciones."
+        >
+          <select
+            className="select select-bordered w-full"
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
+          >
+            <option value="ACTIVE">Activo</option>
+            <option value="SUSPENDED">Suspendido</option>
+          </select>
+        </Field>
+
+        <Button
+          tone="primary"
+          block
+          loading={guardando}
+          disabled={!form.name.trim()}
+          onClick={enviar}
+        >
+          Guardar cambios
+        </Button>
+      </div>
+    </div>
+  );
+};

@@ -99,5 +99,16 @@ INSERT INTO settings (id, league_id, season_id, key, value) VALUES
   "walkover_score": [20, 0],
   "periods": 2,
   "tiebreakers": ["points", "wins", "point_diff", "points_for", "head_to_head"]
+}'),
+-- Montos en CENTAVOS enteros. Las fechas de vencimiento NO se configuran
+-- aquí: la de la inscripción es el cierre de registro de la temporada y
+-- la de cada jornada es la fecha de esa jornada. Son datos que el
+-- sistema ya tiene, así que no se teclean dos veces ni pueden
+-- contradecirse.
+('set_fin_2026', 'league_cancun', 'season_2026', 'finance', '{
+  "currency": "MXN",
+  "inscription_cents": 250000,
+  "round_fee_cents": 50000,
+  "referee_fee_cents": 25000
 }')
 ON CONFLICT (league_id, season_id, key) DO UPDATE SET value = EXCLUDED.value;

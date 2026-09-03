@@ -125,6 +125,8 @@ export default function PlayerDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const isNew = searchParams.get('nuevo') === '1';
+  const guardado = searchParams.get('guardado') === '1';
+  const volvioARevision = searchParams.get('revision') === '1';
   const queryClient = useQueryClient();
 
   const player = useQuery({
@@ -167,6 +169,16 @@ export default function PlayerDetail() {
         </Alert>
       )}
 
+      {guardado && <Alert tone="success">Cambios guardados.</Alert>}
+
+      {volvioARevision && (
+        <Alert tone="warning" title="El jugador volvió a revisión">
+          Cambió su fecha de nacimiento, así que la aprobación anterior ya no respalda el
+          expediente. Administración tiene que revisarlo de nuevo; mientras tanto no es
+          elegible para jugar.
+        </Alert>
+      )}
+
       {/* Identidad y semáforo */}
       <Card className="p-4">
         <div className="flex items-start gap-4">
@@ -189,7 +201,32 @@ export default function PlayerDetail() {
               <EligibilityBadge isEligible={data.is_eligible} />
             </div>
           </div>
+
+          <Link to={`/equipo/jugadores/${id}/editar`} className="btn btn-sm shrink-0">
+            Editar
+          </Link>
         </div>
+
+        {/* Los datos capturados: hasta ahora la ficha no los mostraba, así
+            que no había forma de detectar un dedazo sin abrir la base. */}
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-base-300 pt-3 text-sm sm:grid-cols-4">
+          <div>
+            <dt className="text-xs text-base-content/50">Nacimiento</dt>
+            <dd className="tabular">{(data.date_of_birth ?? '').slice(0, 10) || '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-base-content/50">Posición</dt>
+            <dd>{data.position ?? '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-base-content/50">Teléfono</dt>
+            <dd className="tabular truncate">{data.phone ?? '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-base-content/50">Correo</dt>
+            <dd className="truncate">{data.email ?? '—'}</dd>
+          </div>
+        </dl>
 
         {!data.is_eligible && data.eligibility.reason && (
           <p className="mt-3 border-t border-base-300 pt-3 text-sm text-base-content/70">

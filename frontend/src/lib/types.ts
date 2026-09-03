@@ -31,6 +31,7 @@ export interface TeamSummary {
   short_name?: string;
   logo_url?: string | null;
   color_primary: string;
+  color_secondary?: string;
   category_name: string;
   season_name: string;
   players_total: string | number;
@@ -120,6 +121,8 @@ export interface PlayerDetail extends RosterPlayer {
   eligibility: Eligibility;
   approval_history: ApprovalEntry[];
   can_edit: boolean;
+  /** Campos que puede tocar quien consulta. La regla vive en la API. */
+  editable_fields: string[];
 }
 
 export interface Season {

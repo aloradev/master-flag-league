@@ -434,12 +434,27 @@ const run = async () => {
   check('Resumen calculado: 1 elegible', summary?.eligible === 1);
   check('Resumen calculado: 1 pendiente', summary?.pending === 1);
 
-  const editApproved = await call('PUT', `/players/${playerId}`, {
+  /**
+   * Esta comprobación afirmaba que el encargado no podía editar NADA de
+   * un jugador aprobado, mandando la posición y esperando 403. La regla
+   * cambió a propósito: bloquear todo trataba igual dos cosas
+   * distintas —corregir un teléfono no afecta a lo que se certificó,
+   * cambiar la fecha de nacimiento sí—. El detalle completo vive en
+   * tests/edicion.mjs; aquí quedan los dos extremos.
+   */
+  const editApprovedLibre = await call('PUT', `/players/${playerId}`, {
     token: mgrToken,
     body: { position: 'QB' },
   });
-  check('El manager NO edita a un jugador ya aprobado', editApproved.status === 403,
-    `status ${editApproved.status}`);
+  check('El manager SÍ actualiza la posición de un jugador aprobado',
+    editApprovedLibre.status === 200, `status ${editApprovedLibre.status}`);
+
+  const editApprovedNombre = await call('PUT', `/players/${playerId}`, {
+    token: mgrToken,
+    body: { firstName: 'Nombre Cambiado' },
+  });
+  check('Pero NO su nombre, que es lo que respalda la identificación',
+    editApprovedNombre.status === 403, `status ${editApprovedNombre.status}`);
 
   const editPending = await call('PUT', `/players/${player2Id}`, {
     token: mgrToken,

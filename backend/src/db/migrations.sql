@@ -411,6 +411,118 @@ CREATE INDEX IF NOT EXISTS idx_eventos_jugador    ON game_events(player_id) WHER
 CREATE INDEX IF NOT EXISTS idx_byes_round         ON round_byes(round_id);
 
 -- ============================================================
+-- FASE 4 — FINANZAS
+-- ============================================================
+--
+-- El documento de arquitectura contemplaba UNA tabla `payments` con
+-- amount, due_date, paid_date y status. Se separó en dos, y conviene
+-- saber por qué: en una sola tabla, un equipo que paga la mitad de su
+-- inscripción no cabe en ninguna parte —hay que inventar un segundo
+-- registro o sobrescribir el monto—, y `status` termina siendo algo que
+-- una persona teclea. Con cargos y pagos separados, el saldo es una
+-- resta y el estado se deduce; nadie marca "PAGADO" a mano, se registra
+-- un pago y el estado sigue solo. Es el mismo principio que sostiene
+-- players.is_eligible y el marcador de los partidos.
+--
+-- Todo el dinero va en CENTAVOS ENTEROS. No en NUMERIC ni en decimales
+-- flotantes: 0.1 + 0.2 no es 0.3 en punto flotante, y el driver de
+-- Postgres devuelve NUMERIC como cadena para no perder precisión, lo
+-- que obliga a convertir en cada consulta y abre la puerta a que alguien
+-- convierta con parseFloat. Con enteros, sumar es sumar.
+
+-- ---------- CARGOS: lo que el equipo DEBE ----------
+CREATE TABLE IF NOT EXISTS fees (
+  id            VARCHAR(36) PRIMARY KEY,
+  season_id     VARCHAR(36) NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
+  team_id       VARCHAR(36) NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  concept       VARCHAR(40) NOT NULL,
+  description   VARCHAR(255),
+  amount_cents  INTEGER NOT NULL,
+  due_date      DATE NOT NULL,
+  -- Cuando el cargo nace de una jornada se guarda cuál: así el generador
+  -- no lo cobra dos veces y el equipo ve de qué noche viene.
+  round_id      VARCHAR(36) REFERENCES rounds(id) ON DELETE SET NULL,
+  -- Un cargo mal hecho se CANCELA, no se borra: la cuenta de la liga
+  -- tiene que poder explicarse completa meses después.
+  cancelled_at  TIMESTAMPTZ,
+  cancelled_by  VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  cancel_reason TEXT,
+  created_by    VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (amount_cents > 0),
+  CHECK (concept IN ('INSCRIPTION', 'ROUND', 'FINE', 'OTHER'))
+);
+
+-- Un solo cargo de inscripción por equipo y temporada, y uno de
+-- arbitraje por equipo y jornada. Sin esto, correr el generador de
+-- cargos dos veces cobraría doble y nadie lo notaría hasta que un
+-- encargado reclamara.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_fees_inscripcion
+  ON fees(season_id, team_id)
+  WHERE concept = 'INSCRIPTION' AND cancelled_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_fees_jornada
+  ON fees(round_id, team_id)
+  WHERE concept = 'ROUND' AND cancelled_at IS NULL;
+
+-- ---------- PAGOS: dinero RECIBIDO ----------
+-- `fee_id` es obligatorio a propósito. Se consideró permitir el abono
+-- suelto —"me dieron mil pesos"— y se descartó: un peso sin concepto
+-- obliga a adivinar a qué se aplicó, y ese es justo el dato que se
+-- necesita cuando un equipo pregunta qué le falta. Un pago que cubre
+-- dos cargos se registra como dos renglones, que es lo que debería
+-- decir el recibo de todas formas.
+CREATE TABLE IF NOT EXISTS payments (
+  id            VARCHAR(36) PRIMARY KEY,
+  season_id     VARCHAR(36) NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
+  team_id       VARCHAR(36) NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  fee_id        VARCHAR(36) NOT NULL REFERENCES fees(id) ON DELETE CASCADE,
+  amount_cents  INTEGER NOT NULL,
+  paid_on       DATE NOT NULL,
+  method        VARCHAR(30) NOT NULL DEFAULT 'CASH',
+  -- Folio de transferencia o del recibo entregado.
+  reference     VARCHAR(120),
+  notes         TEXT,
+  voided_at     TIMESTAMPTZ,
+  voided_by     VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  void_reason   TEXT,
+  recorded_by   VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (amount_cents > 0),
+  CHECK (method IN ('CASH', 'TRANSFER', 'CARD', 'OTHER'))
+);
+
+-- ---------- GASTOS ----------
+CREATE TABLE IF NOT EXISTS expenses (
+  id            VARCHAR(36) PRIMARY KEY,
+  season_id     VARCHAR(36) NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
+  category      VARCHAR(40) NOT NULL,
+  description   VARCHAR(255) NOT NULL,
+  amount_cents  INTEGER NOT NULL,
+  spent_on      DATE NOT NULL,
+  -- El pago a los árbitros es el gasto que se repite cada jornada, así
+  -- que se puede atar a la noche y al árbitro y dejar de ser un texto
+  -- libre imposible de sumar por persona.
+  round_id      VARCHAR(36) REFERENCES rounds(id) ON DELETE SET NULL,
+  referee_id    VARCHAR(36) REFERENCES referees(id) ON DELETE SET NULL,
+  voided_at     TIMESTAMPTZ,
+  voided_by     VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  void_reason   TEXT,
+  recorded_by   VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (amount_cents > 0),
+  CHECK (category IN ('REFEREES', 'FIELDS', 'EQUIPMENT', 'AWARDS', 'ADMIN', 'OTHER'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_fees_equipo       ON fees(team_id) WHERE cancelled_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_fees_temporada    ON fees(season_id, due_date);
+CREATE INDEX IF NOT EXISTS idx_fees_jornada      ON fees(round_id);
+CREATE INDEX IF NOT EXISTS idx_pagos_cargo       ON payments(fee_id) WHERE voided_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_pagos_equipo      ON payments(team_id, paid_on DESC);
+CREATE INDEX IF NOT EXISTS idx_gastos_temporada  ON expenses(season_id, spent_on DESC);
+CREATE INDEX IF NOT EXISTS idx_gastos_arbitro    ON expenses(referee_id) WHERE voided_at IS NULL;
+
+-- ============================================================
 -- MIGRACIONES INCREMENTALES
 -- Para bases ya creadas antes de que existieran estas columnas.
 -- Postgres 9.6+ soporta IF NOT EXISTS en ADD COLUMN, así que esto

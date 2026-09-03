@@ -10,6 +10,7 @@ import * as validation from '../controllers/validation.controller.js';
 import * as audit from '../controllers/audit.controller.js';
 import * as rounds from '../controllers/rounds.controller.js';
 import * as games from '../controllers/games.controller.js';
+import * as finance from '../controllers/finance.controller.js';
 
 import {
   requireAuth,
@@ -138,6 +139,31 @@ router.put('/admin/games/:id', requireAdmin, games.updateGame);
 router.post('/admin/games/:id/referees', requireAdmin, games.assignReferees);
 router.post('/admin/games/:id/walkover', requireAdmin, games.declareWalkover);
 router.post('/admin/referees', requireAdmin, games.createReferee);
+
+// ═══════════════════════════ FINANZAS (FASE 4) ════════════════════════════
+// `loadManagedTeams` en TODAS: el controlador filtra por los equipos que
+// el usuario administra en lugar de confiar en el teamId de la URL, que
+// lo escribe quien quiera. Administración pasa sin restricción.
+router.get('/finance/catalog', loadManagedTeams, finance.getCatalog);
+router.get('/finance/fees', loadManagedTeams, finance.listFees);
+router.get('/finance/payments', loadManagedTeams, finance.listPayments);
+router.get('/finance/accounts', loadManagedTeams, finance.getAccounts);
+router.get('/finance/teams/:teamId/statement', loadManagedTeams, finance.getTeamStatement);
+router.get('/finance/expenses', loadManagedTeams, finance.listExpenses);
+router.get('/finance/balance', loadManagedTeams, finance.getBalance);
+
+// Mover dinero: solo Super Admin y Administrador Financiero. La
+// comprobación vive además dentro de cada controlador, porque una ruta
+// nueva puede olvidarse de poner el middleware.
+const soloFinanzas = requireRole(ROLES.SUPER_ADMIN, ROLES.FINANCE_ADMIN);
+router.post('/finance/fees', soloFinanzas, finance.createFee);
+router.post('/finance/fees/:id/cancel', soloFinanzas, finance.cancelFee);
+router.post('/finance/fees/generate-inscription', soloFinanzas, finance.generateInscriptionFees);
+router.post('/finance/fees/generate-round/:roundId', soloFinanzas, finance.generateRoundFees);
+router.post('/finance/payments', soloFinanzas, finance.createPayment);
+router.post('/finance/payments/:id/void', soloFinanzas, finance.voidPayment);
+router.post('/finance/expenses', soloFinanzas, finance.createExpense);
+router.post('/finance/expenses/:id/void', soloFinanzas, finance.voidExpense);
 
 // Auditoría: solo Super Admin (req. 42).
 router.get('/admin/audit', requireRole(ROLES.SUPER_ADMIN), audit.listAuditLogs);

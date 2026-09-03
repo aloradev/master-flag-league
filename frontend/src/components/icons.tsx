@@ -181,3 +181,12 @@ export const IconWhistle = (props: IconProps) => (
     <circle cx="8" cy="11" r="1.5" />
   </Svg>
 );
+
+/** Billete: finanzas y estado de cuenta. */
+export const IconMoney = (props: IconProps) => (
+  <Svg {...props}>
+    <rect x="2.5" y="6.5" width="19" height="11" rx="1.5" />
+    <circle cx="12" cy="12" r="2.5" />
+    <path d="M6 12h.01M18 12h.01" />
+  </Svg>
+);

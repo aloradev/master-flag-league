@@ -150,6 +150,133 @@ celular.
 
 ---
 
+## Corrección: editar jugadores y equipos
+
+Encontrado usando la aplicación, no leyendo la API: un jugador
+registrado no se podía modificar **ni siendo Super Admin**.
+
+`PUT /players/:id` y `PUT /teams/:id` existían desde la Fase 1,
+funcionaban, y ninguna pantalla los llamaba nunca. `can_edit` estaba en
+los tipos del frontend y no se usaba en ningún lado. Además, en la ficha
+del equipo la plantilla no era un enlace: administración veía el nombre
+del jugador y no tenía forma de abrirlo.
+
+Las 153 comprobaciones de la Fase 1 recorrían alta → documentos →
+validación → elegibilidad. Editar no estaba en ninguna, así que los
+endpoints quedaron huérfanos sin que nada lo delatara. **Probar que un
+endpoint responde no prueba que alguien pueda llegar a él.**
+
+### Quién cambia qué
+
+La regla anterior bloqueaba la edición COMPLETA de un jugador revisado,
+y eso trataba igual dos cosas distintas:
+
+- **Contacto y posición** (teléfono, correo, posición): el encargado los
+  mantiene siempre, incluso con el jugador aprobado. No afectan a nada
+  de lo que se certificó.
+- **Datos certificados** (nombre, apellidos, fecha de nacimiento,
+  número): solo administración una vez revisado el registro. Son lo que
+  respalda la identificación aprobada; el número va aquí porque está en
+  el roster impreso que los árbitros tienen en la mano.
+
+Se comprueba qué **cambia**, no qué llega: el formulario manda todos los
+campos en cada guardado, así que rechazar por traerlos impediría
+corregir un teléfono.
+
+### La salvaguarda
+
+Cambiar la **fecha de nacimiento** de un jugador aprobado lo devuelve a
+revisión y lo deja no elegible. Es el único campo que lo hace, y es
+deliberado: en una liga con categorías, aprobar con una fecha y jugar
+con otra es el fraude que el sistema de validación existe para evitar.
+
+Los nombres NO devuelven a revisión: corregir un acento o un apellido
+mal escrito es lo más común que va a pasar, y sacar a un jugador de la
+cancha por eso sería peor que el problema. Queda en la auditoría con el
+antes y el después.
+
+La pantalla avisa **antes** de guardar, no después.
+
+### Verificación
+56 comprobaciones nuevas en `tests/edicion.mjs`. Con las anteriores: 594
+(`npm run test:all`). Una comprobación de la Fase 1 afirmaba la conducta
+antigua —mandaba la posición y esperaba 403— y se actualizó para
+describir la regla nueva.
+
+Revisión con navegador del camino completo que falló: ficha del equipo →
+plantilla → jugador → editar → guardar, con Super Admin y con encargado,
+en los dos temas.
+
+---
+
+## FASE 4 — FINANZAS ✅ Completa
+
+### Cargos y pagos separados
+El documento de arquitectura contemplaba una sola tabla `payments` con
+monto, vencimiento, fecha de pago y estado. Se separó en dos, y es la
+decisión que sostiene todo lo demás: en una sola tabla, un equipo que
+paga la mitad de su inscripción no cabe en ningún lado —hay que inventar
+un registro o sobrescribir el monto— y `status` termina siendo algo que
+alguien teclea.
+
+Con cargos y pagos separados, el saldo es una resta y el estado se
+deduce: nadie marca "PAGADO", se registra un pago y el estado sigue
+solo. Es el mismo principio que sostiene `players.is_eligible` y el
+marcador de los partidos.
+
+Un pago va SIEMPRE contra un cargo. Se consideró permitir el abono
+suelto —"me dieron mil pesos"— y se descartó: un peso sin concepto
+obliga a adivinar a qué se aplicó, y eso es justo lo que se necesita
+saber cuando un equipo pregunta qué le falta. Un pago que cubre dos
+cargos son dos renglones, que es lo que debería decir el recibo.
+
+### El dinero en centavos enteros
+Nada de decimales flotantes ni de NUMERIC convertido con parseFloat:
+0.1 + 0.2 no es 0.3 en punto flotante, y 1234.56 × 100 da
+123455.99999999999. La conversión de pesos a centavos ocurre en un solo
+lugar, en la frontera de la API. La prueba usa cantidades elegidas para
+romper el punto flotante y verifica que la suma cuadre al centavo.
+
+### Lo que el sistema calcula y nadie captura
+- El saldo y el estado de cada cargo (pendiente, parcial, vencido, pagado).
+- El vencimiento de la inscripción: el cierre de registro de la temporada.
+- El vencimiento del arbitraje: la fecha de esa jornada.
+- A quién cobrarle el arbitraje: solo a los equipos que JUGARON. Es el
+  caso que un cobro manual equivoca siempre, porque quien captura mira
+  la lista de equipos y no la de partidos.
+- El estado de cuenta de cada equipo y las cuentas por cobrar, ordenadas
+  por lo vencido: el primer renglón es la primera llamada.
+- El balance, separando lo facturado de lo cobrado. Un balance que sume
+  lo facturado como si estuviera cobrado hace ver a la liga con dinero
+  que no tiene.
+
+### Salvaguardas
+- Se niega a generar cargos si el monto está en cero: cobrarle a doce
+  equipos una cantidad que nadie configuró es peor que no cobrar.
+- Correr un generador dos veces no cobra doble (índices únicos).
+- Un sobrepago se rechaza diciendo cuánto falta de verdad: casi siempre
+  es un cero de más, y descubrirlo al cerrar la temporada es peor.
+- Anular un pago exige un motivo, porque es dinero que alguien entregó.
+- Un cargo con pagos aplicados no se puede cancelar.
+- Cargos y pagos se anulan, no se borran: la cuenta de la liga tiene que
+  poder explicarse completa meses después.
+- Mover dinero es solo del Super Administrador y del Administrador
+  Financiero. El Administrador Deportivo lee y no toca. El encargado ve
+  únicamente el estado de cuenta de SU equipo, y no puede registrar sus
+  propios pagos.
+
+### Verificación
+537 comprobaciones automáticas: 161 del generador de jornadas, 153 de
+Fase 1, 114 de Fase 2, 99 de Fase 4 y 10 de CORS. `npm run test:all`.
+
+Revisión visual con navegador real en los dos temas, a 390 px y 1280 px.
+Ahí salió un fallo que ninguna prueba de API detecta: el Administrador
+Financiero podía entrar pero quedaba en un bucle de redirecciones,
+porque su pantalla de inicio era `/admin` y ese guardia no admite su
+rol. Ahora su casa es finanzas y tiene su propia navegación.
+
+---
+
 ## Pendiente
 
 ### Desplegar en línea
@@ -159,9 +286,6 @@ Falta crear la base de datos gratuita y publicar. `render.yaml` y
 ### FASE 3 — Estadísticas
 Rankings de jugadores, MVP acumulado, Power Ranking y récords. La tabla
 de posiciones, las rachas y la forma reciente ya están en la Fase 2.
-
-### FASE 4 — Finanzas
-Inscripciones, pagos, cuentas por cobrar, ingresos, gastos y reportes.
 
 ### FASE 5 — Experiencia
 Centro de jornada, perfiles públicos, tarjetas digitales, comunicados

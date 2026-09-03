@@ -748,9 +748,13 @@ const Hoja = ({
   onCerrar: () => void;
 }) => (
   <div className="fixed inset-0 z-50 flex items-end justify-center">
-    <button
-      type="button"
-      aria-label="Cerrar"
+    {/* El fondo cierra al tocarlo, pero se oculta del árbol de
+        accesibilidad: si se anuncia como un botón "Cerrar", quien usa
+        lector de pantalla oye dos controles con el mismo nombre y el
+        primero es invisible. El botón visible de la cabecera ya cubre
+        teclado y lectores. */}
+    <div
+      aria-hidden="true"
       onClick={onCerrar}
       className="absolute inset-0 bg-black/60"
     />

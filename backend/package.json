@@ -18,7 +18,9 @@
     "test:cors": "node tests/cors.mjs",
     "test:fixture": "node tests/fixture.mjs",
     "test:competition": "node tests/competition.mjs",
-    "test:all": "node tests/fixture.mjs && node tests/cors.mjs && node tests/integration.mjs && node tests/competition.mjs"
+    "test:finance": "node tests/finance.mjs",
+    "test:edicion": "node tests/edicion.mjs",
+    "test:all": "node tests/fixture.mjs && node tests/cors.mjs && node tests/integration.mjs && node tests/competition.mjs && node tests/finance.mjs && node tests/edicion.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

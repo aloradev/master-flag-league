@@ -27,6 +27,8 @@ import Roster from './pages/Roster';
 import Jornadas from './pages/Jornadas';
 import Standings from './pages/Standings';
 import AdminRounds from './pages/admin/Rounds';
+import AdminFinances from './pages/admin/Finances';
+import ManagerPayments from './pages/manager/Payments';
 import RefereeGames from './pages/referee/MyGames';
 import RefereeGameMode from './pages/referee/GameMode';
 
@@ -115,7 +117,21 @@ const App = () => {
           <Route path="/equipo" element={<MyTeam />} />
           <Route path="/equipo/jugadores/nuevo" element={<PlayerForm />} />
           <Route path="/equipo/jugadores/:id" element={<PlayerDetail />} />
+          <Route path="/equipo/jugadores/:id/editar" element={<PlayerForm />} />
           <Route path="/equipo/roster" element={<Roster />} />
+          <Route path="/equipo/pagos" element={<ManagerPayments />} />
+        </Route>
+
+        {/* Finanzas: administración deportiva y el Administrador
+            Financiero, que no pasa el guardia de /admin. */}
+        <Route
+          element={
+            <Protected allow={(role) => isAdmin(role) || role === 'FINANCE_ADMIN'}>
+              <Layout />
+            </Protected>
+          }
+        >
+          <Route path="/admin/finanzas" element={<AdminFinances />} />
         </Route>
 
         {/* Administración */}
