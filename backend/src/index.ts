@@ -19,16 +19,44 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 // Detrás del proxy de Render, para que req.ip sea la IP real del cliente.
 app.set('trust proxy', 1);
 
+/**
+ * El navegador envía el origen sin ruta ni barra final (RFC 6454: esquema,
+ * host y puerto, nada más). En el panel de Render, en cambio, es natural pegar
+ * la URL copiada del navegador —"https://sitio.app/"— y esa barra hacía que la
+ * comparación literal fallara siempre: el servicio arrancaba sano y rechazaba
+ * cada petición. Se normaliza con `URL`, que además absorbe las mayúsculas del
+ * host y el puerto por omisión, para que el despliegue no dependa de un
+ * carácter invisible.
+ */
+const normalizeOrigin = (value: string): string => {
+  try {
+    return new URL(value.trim()).origin;
+  } catch {
+    return value.trim().replace(/\/+$/, '');
+  }
+};
+
 const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
   .split(',')
-  .map((origin) => origin.trim());
+  .map(normalizeOrigin)
+  .filter((origin) => origin.length > 0);
 
 app.use(
   cors({
     origin: (origin, callback) => {
       // Sin origin: curl, apps móviles, health checks.
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-      callback(new Error('Origen no permitido por CORS'));
+      if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) {
+        return callback(null, true);
+      }
+      /**
+       * Se responde sin la cabecera en lugar de lanzar: el navegador bloquea
+       * igual, pero el log queda legible y dice qué origen llegó contra qué
+       * lista, que es justo el dato que faltaba para diagnosticarlo.
+       */
+      console.warn(
+        `[cors] origen rechazado: ${origin} — permitidos: ${allowedOrigins.join(', ')}`
+      );
+      callback(null, false);
     },
     credentials: true,
   })

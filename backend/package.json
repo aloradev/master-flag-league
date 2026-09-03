@@ -14,7 +14,8 @@
     "migrate": "tsx src/db/migrate.ts",
     "typecheck": "tsc --noEmit",
     "db:dev": "tsx scripts/dev-db.ts",
-    "test": "node tests/integration.mjs"
+    "test": "node tests/integration.mjs",
+    "test:cors": "node tests/cors.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -111,7 +111,15 @@ Femenil y Mixto, los dos campos, y tu usuario Super Administrador.
 > parte el comando. Ese parámetro no hace falta — el código ya fuerza SSL.
 
 Se corre **una sola vez**; es idempotente, así que repetirlo no rompe
-nada.
+nada (las tablas usan `CREATE TABLE IF NOT EXISTS` y los datos base
+`ON CONFLICT`).
+
+> **Revisa el resumen que imprime al terminar.** Si dice `users 0`, el
+> administrador **no** se creó: el script solo lee argumentos con la
+> forma `--admin=`, `--password=` y `--name=`, y cualquier otra cosa la
+> ignora en silencio. Escribir `--tu@correo.com` en lugar de
+> `--admin=tu@correo.com` hace que las migraciones terminen con ✅ y sin
+> usuario con el que entrar. Debe decir `✓ Super Admin creado`.
 
 ## 5. Frontend en Vercel
 
@@ -127,8 +135,18 @@ Copia la URL que te da Vercel y **vuelve a Render** a poner
 
 Ese ida y vuelta es obligatorio: el frontend necesita saber dónde está
 la API, y la API necesita saber cuál es el frontend para permitirle
-llamadas. Si `FRONTEND_URL` no coincide exactamente, el navegador
-bloquea todo por CORS y el login parece muerto sin decir por qué.
+llamadas. Si no coinciden, el navegador bloquea todo por CORS y el login
+parece muerto sin decir por qué.
+
+Escribe `FRONTEND_URL` como `https://tu-sitio.vercel.app`, sin barra
+final ni ruta. Si se te va la barra no pasa nada —la API normaliza el
+valor antes de comparar—, pero así es como el navegador lo manda y así
+sale en el log de arranque, que es donde vas a mirar si algo falla.
+
+**Cada vez que cambies `VITE_API_URL` en Vercel hay que volver a
+desplegar el frontend.** Las variables `VITE_*` se hornean en el bundle
+durante el build; cambiarlas en el panel no toca el despliegue que ya
+está publicado.
 
 ## 6. Cloudinary — no es opcional
 
@@ -175,7 +193,7 @@ se niega a arrancar y lo dice en el log de despliegue.
 |---|---|
 | `DATABASE_URL` | cadena de Neon, la variante con `-pooler` |
 | `JWT_SECRET` | lo genera Render solo; no lo escribas a mano |
-| `FRONTEND_URL` | la URL de Vercel, exacta |
+| `FRONTEND_URL` | la URL de Vercel, sin barra final |
 | `CLOUDINARY_NAME` | de tu cuenta de Cloudinary |
 | `CLOUDINARY_API_KEY` | de tu cuenta de Cloudinary |
 | `CLOUDINARY_API_SECRET` | de tu cuenta de Cloudinary |
@@ -381,6 +399,45 @@ que importa: los assets compilados llevan un hash en el nombre y se
 cachean un año, pero **`index.html` no debe cachearse**. Es el que apunta
 a esos assets, y un `index.html` viejo en caché pediría archivos que el
 despliegue nuevo ya borró — la app quedaría en blanco sin error visible.
+
+### El login dice "No se pudo conectar con el servidor" y Render registra `Origen no permitido por CORS`
+
+La API arrancaba bien y la URL era la correcta. El log del arranque tenía
+la pista:
+
+```
+CORS:  https://master-flag-league.vercel.app/
+                                            ↑
+```
+
+Esa barra final. En `FRONTEND_URL` se pegó la URL copiada del navegador,
+que la incluye. El navegador, en cambio, manda el origen **sin** barra:
+
+```
+Origin: https://master-flag-league.vercel.app
+```
+
+Un origen es esquema + host + puerto y nada más — no lleva ruta ni barra
+(RFC 6454). La comparación era literal, así que ninguna petición
+coincidía nunca y el preflight `OPTIONS` del login devolvía 500.
+
+Ahora el origen se normaliza con `URL` antes de comparar, en los dos
+lados: la barra final, las mayúsculas del host y el puerto por omisión
+dejan de importar. Un despliegue no debería caerse por un carácter
+invisible.
+
+Además, un origen rechazado ya no lanza una excepción: se registra
+diciendo qué origen llegó contra qué lista, que es exactamente el dato
+que faltaba para diagnosticarlo.
+
+```
+[cors] origen rechazado: https://otro-sitio.example — permitidos: https://master-flag-league.vercel.app
+```
+
+Queda cubierto por `npm run test:cors` en el backend, que arranca la API
+compilada con `FRONTEND_URL` **con** barra y comprueba los diez casos,
+incluido el preflight real del login. Verificado que esa prueba falla
+(7 de 10) con el código anterior.
 
 ### Render eligió una versión de Node distinta
 
