@@ -161,6 +161,72 @@ requiere verificar un dominio. Variables: `RESEND_API_KEY` y
 
 ---
 
+## Variables de entorno, por servicio
+
+Son dos aplicaciones y cada una lee su propio entorno. No se comparten:
+poner una variable de la API en Vercel no hace nada, y al revés tampoco.
+
+### En Render — la API
+
+**Obligatorias en producción.** Sin cualquiera de las tres primeras la API
+se niega a arrancar y lo dice en el log de despliegue.
+
+| Variable | Valor |
+|---|---|
+| `DATABASE_URL` | cadena de Neon, la variante con `-pooler` |
+| `JWT_SECRET` | lo genera Render solo; no lo escribas a mano |
+| `FRONTEND_URL` | la URL de Vercel, exacta |
+| `CLOUDINARY_NAME` | de tu cuenta de Cloudinary |
+| `CLOUDINARY_API_KEY` | de tu cuenta de Cloudinary |
+| `CLOUDINARY_API_SECRET` | de tu cuenta de Cloudinary |
+
+Las de Cloudinary no detienen el arranque, pero son obligatorias de todos
+modos: sin ellas los documentos caen en el disco efímero de Render y se
+borran en cada despliegue. La API lo advierte en el log.
+
+**Con valor por omisión.** Solo las defines si quieres cambiarlas.
+
+| Variable | Por omisión |
+|---|---|
+| `NODE_ENV` | `render.yaml` la pone en `production` |
+| `PORT` | la inyecta Render |
+| `JWT_EXPIRATION` | `8h` — duración de la sesión |
+| `JWT_REFRESH_EXPIRATION` | `7d` |
+
+**Opcionales.** Sin ellas el sistema funciona, degradado.
+
+| Variable | Qué se pierde |
+|---|---|
+| `RESEND_API_KEY` | los correos se escriben en consola en lugar de enviarse |
+| `EMAIL_FROM` | remitente de esos correos |
+
+**Solo para desarrollo local.** Alternativa a `DATABASE_URL` si corres un
+PostgreSQL en tu máquina: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`
+y `DB_NAME`. Y `PRIVATE_UPLOAD_DIR` / `PUBLIC_UPLOAD_DIR` para mover
+dónde se guardan los archivos cuando no hay Cloudinary.
+
+### En Vercel — el frontend
+
+Una sola.
+
+| Variable | Valor |
+|---|---|
+| `VITE_API_URL` | la URL de Render, **sin** `/api/v1` al final |
+
+Dos cosas que conviene saber de las variables `VITE_*`:
+
+**Se incrustan al compilar, no se leen al ejecutar.** Si cambias la URL de
+la API, actualizar la variable no basta: hay que volver a desplegar para
+que se recompile el paquete.
+
+**Son públicas.** Quedan dentro del JavaScript que descarga el navegador,
+así que cualquiera puede leerlas. Nunca pongas un secreto en una variable
+`VITE_*`. Las llaves de Cloudinary, el secreto de sesión y la contraseña
+de la base viven en Render precisamente por eso: ahí no salen del
+servidor.
+
+---
+
 ## Los dos arranques en frío
 
 | Servicio | Cuándo duerme | Cuánto tarda en despertar |
