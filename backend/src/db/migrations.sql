@@ -237,6 +237,180 @@ CREATE INDEX IF NOT EXISTS idx_audit_created      ON audit_logs(created_at DESC)
 CREATE INDEX IF NOT EXISTS idx_audit_entity       ON audit_logs(entity_type, entity_id);
 
 -- ============================================================
+-- FASE 2 — COMPETENCIA
+-- ============================================================
+
+-- ---------- JORNADAS ----------
+CREATE TABLE IF NOT EXISTS rounds (
+  id              VARCHAR(36) PRIMARY KEY,
+  season_id       VARCHAR(36) NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
+  number          INTEGER NOT NULL,
+  name            VARCHAR(120),
+  scheduled_date  DATE NOT NULL,
+  -- DRAFT: propuesta que solo ve el administrador. Nadie más debe enterarse
+  -- de un calendario que todavía puede cambiar.
+  status          VARCHAR(30) NOT NULL DEFAULT 'DRAFT',
+  notes           TEXT,
+  generated_by    VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  published_at    TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (season_id, number),
+  CHECK (status IN ('DRAFT', 'PUBLISHED', 'IN_PROGRESS', 'FINISHED', 'CANCELLED'))
+);
+
+-- ---------- HORARIOS DE CADA JORNADA ----------
+-- Los horarios cambian de una jornada a otra, así que son filas y no
+-- columnas: el administrador agrega o quita tandas sin migrar nada.
+--
+-- De aquí sale el límite real de la noche. Con 2 campos y 3 horarios caben
+-- 6 partidos; si los equipos inscritos necesitan más, alguien descansa.
+-- Esa cuenta la hace el generador, no el usuario.
+CREATE TABLE IF NOT EXISTS round_time_slots (
+  id          VARCHAR(36) PRIMARY KEY,
+  round_id    VARCHAR(36) NOT NULL REFERENCES rounds(id) ON DELETE CASCADE,
+  start_time  TIME NOT NULL,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (round_id, start_time)
+);
+
+-- ---------- PARTIDOS ----------
+CREATE TABLE IF NOT EXISTS games (
+  id                      VARCHAR(36) PRIMARY KEY,
+  season_id               VARCHAR(36) NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
+  round_id                VARCHAR(36) NOT NULL REFERENCES rounds(id) ON DELETE CASCADE,
+  category_id             VARCHAR(36) NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  field_id                VARCHAR(36) REFERENCES fields(id) ON DELETE SET NULL,
+  home_team_id            VARCHAR(36) NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  away_team_id            VARCHAR(36) NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  scheduled_time          TIME NOT NULL,
+  status                  VARCHAR(30) NOT NULL DEFAULT 'SCHEDULED',
+  -- Caché derivada de game_events, igual que players.is_eligible: se
+  -- recalcula en cada registro. Se guarda para que la tabla de posiciones
+  -- y el centro de jornada no tengan que sumar eventos en cada consulta.
+  home_score              INTEGER NOT NULL DEFAULT 0,
+  away_score              INTEGER NOT NULL DEFAULT 0,
+  -- La única excepción a lo anterior: un partido ganado por incomparecencia
+  -- no tiene eventos que sumar, el marcador lo dicta el reglamento.
+  walkover_team_id        VARCHAR(36) REFERENCES teams(id) ON DELETE SET NULL,
+  mvp_offensive_player_id VARCHAR(36) REFERENCES players(id) ON DELETE SET NULL,
+  mvp_defensive_player_id VARCHAR(36) REFERENCES players(id) ON DELETE SET NULL,
+  started_at              TIMESTAMPTZ,
+  ended_at                TIMESTAMPTZ,
+  closed_by               VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  notes                   TEXT,
+  created_at              TIMESTAMPTZ DEFAULT NOW(),
+  updated_at              TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (home_team_id <> away_team_id),
+  CHECK (status IN ('SCHEDULED', 'LIVE', 'FINISHED', 'CANCELLED', 'WALKOVER', 'POSTPONED'))
+);
+
+-- Un campo no puede tener dos partidos a la misma hora. Esto sí se puede
+-- expresar como índice, así que se expresa: la validación en el servicio
+-- puede olvidarse en un endpoint nuevo, la base no.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_games_campo_hora
+  ON games(round_id, field_id, scheduled_time)
+  WHERE field_id IS NOT NULL AND status <> 'CANCELLED';
+
+-- ---------- ÁRBITROS ASIGNADOS ----------
+-- Tabla en lugar de columnas referee1_id/referee2_id: así la consulta de
+-- choques ("¿este árbitro ya tiene partido a esta hora?") es un JOIN normal
+-- en vez de un OR sobre dos columnas, y un partido puede llevar un tercero
+-- sin migrar la tabla de partidos.
+CREATE TABLE IF NOT EXISTS game_referees (
+  id           VARCHAR(36) PRIMARY KEY,
+  game_id      VARCHAR(36) NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  referee_id   VARCHAR(36) NOT NULL REFERENCES referees(id) ON DELETE CASCADE,
+  role         VARCHAR(20) NOT NULL DEFAULT 'PRINCIPAL',
+  assigned_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (game_id, referee_id),
+  UNIQUE (game_id, role),
+  CHECK (role IN ('PRINCIPAL', 'AUXILIAR'))
+);
+
+-- ---------- EVENTOS DEL PARTIDO ----------
+CREATE TABLE IF NOT EXISTS game_events (
+  id           VARCHAR(36) PRIMARY KEY,
+  game_id      VARCHAR(36) NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  team_id      VARCHAR(36) NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  player_id    VARCHAR(36) REFERENCES players(id) ON DELETE SET NULL,
+  event_type   VARCHAR(40) NOT NULL,
+  -- Los puntos se copian del catálogo al registrar, no se consultan al
+  -- mostrar. Si mañana el reglamento cambia el valor de una jugada, los
+  -- partidos ya jugados conservan el marcador con el que se jugaron.
+  points       INTEGER NOT NULL DEFAULT 0,
+  quarter      INTEGER,
+  yards        INTEGER,
+  -- Los dos árbitros escriben sobre el mismo partido; hay que saber quién.
+  recorded_by  VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  -- "Deshacer" anula, no borra. Con dos árbitros registrando a la vez, un
+  -- DELETE dejaría un hueco imposible de explicar después del partido.
+  voided_at    TIMESTAMPTZ,
+  voided_by    VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ---------- DESCANSOS ----------
+-- El descanso es un hecho de la jornada, no la ausencia de un partido:
+-- se registra por qué descansa el equipo, porque "sobra uno" y "no
+-- alcanzaron los horarios" se resuelven distinto la jornada siguiente.
+CREATE TABLE IF NOT EXISTS round_byes (
+  id          VARCHAR(36) PRIMARY KEY,
+  round_id    VARCHAR(36) NOT NULL REFERENCES rounds(id) ON DELETE CASCADE,
+  team_id     VARCHAR(36) NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  reason      VARCHAR(40) NOT NULL DEFAULT 'ODD_TEAMS',
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (round_id, team_id),
+  CHECK (reason IN ('ODD_TEAMS', 'CAPACITY', 'MANUAL'))
+);
+
+-- Un equipo no puede jugar dos veces la misma noche, y eso no se puede
+-- expresar como UNIQUE porque el equipo aparece en cualquiera de dos
+-- columnas. Va como disparador para que también proteja los ajustes
+-- manuales del administrador, no solo lo que produce el generador.
+CREATE OR REPLACE FUNCTION check_equipo_una_vez_por_jornada()
+RETURNS TRIGGER AS $$
+DECLARE
+  choque INTEGER;
+BEGIN
+  IF NEW.status = 'CANCELLED' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT COUNT(*) INTO choque
+  FROM games g
+  WHERE g.round_id = NEW.round_id
+    AND g.id <> NEW.id
+    AND g.status <> 'CANCELLED'
+    AND (NEW.home_team_id IN (g.home_team_id, g.away_team_id)
+      OR NEW.away_team_id IN (g.home_team_id, g.away_team_id));
+
+  IF choque > 0 THEN
+    RAISE EXCEPTION 'Uno de los equipos ya tiene partido en esta jornada'
+      USING ERRCODE = 'unique_violation';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_equipo_una_vez_por_jornada ON games;
+CREATE TRIGGER trg_equipo_una_vez_por_jornada
+  BEFORE INSERT OR UPDATE OF round_id, home_team_id, away_team_id, status ON games
+  FOR EACH ROW EXECUTE FUNCTION check_equipo_una_vez_por_jornada();
+
+CREATE INDEX IF NOT EXISTS idx_rounds_season      ON rounds(season_id, number);
+CREATE INDEX IF NOT EXISTS idx_slots_round        ON round_time_slots(round_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_games_round        ON games(round_id);
+CREATE INDEX IF NOT EXISTS idx_games_categoria    ON games(category_id, status);
+CREATE INDEX IF NOT EXISTS idx_games_local        ON games(home_team_id);
+CREATE INDEX IF NOT EXISTS idx_games_visitante    ON games(away_team_id);
+CREATE INDEX IF NOT EXISTS idx_game_refs_arbitro  ON game_referees(referee_id);
+CREATE INDEX IF NOT EXISTS idx_eventos_partido    ON game_events(game_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_eventos_jugador    ON game_events(player_id) WHERE voided_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_byes_round         ON round_byes(round_id);
+
+-- ============================================================
 -- MIGRACIONES INCREMENTALES
 -- Para bases ya creadas antes de que existieran estas columnas.
 -- Postgres 9.6+ soporta IF NOT EXISTS en ADD COLUMN, así que esto

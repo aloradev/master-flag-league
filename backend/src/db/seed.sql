@@ -88,5 +88,16 @@ INSERT INTO settings (id, league_id, season_id, key, value) VALUES
 }'),
 ('set_times_2026', 'league_cancun', 'season_2026', 'game_times', '{
   "slots": ["19:00", "20:00", "21:00"]
+}'),
+-- Reglas de competencia. Están aquí y no en el código para que la liga
+-- pueda cambiar el valor de una victoria sin un despliegue, y para que una
+-- segunda liga pueda usar otras sin tocar nada.
+('set_comp_2026', 'league_cancun', 'season_2026', 'competition', '{
+  "points_win": 3,
+  "points_draw": 1,
+  "points_loss": 0,
+  "walkover_score": [20, 0],
+  "periods": 2,
+  "tiebreakers": ["points", "wins", "point_diff", "points_for", "head_to_head"]
 }')
 ON CONFLICT (league_id, season_id, key) DO UPDATE SET value = EXCLUDED.value;

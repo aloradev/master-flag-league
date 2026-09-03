@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "db:dev": "tsx scripts/dev-db.ts",
     "test": "node tests/integration.mjs",
-    "test:cors": "node tests/cors.mjs"
+    "test:cors": "node tests/cors.mjs",
+    "test:fixture": "node tests/fixture.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
