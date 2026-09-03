@@ -16,7 +16,9 @@
     "db:dev": "tsx scripts/dev-db.ts",
     "test": "node tests/integration.mjs",
     "test:cors": "node tests/cors.mjs",
-    "test:fixture": "node tests/fixture.mjs"
+    "test:fixture": "node tests/fixture.mjs",
+    "test:competition": "node tests/competition.mjs",
+    "test:all": "node tests/fixture.mjs && node tests/cors.mjs && node tests/integration.mjs && node tests/competition.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
