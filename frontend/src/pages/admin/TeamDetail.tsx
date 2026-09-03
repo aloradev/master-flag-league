@@ -397,13 +397,13 @@ const EditarEquipo = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div aria-hidden="true" onClick={onCerrar} className="absolute inset-0 bg-black/60" />
+      <div aria-hidden="true" onClick={onCerrar} className="mfl-fondo absolute inset-0 bg-black/60" />
       <div
         role="dialog"
         aria-label="Editar equipo"
-        className="relative max-h-[85vh] w-full max-w-lg space-y-4 overflow-y-auto
-                   rounded-t-box border-t border-base-300 bg-base-200 p-4 shadow-2xl
-                   sm:rounded-box sm:border"
+        className="mfl-hoja relative max-h-[85vh] w-full max-w-lg space-y-4
+                   overflow-y-auto rounded-t-box border-t border-base-300
+                   bg-base-200 p-4 shadow-2xl sm:rounded-box sm:border"
       >
         <div className="flex items-center justify-between border-b border-base-300/60 pb-3">
           <h2 className="text-sm font-bold">Editar equipo</h2>

@@ -129,8 +129,16 @@ export default function AdminFinances() {
         <p className="text-sm text-base-content/60">{season.data?.name}</p>
       </header>
 
-      {error && <Alert tone="error">{error}</Alert>}
-      {aviso && !error && <Alert tone="success">{aviso}</Alert>}
+      {error && (
+        <div className="mfl-aviso">
+          <Alert tone="error">{error}</Alert>
+        </div>
+      )}
+      {aviso && !error && (
+        <div className="mfl-aviso" key={aviso}>
+          <Alert tone="success">{aviso}</Alert>
+        </div>
+      )}
 
       {sinConfigurar && (
         <Alert tone="warning" title="Los montos están en cero">
@@ -163,8 +171,10 @@ export default function AdminFinances() {
               </p>
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-base-300">
+              {/* Crece al montar: una barra que aparece ya llena no
+                  comunica la proporción, solo la posición final. */}
               <div
-                className="h-full rounded-full bg-success transition-[width]"
+                className="mfl-barra h-full rounded-full bg-success transition-[width]"
                 style={{ width: `${Math.min(100, b.collection_rate)}%` }}
               />
             </div>
@@ -378,7 +388,7 @@ const CuentasPorCobrar = ({
               <button
                 type="button"
                 onClick={() => onExpandir(c.team_id)}
-                className="flex w-full items-center gap-3 p-3 text-left"
+                className="mfl-toque flex w-full items-center gap-3 p-3 text-left"
               >
                 <TeamCrest
                   name={c.team_name}
@@ -1025,14 +1035,14 @@ const HojaInferior = ({
     <div
       aria-hidden="true"
       onClick={onCerrar}
-      className="absolute inset-0 bg-black/60"
+      className="mfl-fondo absolute inset-0 bg-black/60"
     />
     <div
       role="dialog"
       aria-label={titulo}
-      className="relative max-h-[85vh] w-full max-w-lg space-y-3 overflow-y-auto
-                 rounded-t-box border-t border-base-300 bg-base-200 p-4 shadow-2xl
-                 sm:rounded-box sm:border"
+      className="mfl-hoja relative max-h-[85vh] w-full max-w-lg space-y-3
+                 overflow-y-auto rounded-t-box border-t border-base-300 bg-base-200
+                 p-4 shadow-2xl sm:rounded-box sm:border"
     >
       <div className="sticky -top-4 -mx-4 -mt-4 mb-1 flex items-center justify-between
                       border-b border-base-300/60 bg-base-200 px-4 py-3">

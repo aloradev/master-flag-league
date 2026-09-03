@@ -182,6 +182,8 @@ export const Button = ({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={[
+        // La respuesta al toque vive en el CSS, sobre `.btn`, para que
+        // también la tengan los botones crudos que no pasan por aquí.
         'btn',
         TONE_CLASS[tone],
         outline && 'btn-outline',

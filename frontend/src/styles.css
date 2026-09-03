@@ -148,6 +148,116 @@ body {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════
+ * MOVIMIENTO
+ *
+ * Solo donde la animación LLEVA información: confirmar que un toque se
+ * registró, señalar qué número cambió, dejar claro de dónde salió una
+ * hoja. Nada decorativo, y nada por encima de 150 ms en el Modo Árbitro,
+ * que se usa con una mano y de prisa.
+ *
+ * TODO está dentro de `prefers-reduced-motion: no-preference`. No es
+ * cortesía: hay gente a la que el movimiento le provoca mareo, y iOS y
+ * Android traen el interruptor. Con la preferencia activada, cada
+ * elemento aparece en su estado final sin recorrido, no a medias.
+ * ══════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Hoja inferior: sube desde el borde, que es de donde el pulgar la
+     invocó. Aparecer de golpe no deja claro que se puede arrastrar
+     hacia abajo ni de dónde vino. */
+  @keyframes mfl-sube {
+    from {
+      transform: translateY(1.5rem);
+      opacity: 0;
+    }
+  }
+  .mfl-hoja {
+    animation: mfl-sube 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes mfl-fondo {
+    from {
+      opacity: 0;
+    }
+  }
+  .mfl-fondo {
+    animation: mfl-fondo 180ms ease-out;
+  }
+
+  /* Aviso que entra empujando el contenido: sin movimiento, el salto de
+     la página se lee como un error de dibujo. */
+  @keyframes mfl-entra {
+    from {
+      transform: translateY(-0.35rem);
+      opacity: 0;
+    }
+  }
+  .mfl-aviso {
+    animation: mfl-entra 160ms ease-out;
+  }
+
+  /* El lado que anotó: un destello del color del marcador. Es lo que
+     distingue "cambió el marcador" de "ya estaba así". */
+  @keyframes mfl-anoto {
+    0% {
+      transform: scale(1);
+    }
+    35% {
+      transform: scale(1.14);
+      color: var(--color-success);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  .mfl-anoto {
+    animation: mfl-anoto 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Barra de proporción que crece al montar, para que la fracción se
+     lea en lugar de aparecer ya llena. */
+  .mfl-barra {
+    animation: mfl-barra 550ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @keyframes mfl-barra {
+    from {
+      width: 0;
+    }
+  }
+}
+
+/* Respuesta al toque.
+ *
+ * Va FUERA del bloque de reduced-motion a propósito: no es decoración,
+ * es la única señal de que el dedo dio en el botón antes de que la red
+ * responda. Aun así es instantánea y sin recorrido, así que no provoca
+ * mareo.
+ *
+ * Se aplica sobre `.btn` y no sobre el componente Button de React,
+ * porque hay dos docenas de botones crudos con clase `btn` repartidos en
+ * las pantallas —"Asignar", "Crear equipo", "Nuevo usuario"— que no
+ * pasan por el componente. Ponerlo en el componente dejaba a esos con la
+ * mitad de la respuesta, y a este comentario diciendo "todo botón"
+ * cuando no era cierto. En el CSS no hay excepciones que recordar.
+ *
+ * DaisyUI ya trae `translate: 0 .5px` en `.btn:active`: medio píxel, que
+ * en una pantalla de celular al sol no se percibe. Esto lo amplifica a
+ * un 3% de escala, que sí. Las dos propiedades conviven porque
+ * `translate` y `transform` son propiedades distintas.
+ *
+ * `.mfl-toque` sigue existiendo para lo que NO es `.btn`: la rejilla de
+ * camisetas del árbitro y los renglones de las cuentas por cobrar.
+ */
+.btn,
+.mfl-toque {
+  transition: transform 90ms ease-out;
+}
+.btn:active:not(:disabled):not(.btn-disabled),
+.mfl-toque:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
 /**
  * Impresión: el roster se entrega en papel el día de partido.
  * Se fuerza tinta negra sobre blanco aunque el usuario esté en oscuro.

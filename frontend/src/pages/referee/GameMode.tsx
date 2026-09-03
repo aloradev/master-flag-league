@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Alert, Button, Card, Spinner } from '../../components/ui';
 import { IconCheckCircle, IconCircleX, IconWarning } from '../../components/icons';
 import { TeamCrest } from '../../components/AuthImage';
+import { useContador } from '../../lib/motion';
 import {
   competition,
   hora12,
@@ -242,11 +243,7 @@ const GameMode = () => {
 
           {/* items-center y no items-baseline: alineado a la base, el guion
               queda por debajo de los dígitos y se lee "2 _ 0". */}
-          <div className="tabular flex items-center gap-3 text-5xl font-black leading-none">
-            <span>{score.home}</span>
-            <span className="text-3xl font-light text-base-content/25">—</span>
-            <span>{score.away}</span>
-          </div>
+          <Marcador home={score.home} away={score.away} />
 
           <div className="flex flex-col items-center gap-2 text-center">
             <TeamCrest
@@ -269,8 +266,19 @@ const GameMode = () => {
         )}
       </Card>
 
-      {error && <Alert tone="error">{error}</Alert>}
-      {aviso && !error && <Alert tone="success">{aviso}</Alert>}
+      {error && (
+        <div className="mfl-aviso">
+          <Alert tone="error">{error}</Alert>
+        </div>
+      )}
+      {aviso && !error && (
+        // `key` con el texto para que la animación se repita en cada
+        // jugada: sin ella, React reutiliza el nodo y el segundo
+        // touchdown seguido no se anunciaría con movimiento.
+        <div className="mfl-aviso" key={aviso}>
+          <Alert tone="success">{aviso}</Alert>
+        </div>
+      )}
 
       {/* ─────────────── ACCIÓN PRINCIPAL ─────────────── */}
       {game.status === 'SCHEDULED' && (
@@ -303,9 +311,9 @@ const GameMode = () => {
                     type="button"
                     onClick={() => tocarJugada(teamId, tipo)}
                     disabled={Boolean(ocupado)}
-                    className="btn h-16 w-full flex-col gap-0 border-base-300 bg-base-100 text-base
-                               font-bold hover:bg-primary hover:text-primary-content
-                               disabled:opacity-60"
+                    className="btn mfl-toque h-16 w-full flex-col gap-0 border-base-300
+                               bg-base-100 text-base font-bold hover:bg-primary
+                               hover:text-primary-content disabled:opacity-60"
                   >
                     <span>{jugada.label}</span>
                     {jugada.points > 0 && (
@@ -463,6 +471,34 @@ const GameMode = () => {
   );
 };
 
+// ─────────────────────────────── MARCADOR ─────────────────────────────────
+
+/**
+ * El marcador, con el número contando hasta su nuevo valor y un destello
+ * en el lado que anotó.
+ *
+ * Es la única animación de esta pantalla que existe por una razón
+ * funcional y no estética: el cambio puede venir del OTRO árbitro y
+ * llegar por sondeo, sin que este haya tocado nada. Sin movimiento, un
+ * 14 que se vuelve 20 pasa desapercibido.
+ */
+const Marcador = ({ home, away }: { home: number; away: number }) => {
+  const local = useContador(home);
+  const visita = useContador(away);
+
+  return (
+    <div className="tabular flex items-center gap-3 text-5xl font-black leading-none">
+      <span className={local.cambio ? 'mfl-anoto inline-block' : 'inline-block'}>
+        {local.mostrado}
+      </span>
+      <span className="text-3xl font-light text-base-content/25">—</span>
+      <span className={visita.cambio ? 'mfl-anoto inline-block' : 'inline-block'}>
+        {visita.mostrado}
+      </span>
+    </div>
+  );
+};
+
 // ─────────────────────────── HOJA: JUGADORES ──────────────────────────────
 
 /**
@@ -505,9 +541,9 @@ const HojaJugadores = ({
               type="button"
               disabled={Boolean(ocupado)}
               onClick={() => onElegir(j.id)}
-              className="flex flex-col items-center gap-1 rounded-box border border-success/40
-                         bg-success/5 px-1 py-2 transition-colors hover:bg-success/20
-                         disabled:opacity-50"
+              className="mfl-toque flex flex-col items-center gap-1 rounded-box
+                         border border-success/40 bg-success/5 px-1 py-2
+                         transition-colors hover:bg-success/20 disabled:opacity-50"
             >
               <span className="tabular text-xl font-black leading-none">
                 {j.jersey_number ?? '—'}
@@ -756,13 +792,14 @@ const Hoja = ({
     <div
       aria-hidden="true"
       onClick={onCerrar}
-      className="absolute inset-0 bg-black/60"
+      className="mfl-fondo absolute inset-0 bg-black/60"
     />
     <div
       role="dialog"
       aria-label={titulo}
-      className="relative max-h-[85vh] w-full max-w-lg space-y-3 overflow-y-auto
-                 rounded-t-box border-t border-base-300 bg-base-200 p-4 shadow-2xl"
+      className="mfl-hoja relative max-h-[85vh] w-full max-w-lg space-y-3
+                 overflow-y-auto rounded-t-box border-t border-base-300
+                 bg-base-200 p-4 shadow-2xl"
     >
       <div className="sticky -top-4 -mx-4 -mt-4 mb-1 flex items-center justify-between
                       border-b border-base-300/60 bg-base-200 px-4 py-3">

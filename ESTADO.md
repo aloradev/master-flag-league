@@ -150,6 +150,50 @@ celular.
 
 ---
 
+## Movimiento
+
+Solo donde la animación **lleva información**. Nada decorativo, y nada
+por encima de 150 ms en el Modo Árbitro, que se usa con una mano, de
+prisa y con sol en la pantalla.
+
+- **El marcador cuenta** hasta su nuevo valor, con destello en el lado
+  que anotó. Es la única de estas animaciones que existe por una razón
+  funcional clara: el cambio puede venir del OTRO árbitro y llegar por
+  sondeo, sin que este haya tocado nada. Un 14 que se vuelve 20 sin
+  movimiento pasa desapercibido.
+- **Respuesta al toque** en todo botón de acción (`mfl-toque`, aplicado
+  en el componente `Button`, no página por página). Es la única señal de
+  que el dedo dio en el blanco antes de que la red conteste, y en
+  celular eso decide si el usuario vuelve a picarle.
+- **Las hojas inferiores suben** desde el borde, que es de donde el
+  pulgar las invocó, en lugar de aparecer de golpe.
+- **Los avisos entran** en lugar de saltar: sin movimiento, el
+  desplazamiento del contenido se lee como un error de dibujo.
+- **La barra de cobranza crece** al montar, para que la proporción se
+  lea en lugar de aparecer ya llena.
+
+### Sin librería
+Todo con CSS y Tailwind. `framer-motion` son unos 30 KB comprimidos, y
+quien carga esta aplicación es un árbitro con datos móviles en un campo.
+El costo real de estas animaciones no llegó a 1 KB.
+
+### `prefers-reduced-motion`
+Todo el movimiento vive dentro de `@media (prefers-reduced-motion:
+no-preference)`. No es cortesía: hay gente a la que el movimiento le
+provoca mareo, y iOS y Android traen el interruptor.
+
+El contador del marcador se anima con estado de React, así que además
+consulta la preferencia en JavaScript (`src/lib/motion.ts`) y **salta**
+al valor final en lugar de quedarse a medio camino. Verificado con
+navegador en los dos modos: con movimiento pasa por los valores
+intermedios; con la preferencia activada, a los 120 ms ya muestra el
+valor final.
+
+La respuesta al toque es la excepción deliberada: va fuera del bloque
+porque no es decoración, y al no tener recorrido no provoca mareo.
+
+---
+
 ## Corrección: editar jugadores y equipos
 
 Encontrado usando la aplicación, no leyendo la API: un jugador
