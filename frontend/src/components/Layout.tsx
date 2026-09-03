@@ -12,6 +12,7 @@ import {
   IconPlus,
   IconDocument,
   IconFootball,
+  IconTrophy,
   IconLogout,
 } from './icons';
 import type { ComponentType } from 'react';
@@ -31,7 +32,9 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { to: '/admin', label: 'Panel', Icon: IconDashboard, primary: true },
     { to: '/admin/validacion', label: 'Validación', Icon: IconCheckCircle, primary: true },
     { to: '/admin/equipos', label: 'Equipos', Icon: IconShield, primary: true },
-    { to: '/admin/usuarios', label: 'Usuarios', Icon: IconUsers, primary: true },
+    { to: '/admin/jornadas', label: 'Jornadas', Icon: IconFootball, primary: true },
+    { to: '/posiciones', label: 'Posiciones', Icon: IconTrophy },
+    { to: '/admin/usuarios', label: 'Usuarios', Icon: IconUsers },
     { to: '/admin/temporada', label: 'Temporada', Icon: IconSettings },
     { to: '/admin/auditoria', label: 'Auditoría', Icon: IconClipboard, superAdminOnly: true },
   ],
@@ -39,8 +42,14 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { to: '/equipo', label: 'Mi equipo', Icon: IconShield, primary: true },
     { to: '/equipo/jugadores/nuevo', label: 'Agregar', Icon: IconPlus, primary: true },
     { to: '/equipo/roster', label: 'Roster', Icon: IconDocument, primary: true },
+    { to: '/jornadas', label: 'Jornadas', Icon: IconFootball },
+    { to: '/posiciones', label: 'Posiciones', Icon: IconTrophy },
   ],
-  REFEREE: [{ to: '/arbitro', label: 'Mis partidos', Icon: IconFootball, primary: true }],
+  REFEREE: [
+    { to: '/arbitro', label: 'Mis partidos', Icon: IconFootball, primary: true },
+    { to: '/jornadas', label: 'Jornadas', Icon: IconClipboard, primary: true },
+    { to: '/posiciones', label: 'Posiciones', Icon: IconTrophy, primary: true },
+  ],
 };
 
 /**

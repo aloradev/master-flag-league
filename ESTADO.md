@@ -68,19 +68,97 @@ configuración de documentos de la temporada. El árbitro solo ve
 
 ---
 
+## FASE 2 — COMPETENCIA ✅ Completa
+
+### Generador de jornadas
+Calcula la PRÓXIMA jornada a partir del historial, no un calendario fijo
+de temporada: un calendario fijo se rompe con la primera inscripción
+tardía o el primer partido pospuesto.
+
+El emparejamiento es de peso máximo, por programación dinámica sobre
+máscaras de bits, en lugar de voraz. Un voraz deja descansos evitables
+—con 6 equipos puede formar 2 partidos donde caben 3— y a un equipo se
+le explica mal que descansó porque el algoritmo eligió mal.
+
+Reparte también el horario y el campo buscando que nadie cierre la noche
+siempre, y decide quién es local según quién lo ha sido menos.
+
+La capacidad de la noche sale de (campos × horarios de esa jornada). Si
+los partidos posibles no caben, descansan primero los equipos que MENOS
+han descansado, y el aviso dice cuántos horarios harían falta:
+
+> Caben 6 partidos (2 campos × 3 horarios) y se pueden jugar 9.
+> 3 partidos quedan fuera y 6 equipos descansan por falta de espacio.
+> Agregar un horario libera 2 partidos.
+
+### Propuesta antes de guardar
+El botón "Generar próxima jornada" NO escribe en la base. El
+administrador ve los enfrentamientos, los horarios, los campos y quién
+descansa —con el motivo— antes de que exista una sola fila; si no le
+gusta, recalcula y no queda basura que borrar. Guardar la deja en
+borrador, que solo ve administración; publicar la hace visible y la
+empieza a contar para el historial del generador.
+
+### Modo Árbitro
+Diseñado para una mano, de pie, con sol en la pantalla: el marcador
+ocupa la mitad de arriba y las jugadas frecuentes son botones grandes.
+Touchdown abre una rejilla de números de camiseta —el árbitro vio un
+número, no una cara— con el semáforo en el propio botón: verde tocable,
+rojo bloqueado con el motivo. El rechazo pasa antes del toque, no como
+un error después.
+
+Los dos árbitros se sincronizan por sondeo cada 4 segundos pidiendo solo
+lo que cambió desde la última vez. Se eligió sondeo y no WebSocket
+porque el plan gratuito duerme el proceso y la conexión persistente se
+cae igual; un sondeo perdido no interrumpe nada, el siguiente trae lo
+que faltó.
+
+"Deshacer" anula, no borra: al terminar el partido se puede reconstruir
+qué pasó y quién lo corrigió, que es lo que se pregunta cuando un
+marcador queda en duda.
+
+### El semáforo como regla
+Si la temporada exige aprobación, un jugador no elegible NO puede
+registrar jugadas. Deja de ser un adorno de la pantalla y se convierte
+en la regla que sostiene toda la validación de la Fase 1.
+
+### Lo que el sistema calcula y nadie captura
+- El marcador, sumando los eventos vigentes.
+- La tabla de posiciones, en cada consulta. No se guarda: una copia se
+  desincroniza en cuanto se corrige el marcador de una jornada anterior.
+- La racha y la forma de los últimos cinco partidos.
+- La fecha de la próxima jornada (una semana después de la anterior).
+- El paso de la jornada a "en curso" con el primer partido que arranca,
+  y a "terminada" cuando ya no queda ninguno pendiente.
+- Los descansos y su motivo.
+
+### Verificación
+436 comprobaciones automáticas: 161 del generador, 153 de Fase 1, 112 de
+Fase 2 y 10 de CORS. `npm run test:all` en `backend/`.
+
+Las de Fase 2 corren contra la API compilada, no contra el código
+fuente. Se comprobó además que Fase 1 y Fase 2 pasan seguidas sobre la
+misma base y que Fase 2 se puede repetir sin limpiarla.
+
+Del generador se probaron cuatro mutaciones deliberadas para confirmar
+que las pruebas saben fallar. Una pasaba las 157 comprobaciones
+originales, así que se agregó la sección que cierra ese hueco.
+
+Revisión visual con navegador real en los dos temas, a 390 px y 1280 px,
+incluida la comprobación de que ninguna tabla desborda la pantalla del
+celular.
+
+---
+
 ## Pendiente
 
 ### Desplegar en línea
 Falta crear la base de datos gratuita y publicar. `render.yaml` y
 `DESPLIEGUE.md` ya tienen todo lo demás resuelto.
 
-### FASE 2 — Competencia
-Jornadas, generador de enfrentamientos con descansos balanceados,
-campos y horarios con detección de conflictos, asignación de árbitros,
-partidos y Modo Árbitro móvil con sincronización entre dos árbitros.
-
 ### FASE 3 — Estadísticas
-Tabla de posiciones, rankings, MVP, Power Ranking, rachas y récords.
+Rankings de jugadores, MVP acumulado, Power Ranking y récords. La tabla
+de posiciones, las rachas y la forma reciente ya están en la Fase 2.
 
 ### FASE 4 — Finanzas
 Inscripciones, pagos, cuentas por cobrar, ingresos, gastos y reportes.

@@ -162,3 +162,22 @@ export const IconInbox = (props: IconProps) => (
     <path d="M3.5 13.5L6 5.6a1.5 1.5 0 011.4-1.1h9.2A1.5 1.5 0 0118 5.6l2.5 7.9v3.9a1.5 1.5 0 01-1.5 1.5H5a1.5 1.5 0 01-1.5-1.5z" />
   </Svg>
 );
+
+/** Trofeo: la tabla de posiciones. */
+export const IconTrophy = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M8 4h8v5a4 4 0 01-8 0V4z" />
+    <path d="M8 5H5.5A1.5 1.5 0 004 6.5V7a3 3 0 003 3h1" />
+    <path d="M16 5h2.5A1.5 1.5 0 0120 6.5V7a3 3 0 01-3 3h-1" />
+    <path d="M12 13v3M9 20h6M10 20l.5-4h3l.5 4" />
+  </Svg>
+);
+
+/** Silbato: pantallas de arbitraje. */
+export const IconWhistle = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M3.5 11a4.5 4.5 0 014.5-4.5h6l6.5-2v5l-6.5-2" />
+    <path d="M8 6.5a4.5 4.5 0 100 9h4.5a4.5 4.5 0 004.5-4.5v-.5H8" />
+    <circle cx="8" cy="11" r="1.5" />
+  </Svg>
+);

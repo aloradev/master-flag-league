@@ -332,6 +332,22 @@ const run = async () => {
   check('Y el mensaje dice qué hacer en su lugar',
     /se cancela, no se borra/i.test(borrarPublicada.body?.error ?? ''), borrarPublicada.body?.error);
 
+  /**
+   * Las dos rutas deben describir los horarios igual. Se separaron una
+   * vez —cadenas en la lista, objetos en el detalle, mismo nombre de
+   * campo— y la pantalla que consumía ambas reventaba solo en una.
+   */
+  const listaConSlots = await call('GET', `/rounds?seasonId=${seasonId}`, { token: admin });
+  const detalleConSlots = await call('GET', `/rounds/${roundId}`, { token: admin });
+  const slotsLista = listaConSlots.body?.data?.find((r) => r.id === roundId)?.slots ?? [];
+  const slotsDetalle = detalleConSlots.body?.data?.slots ?? [];
+  check('La lista describe los horarios como cadenas "HH:MM"',
+    slotsLista.length === 3 && slotsLista.every((h) => typeof h === 'string' && /^\d{2}:\d{2}$/.test(h)),
+    JSON.stringify(slotsLista));
+  check('El detalle usa exactamente la misma forma',
+    JSON.stringify(slotsDetalle) === JSON.stringify(slotsLista),
+    `${JSON.stringify(slotsDetalle)} vs ${JSON.stringify(slotsLista)}`);
+
   const ahoraSiVe = await call('GET', `/rounds/${roundId}`, { token: manager });
   check('Publicada, el encargado ya la ve', ahoraSiVe.status === 200, `${ahoraSiVe.status}`);
   check('Con sus partidos', (ahoraSiVe.body?.data?.games ?? []).length === CAPACIDAD,

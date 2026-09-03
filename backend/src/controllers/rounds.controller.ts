@@ -101,7 +101,12 @@ export const getRound = asyncHandler(async (req: AuthRequest, res: Response) => 
 
   const r = await query(
     `SELECT ro.*, u.name AS generated_by_name,
-            COALESCE((SELECT json_agg(json_build_object('id', s.id, 'time', to_char(s.start_time,'HH24:MI'))
+            -- La MISMA forma que en /rounds: un arreglo de "HH:MM".
+            -- Antes el detalle devolvía objetos {id, time} y la lista
+            -- cadenas, con el mismo nombre de campo; la pantalla que
+            -- consumía las dos reventaba en una y no en la otra. Los ids
+            -- no hacen falta: al editar los horarios se reemplazan todos.
+            COALESCE((SELECT json_agg(to_char(s.start_time,'HH24:MI')
                                       ORDER BY s.sort_order, s.start_time)
                       FROM round_time_slots s WHERE s.round_id = ro.id), '[]') AS slots
      FROM rounds ro

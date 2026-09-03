@@ -24,6 +24,11 @@ import AdminUsers from './pages/admin/Users';
 import AdminAudit from './pages/admin/Audit';
 import SeasonConfig from './pages/admin/SeasonConfig';
 import Roster from './pages/Roster';
+import Jornadas from './pages/Jornadas';
+import Standings from './pages/Standings';
+import AdminRounds from './pages/admin/Rounds';
+import RefereeGames from './pages/referee/MyGames';
+import RefereeGameMode from './pages/referee/GameMode';
 
 /** Puerta de acceso: exige sesión y, si se indica, un rol permitido. */
 const Protected = ({
@@ -73,6 +78,32 @@ const App = () => {
           }
         />
 
+        {/* Calendario y tabla: los ve cualquiera con sesión. El
+            calendario y las posiciones son de la liga, no de un rol, y
+            el backend ya oculta las jornadas en borrador. */}
+        <Route
+          element={
+            <Protected>
+              <Layout />
+            </Protected>
+          }
+        >
+          <Route path="/jornadas" element={<Jornadas />} />
+          <Route path="/posiciones" element={<Standings />} />
+        </Route>
+
+        {/* Modo Árbitro */}
+        <Route
+          element={
+            <Protected allow={(role) => role === 'REFEREE' || isAdmin(role)}>
+              <Layout />
+            </Protected>
+          }
+        >
+          <Route path="/arbitro" element={<RefereeGames />} />
+          <Route path="/arbitro/partido/:id" element={<RefereeGameMode />} />
+        </Route>
+
         {/* Portal del manager */}
         <Route
           element={
@@ -101,6 +132,7 @@ const App = () => {
           <Route path="/admin/equipos/:id" element={<AdminTeamDetail />} />
           <Route path="/admin/equipos/:id/roster" element={<Roster />} />
           <Route path="/admin/usuarios" element={<AdminUsers />} />
+          <Route path="/admin/jornadas" element={<AdminRounds />} />
           <Route path="/admin/temporada" element={<SeasonConfig />} />
         </Route>
 
