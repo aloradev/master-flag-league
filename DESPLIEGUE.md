@@ -349,6 +349,39 @@ Estás en la raíz del repositorio. Hay dos aplicaciones independientes,
 `backend` y `frontend`, cada una con su propio `package.json`; en la raíz
 no hay ninguno.
 
+### Recargar en `/ingresar` da 404 en Vercel
+
+La aplicación es una SPA: React Router resuelve las rutas en el navegador
+sin pedir nada al servidor. Pero al **recargar** en `/ingresar` o
+`/admin/validacion`, el navegador hace una petición HTTP real por esa
+ruta, y en el servidor no existe ningún archivo ahí — solo existe
+`index.html`. Vercel devuelve 404.
+
+Navegar dentro de la app funciona; recargar o abrir un enlace directo, no.
+Por eso es fácil no notarlo hasta que alguien comparte una URL.
+
+Se resuelve con `frontend/vercel.json`, que sirve `index.html` para
+cualquier ruta y deja que React decida:
+
+```json
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+No se come los archivos estáticos. La documentación de Vercel es
+explícita: *"precedence is given to the filesystem prior to rewrites
+being applied"*. Los assets, el logo y el favicon siguen sirviéndose
+directo; la regla solo actúa cuando no hay archivo que coincida.
+
+El mismo archivo define las cabeceras de caché, y ahí hay una asimetría
+que importa: los assets compilados llevan un hash en el nombre y se
+cachean un año, pero **`index.html` no debe cachearse**. Es el que apunta
+a esos assets, y un `index.html` viejo en caché pediría archivos que el
+despliegue nuevo ya borró — la app quedaría en blanco sin error visible.
+
 ### Render eligió una versión de Node distinta
 
 `engines.node` está en `>=20` para no estorbar a quien desarrolle con
