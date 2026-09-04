@@ -6,12 +6,15 @@ import type { TeamDetail as Team } from '../../lib/types';
 import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
 import { StatusBadge, EligibilityBadge } from '../../components/StatusBadge';
 import { PlayerAvatar, TeamCrest } from '../../components/AuthImage';
+import { useAuth } from '../../store/auth';
 
 interface ManagerOption {
   id: string;
   name: string;
   email: string;
   active: boolean;
+  role: string;
+  role_label: string;
   teams: { id: string; name: string }[];
 }
 
@@ -20,6 +23,7 @@ const MAX_MANAGERS = 2;
 export default function AdminTeamDetail() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const restoreSession = useAuth((state) => state.restore);
   const [assigning, setAssigning] = useState(false);
   const [selected, setSelected] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -32,17 +36,19 @@ export default function AdminTeamDetail() {
     enabled: Boolean(id),
   });
 
-  // Solo se ofrecen managers activos que aún no llevan un equipo:
-  // un mismo encargado en dos equipos confunde el alcance de sus permisos.
+  // La relación usuario-equipo es muchos-a-muchos. También se puede asignar
+  // a un administrador: conserva su rol global, y la membresía identifica el
+  // equipo del que se ocupa como encargado.
   const candidates = useQuery({
-    queryKey: ['users', 'TEAM_MANAGER'],
-    queryFn: () => api.get<ManagerOption[]>('/admin/users?role=TEAM_MANAGER&active=true'),
+    queryKey: ['users', 'manager-candidates'],
+    queryFn: () => api.get<ManagerOption[]>('/admin/users?active=true'),
     enabled: assigning,
   });
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['team', id] });
     void queryClient.invalidateQueries({ queryKey: ['teams'] });
+    void queryClient.invalidateQueries({ queryKey: ['teams-managed'] });
     void queryClient.invalidateQueries({ queryKey: ['users'] });
   };
 
@@ -53,6 +59,7 @@ export default function AdminTeamDetail() {
       setAssigning(false);
       setSelected('');
       refresh();
+      void restoreSession();
     },
     onError: (err) => setError(err instanceof ApiError ? err.message : 'No se pudo asignar'),
   });
@@ -81,6 +88,7 @@ export default function AdminTeamDetail() {
     onSuccess: () => {
       setError(null);
       refresh();
+      void restoreSession();
     },
     onError: (err) => setError(err instanceof ApiError ? err.message : 'No se pudo remover'),
   });
@@ -94,7 +102,7 @@ export default function AdminTeamDetail() {
   const summary = data.registration_summary;
   const available = (candidates.data ?? []).filter(
     (candidate) =>
-      candidate.teams.length === 0 &&
+      ['TEAM_MANAGER', 'SUPER_ADMIN', 'SPORTS_ADMIN'].includes(candidate.role) &&
       !data.managers.some((manager) => manager.id === candidate.id)
   );
 
@@ -204,7 +212,7 @@ export default function AdminTeamDetail() {
             ) : available.length === 0 ? (
               <>
                 <p className="text-sm text-base-content/70">
-                  No hay managers disponibles. Crea un usuario con rol Manager de Equipo.
+                  No hay managers ni administradores disponibles para asignar.
                 </p>
                 <div className="flex gap-2">
                   <Button tone="ghost" size="sm" onClick={() => setAssigning(false)} className="flex-1">
@@ -226,7 +234,10 @@ export default function AdminTeamDetail() {
                     <option value="">Selecciona…</option>
                     {available.map((candidate) => (
                       <option key={candidate.id} value={candidate.id}>
-                        {candidate.name} · {candidate.email}
+                        {candidate.name} · {candidate.role_label}
+                        {candidate.teams.length > 0
+                          ? ` · ${candidate.teams.length} equipo(s)`
+                          : ''}
                       </option>
                     ))}
                   </select>

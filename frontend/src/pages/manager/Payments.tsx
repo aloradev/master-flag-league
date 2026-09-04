@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../../lib/api';
 import type { TeamSummary } from '../../lib/types';
 import { Alert, Card, EmptyState, Spinner, Stat } from '../../components/ui';
@@ -17,12 +18,16 @@ import { ETIQUETA_CARGO, finance, pesos, pesosCortos } from '../../lib/finance';
  * administrador cuando la cifra aparece sola.
  */
 export default function ManagerPayments() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTeamId = searchParams.get('equipo');
   const equipos = useQuery({
     queryKey: ['teams-mine'],
-    queryFn: () => api.get<TeamSummary[]>('/teams'),
+    queryFn: () => api.get<TeamSummary[]>('/teams?managed=true'),
   });
 
-  const teamId = equipos.data?.[0]?.id;
+  const teamId =
+    equipos.data?.find((candidate) => candidate.id === requestedTeamId)?.id ??
+    equipos.data?.[0]?.id;
 
   const estado = useQuery({
     queryKey: ['fin-statement', teamId],
@@ -50,6 +55,22 @@ export default function ManagerPayments() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
+      {(equipos.data?.length ?? 0) > 1 && (
+        <label className="block text-sm font-medium">
+          Equipo
+          <select
+            className="select select-bordered mt-1 w-full sm:w-80"
+            value={teamId}
+            onChange={(event) => setSearchParams({ equipo: event.target.value })}
+          >
+            {equipos.data!.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.name} · {candidate.category_name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <header className="flex items-center gap-3">
         <TeamCrest
           name={d.team.name}

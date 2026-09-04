@@ -23,6 +23,14 @@ export interface SessionUser {
   leagueId: string | null;
   mustChangePassword: boolean;
   permissions?: Record<string, string[]>;
+  teams?: {
+    id: string;
+    name: string;
+    logo_url?: string | null;
+    color_primary?: string;
+    category_name: string;
+    manager_role?: string;
+  }[];
 }
 
 export interface TeamSummary {

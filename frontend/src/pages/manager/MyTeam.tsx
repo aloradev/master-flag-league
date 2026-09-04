@@ -12,15 +12,18 @@ const playerName = (p: TeamDetail['roster'][number]) =>
   `${p.first_name} ${p.last_name_paternal}`;
 
 export default function MyTeam() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const huboBaja = searchParams.get('baja') === '1';
+  const requestedTeamId = searchParams.get('equipo');
 
   const teams = useQuery({
-    queryKey: ['teams'],
-    queryFn: () => api.get<TeamSummary[]>('/teams'),
+    queryKey: ['teams-managed'],
+    queryFn: () => api.get<TeamSummary[]>('/teams?managed=true'),
   });
 
-  const teamId = teams.data?.[0]?.id;
+  const teamId =
+    teams.data?.find((candidate) => candidate.id === requestedTeamId)?.id ?? teams.data?.[0]?.id;
+  const teamQuery = teamId ? `?equipo=${encodeURIComponent(teamId)}` : '';
 
   const team = useQuery({
     queryKey: ['team', teamId],
@@ -59,6 +62,28 @@ export default function MyTeam() {
         <Alert tone="success">El jugador quedó fuera del roster y su número está libre.</Alert>
       )}
 
+      {(teams.data?.length ?? 0) > 1 && (
+        <label className="block text-sm font-medium">
+          Equipo
+          <select
+            className="select select-bordered mt-1 w-full sm:w-80"
+            value={teamId}
+            onChange={(event) => {
+              const next = new URLSearchParams(searchParams);
+              next.set('equipo', event.target.value);
+              next.delete('baja');
+              setSearchParams(next);
+            }}
+          >
+            {teams.data!.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.name} · {candidate.category_name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       {/* Encabezado con la identidad del equipo */}
       <div className="flex items-center gap-4">
         <TeamCrest
@@ -95,7 +120,7 @@ export default function MyTeam() {
               {needsAttention.map((p) => (
                 <li key={p.id}>
                   <Link
-                    to={`/equipo/jugadores/${p.id}`}
+                    to={`/equipo/jugadores/${p.id}${teamQuery}`}
                     className="underline decoration-dotted underline-offset-2"
                   >
                     {playerName(p)}
@@ -134,7 +159,7 @@ export default function MyTeam() {
       <section>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-base-content/70">Plantilla</h2>
-          <Link to="/equipo/jugadores/nuevo" className="btn btn-primary btn-sm">
+          <Link to={`/equipo/jugadores/nuevo${teamQuery}`} className="btn btn-primary btn-sm">
             Agregar jugador
           </Link>
         </div>
@@ -146,7 +171,7 @@ export default function MyTeam() {
               title="Aún no hay jugadores"
               description="Registra a tu primer jugador y sube su documentación para que administración lo valide."
               action={
-                <Link to="/equipo/jugadores/nuevo" className="btn btn-primary btn-sm">
+                <Link to={`/equipo/jugadores/nuevo${teamQuery}`} className="btn btn-primary btn-sm">
                   Agregar jugador
                 </Link>
               }
@@ -157,7 +182,7 @@ export default function MyTeam() {
             {data.roster.map((player) => (
               <Card as="li" key={player.id}>
                 <Link
-                  to={`/equipo/jugadores/${player.id}`}
+                  to={`/equipo/jugadores/${player.id}${teamQuery}`}
                   className="flex items-center gap-3 p-3 transition-colors hover:bg-base-300/40"
                 >
                   <PlayerAvatar

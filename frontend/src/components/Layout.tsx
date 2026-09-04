@@ -77,6 +77,19 @@ export const Layout = () => {
   const items = (isAdmin(user?.role) ? NAV_BY_ROLE.ADMIN : NAV_BY_ROLE[user?.role ?? ''] ?? [])
     .filter((item) => !item.superAdminOnly || user?.role === 'SUPER_ADMIN');
 
+  // Un administrador conserva todos sus permisos, pero también puede tener
+  // una responsabilidad operativa sobre equipos concretos. Esa membresía
+  // merece una entrada separada: no convierte todo el panel administrativo
+  // en la vista del manager.
+  if (isAdmin(user?.role) && (user?.teams?.length ?? 0) > 0) {
+    items.splice(4, 0, {
+      to: '/equipo',
+      label: user!.teams!.length > 1 ? 'Mis equipos' : 'Mi equipo',
+      Icon: IconShield,
+      primary: true,
+    });
+  }
+
   const primaryItems = items.filter((item) => item.primary);
   const restoItems = items.filter((item) => !item.primary);
 

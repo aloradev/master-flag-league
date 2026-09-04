@@ -227,6 +227,7 @@ export default function PlayerDetail() {
   const isNew = searchParams.get('nuevo') === '1';
   const guardado = searchParams.get('guardado') === '1';
   const volvioARevision = searchParams.get('revision') === '1';
+  const managerTeamId = searchParams.get('equipo');
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -266,9 +267,14 @@ export default function PlayerDetail() {
    * ficha del equipo, y mandarlo a "Mi equipo" —que no tiene— lo dejaría
    * en la pantalla de "todavía no tienes un equipo asignado".
    */
-  destinoRef.current = isAdmin(user?.role)
-    ? `/admin/equipos/${data.team_id}`
-    : '/equipo?baja=1';
+  const inManagerPortal = !isAdmin(user?.role) || managerTeamId === data.team_id;
+  const teamQuery = `equipo=${encodeURIComponent(data.team_id)}`;
+  const backTo = inManagerPortal
+    ? `/equipo?${teamQuery}`
+    : `/admin/equipos/${data.team_id}`;
+  destinoRef.current = inManagerPortal
+    ? `/equipo?${teamQuery}&baja=1`
+    : `/admin/equipos/${data.team_id}`;
 
   const lastRejection = data.approval_history.find(
     (entry) => entry.action === 'REQUEST_CORRECTION' || entry.action === 'REJECT'
@@ -282,8 +288,8 @@ export default function PlayerDetail() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <Link to="/equipo" className="inline-block text-sm text-base-content/60 hover:text-base-content">
-        ← Mi equipo
+      <Link to={backTo} className="inline-block text-sm text-base-content/60 hover:text-base-content">
+        ← {inManagerPortal ? 'Mi equipo' : data.team_name}
       </Link>
 
       {isNew && (
@@ -326,7 +332,10 @@ export default function PlayerDetail() {
             </div>
           </div>
 
-          <Link to={`/equipo/jugadores/${id}/editar`} className="btn btn-sm shrink-0">
+          <Link
+            to={`/equipo/jugadores/${id}/editar${inManagerPortal ? `?${teamQuery}` : ''}`}
+            className="btn btn-sm shrink-0"
+          >
             Editar
           </Link>
         </div>

@@ -65,6 +65,7 @@ export const useAuth = create<AuthState>((set, get) => ({
           leagueId: me.league_id,
           mustChangePassword: me.must_change_password,
           permissions: me.permissions,
+          teams: me.teams ?? [],
         },
         status: 'authenticated',
       });

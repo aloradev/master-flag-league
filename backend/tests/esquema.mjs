@@ -23,6 +23,7 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -106,6 +107,15 @@ console.log('\n═══ 1. LAS EXPECTATIVAS SALEN DEL PROPIO SQL ═══');
   check(/players\.removed_at/.test(msg), 'El mensaje nombra la columna que falta');
   check(/falta la tabla "fees"/.test(msg), 'Y la tabla que falta');
   check(/npm run migrate/.test(msg), 'Y dice exactamente qué correr');
+
+  const seed = await readFile(join(ROOT, 'dist', 'db', 'seed.sql'), 'utf8');
+  const settingsConflict = seed.match(
+    /INSERT INTO settings[\s\S]*?ON CONFLICT \(league_id, season_id, key\) ([^;]+);/
+  )?.[1] ?? '';
+  check(
+    /DO NOTHING/.test(settingsConflict) && !/DO UPDATE/.test(settingsConflict),
+    'El seed nunca reemplaza configuración editable al arrancar'
+  );
 }
 
 console.log('\n═══ 2. UNA BASE ATRASADA NO DEJA ARRANCAR EN PRODUCCIÓN ═══');
@@ -131,6 +141,38 @@ try {
 if (conBase) {
   const migrada = await correr(process.execPath, ['dist/db/migrate.js'], { DB_NAME: BASE });
   check(/Migraciones completadas/.test(migrada.salida), 'La base se migra desde el JS compilado');
+
+  // El migrador corre en cada arranque de producción. Los valores del seed
+  // son solo iniciales: nunca deben reemplazar lo configurado por la liga.
+  const configuracion = new pg.Client({
+    host: entornoBase.DB_HOST, port: Number(entornoBase.DB_PORT),
+    user: entornoBase.DB_USER, password: entornoBase.DB_PASSWORD, database: BASE,
+  });
+  await configuracion.connect();
+  await configuracion.query(
+    `UPDATE settings
+        SET value = '{"required":["PHOTO"],"allowed_mime":["image/png"],"max_size_mb":9}'::jsonb
+      WHERE season_id = 'season_2026' AND key = 'documents'`
+  );
+  await configuracion.end();
+
+  const remigrada = await correr(process.execPath, ['dist/db/migrate.js'], { DB_NAME: BASE });
+  check(/Migraciones completadas/.test(remigrada.salida), 'Puede migrar otra vez sobre datos configurados');
+
+  const compruebaConfiguracion = new pg.Client({
+    host: entornoBase.DB_HOST, port: Number(entornoBase.DB_PORT),
+    user: entornoBase.DB_USER, password: entornoBase.DB_PASSWORD, database: BASE,
+  });
+  await compruebaConfiguracion.connect();
+  const valorConfigurado = await compruebaConfiguracion.query(
+    `SELECT value FROM settings WHERE season_id = 'season_2026' AND key = 'documents'`
+  );
+  await compruebaConfiguracion.end();
+  check(
+    valorConfigurado.rows[0]?.value?.max_size_mb === 9 &&
+      JSON.stringify(valorConfigurado.rows[0]?.value?.required) === JSON.stringify(['PHOTO']),
+    'Volver a migrar no reemplaza la configuración de la temporada'
+  );
 
   const sana = await arrancarApi({});
   check(sana.vivo, 'Con la base al día, la API arranca');

@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { TeamDetail, TeamSummary } from '../lib/types';
@@ -15,16 +15,21 @@ import { useAuth, isAdmin } from '../store/auth';
  */
 export default function Roster() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const requestedTeamId = searchParams.get('equipo');
 
   // El manager llega sin :id — se resuelve su propio equipo.
   const teams = useQuery({
-    queryKey: ['teams'],
-    queryFn: () => api.get<TeamSummary[]>('/teams'),
+    queryKey: ['teams-managed'],
+    queryFn: () => api.get<TeamSummary[]>('/teams?managed=true'),
     enabled: !id,
   });
 
-  const teamId = id ?? teams.data?.[0]?.id;
+  const teamId =
+    id ??
+    teams.data?.find((candidate) => candidate.id === requestedTeamId)?.id ??
+    teams.data?.[0]?.id;
 
   const team = useQuery({
     queryKey: ['team', teamId],
@@ -40,10 +45,29 @@ export default function Roster() {
   const data = team.data;
   const eligible = data.roster.filter((player) => player.is_eligible);
   const notEligible = data.roster.filter((player) => !player.is_eligible);
-  const backTo = isAdmin(user?.role) ? `/admin/equipos/${teamId}` : '/equipo';
+  const backTo =
+    id && isAdmin(user?.role)
+      ? `/admin/equipos/${teamId}`
+      : `/equipo${teamId ? `?equipo=${encodeURIComponent(teamId)}` : ''}`;
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 print:max-w-none print:space-y-2">
+      {!id && (teams.data?.length ?? 0) > 1 && (
+        <label className="block text-sm font-medium print:hidden">
+          Equipo
+          <select
+            className="select select-bordered mt-1 w-full sm:w-80"
+            value={teamId}
+            onChange={(event) => setSearchParams({ equipo: event.target.value })}
+          >
+            {teams.data!.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.name} · {candidate.category_name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="flex items-center justify-between gap-3 print:hidden">
         <Link to={backTo} className="text-sm text-base-content/60 hover:text-base-content">
           ← Volver

@@ -31,6 +31,20 @@ interface UserRow {
   must_change_password: boolean;
 }
 
+const teamsForUser = async (userId: string) => {
+  const result = await query(
+    `SELECT t.id, t.name, t.logo_url, t.color_primary,
+            c.name AS category_name, tu.role AS manager_role
+     FROM team_users tu
+     JOIN teams t ON t.id = tu.team_id
+     JOIN categories c ON c.id = t.category_id
+     WHERE tu.user_id = $1
+     ORDER BY c.name, t.name`,
+    [userId]
+  );
+  return result.rows;
+};
+
 const findUserByEmail = async (email: string) => {
   const result = await query<UserRow>(
     `SELECT u.id, u.email, u.name, u.password_hash, u.active, u.league_id,
@@ -126,6 +140,7 @@ export const login = asyncHandler(async (req: AuthRequest, res: Response) => {
   });
 
   await query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
+  const teams = await teamsForUser(user.id);
 
   res.json({
     success: true,
@@ -139,6 +154,7 @@ export const login = asyncHandler(async (req: AuthRequest, res: Response) => {
         permissions: user.permissions,
         leagueId: user.league_id,
         mustChangePassword: user.must_change_password,
+        teams,
       },
     },
   });
@@ -157,18 +173,9 @@ export const me = asyncHandler(async (req: AuthRequest, res: Response) => {
   const user = result.rows[0];
   if (!user) throw new AppError('Usuario no encontrado o inactivo', 404);
 
-  // Un manager necesita saber qué equipos administra para pintar su portal.
-  const teams = await query(
-    `SELECT t.id, t.name, t.logo_url, t.color_primary,
-            c.name AS category_name, tu.role AS manager_role
-     FROM team_users tu
-     JOIN teams t ON t.id = tu.team_id
-     JOIN categories c ON c.id = t.category_id
-     WHERE tu.user_id = $1`,
-    [req.user!.id]
-  );
+  const teams = await teamsForUser(req.user!.id);
 
-  res.json({ success: true, data: { ...user, teams: teams.rows } });
+  res.json({ success: true, data: { ...user, teams } });
 });
 
 /** POST /api/v1/auth/refresh */

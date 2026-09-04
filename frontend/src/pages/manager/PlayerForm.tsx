@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { PlayerDetail, TeamSummary } from '../../lib/types';
@@ -37,11 +37,13 @@ export default function PlayerForm() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const editando = Boolean(id);
+  const requestedTeamId = searchParams.get('equipo');
 
   const teams = useQuery({
-    queryKey: ['teams'],
-    queryFn: () => api.get<TeamSummary[]>('/teams'),
+    queryKey: ['teams-managed'],
+    queryFn: () => api.get<TeamSummary[]>('/teams?managed=true'),
     enabled: !editando,
   });
 
@@ -72,7 +74,13 @@ export default function PlayerForm() {
     });
   }, [jugador.data]);
 
-  const selectedTeam = teamId || teams.data?.[0]?.id || '';
+  const selectedTeam =
+    teamId ||
+    teams.data?.find((candidate) => candidate.id === requestedTeamId)?.id ||
+    teams.data?.[0]?.id ||
+    '';
+  const contextTeamId = editando ? jugador.data?.team_id ?? requestedTeamId : selectedTeam;
+  const teamQuery = contextTeamId ? `equipo=${encodeURIComponent(contextTeamId)}` : '';
   const update = (key: keyof typeof form) => (value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -117,7 +125,8 @@ export default function PlayerForm() {
         void qc.invalidateQueries({ queryKey: ['player', id] });
         void qc.invalidateQueries({ queryKey: ['team'] });
         void qc.invalidateQueries({ queryKey: ['teams'] });
-        navigate(`/equipo/jugadores/${id}${r?.back_to_review ? '?revision=1' : '?guardado=1'}`, {
+        const resultFlag = r?.back_to_review ? 'revision=1' : 'guardado=1';
+        navigate(`/equipo/jugadores/${id}?${resultFlag}${teamQuery ? `&${teamQuery}` : ''}`, {
           replace: true,
         });
       } else {
@@ -126,7 +135,7 @@ export default function PlayerForm() {
           ...cuerpo,
         });
         // El jugador ya existe; el siguiente paso es su documentación.
-        navigate(`/equipo/jugadores/${created.id}?nuevo=1`, { replace: true });
+        navigate(`/equipo/jugadores/${created.id}?nuevo=1${teamQuery ? `&${teamQuery}` : ''}`, { replace: true });
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo guardar');
@@ -145,7 +154,9 @@ export default function PlayerForm() {
     form.dateOfBirth &&
     (editando || selectedTeam);
 
-  const volverA = editando ? `/equipo/jugadores/${id}` : '/equipo';
+  const volverA = editando
+    ? `/equipo/jugadores/${id}${teamQuery ? `?${teamQuery}` : ''}`
+    : `/equipo${teamQuery ? `?${teamQuery}` : ''}`;
 
   return (
     <div className="mx-auto max-w-xl space-y-4">

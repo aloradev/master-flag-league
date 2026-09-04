@@ -123,6 +123,13 @@ const run = async () => {
   check('Crea equipo Eagles', team2.status === 201);
   const eaglesId = team2.body?.data?.id;
 
+  const team3 = await call('POST', '/admin/teams', {
+    token: adminToken,
+    body: { seasonId, categoryId: varonil?.id, name: 'Tigers', colorPrimary: '#f97316' },
+  });
+  check('Crea equipo Tigers sin encargado', team3.status === 201);
+  const tigersId = team3.body?.data?.id;
+
   const badCategory = await call('POST', '/admin/teams', {
     token: adminToken,
     body: { seasonId, categoryId: 'cat_inexistente', name: 'Fantasma' },
@@ -154,11 +161,33 @@ const run = async () => {
     body: { userId: manager2.body?.data?.id },
   });
 
-  const wrongRole = await call('POST', `/admin/teams/${sharksId}/managers`, {
+  const multiTeam = await call('POST', `/admin/teams/${eaglesId}/managers`, {
+    token: adminToken,
+    body: { userId: manager.body?.data?.id },
+  });
+  check('Un manager puede encargarse de varios equipos', multiTeam.status === 201);
+
+  const adminAsManager = await call('POST', `/admin/teams/${sharksId}/managers`, {
     token: adminToken,
     body: { userId: login.body?.data?.user?.id },
   });
-  check('Rechaza asignar a alguien sin rol de manager', wrongRole.status === 400);
+  check('Un administrador también puede ser encargado de un equipo', adminAsManager.status === 201);
+
+  const duplicateManager = await call('POST', `/admin/teams/${sharksId}/managers`, {
+    token: adminToken,
+    body: { userId: manager.body?.data?.id },
+  });
+  check('No duplica al mismo encargado en un equipo', duplicateManager.status === 409);
+
+  const refereeCandidate = await call('POST', '/admin/users', {
+    token: adminToken,
+    body: { email: 'referee.not.manager@test.mx', name: 'Árbitro sin equipo', role: 'REFEREE' },
+  });
+  const wrongRole = await call('POST', `/admin/teams/${tigersId}/managers`, {
+    token: adminToken,
+    body: { userId: refereeCandidate.body?.data?.id },
+  });
+  check('Rechaza asignar como encargado un rol no permitido', wrongRole.status === 400);
 
   console.log('\n═══ 4. ALCANCE DEL MANAGER ═══');
 
@@ -168,6 +197,8 @@ const run = async () => {
   check('Manager inicia sesión con contraseña temporal', mgrLogin.status === 200);
   check('Se le exige cambiar la contraseña',
     mgrLogin.body?.data?.user?.mustChangePassword === true);
+  check('La sesión del manager incluye sus dos equipos',
+    mgrLogin.body?.data?.user?.teams?.length === 2);
   const mgrToken = mgrLogin.body?.data?.accessToken;
 
   const mgr2Login = await call('POST', '/auth/login', {
@@ -176,14 +207,24 @@ const run = async () => {
   const mgr2Token = mgr2Login.body?.data?.accessToken;
 
   const mgrTeams = await call('GET', '/teams', { token: mgrToken });
-  check('El manager solo ve su equipo', mgrTeams.body?.data?.length === 1,
+  check('El manager ve sus dos equipos', mgrTeams.body?.data?.length === 2,
     `vio ${mgrTeams.body?.data?.length}`);
-  check('Y es el equipo correcto', mgrTeams.body?.data?.[0]?.id === sharksId);
+  check('Y son exactamente los asignados',
+    [sharksId, eaglesId].every((id) => mgrTeams.body?.data?.some((t) => t.id === id)));
 
   const adminTeams = await call('GET', '/teams', { token: adminToken });
-  check('El admin ve los dos equipos', adminTeams.body?.data?.length === 2);
+  check('El admin conserva acceso a todos los equipos', adminTeams.body?.data?.length === 3);
 
-  const crossTeam = await call('GET', `/teams/${eaglesId}`, { token: mgrToken });
+  const adminManagedTeams = await call('GET', '/teams?managed=true', { token: adminToken });
+  check('La vista de encargado del admin se limita a su equipo asignado',
+    adminManagedTeams.body?.data?.length === 1 &&
+      adminManagedTeams.body?.data?.[0]?.id === sharksId);
+
+  const adminMe = await call('GET', '/auth/me', { token: adminToken });
+  check('La sesión restaurada del admin incluye su responsabilidad de equipo',
+    adminMe.body?.data?.teams?.length === 1 && adminMe.body?.data?.teams?.[0]?.id === sharksId);
+
+  const crossTeam = await call('GET', `/teams/${tigersId}`, { token: mgrToken });
   check('Bloquea acceso al equipo de otro manager', crossTeam.status === 403,
     `status ${crossTeam.status}`);
 

@@ -14,7 +14,7 @@ export interface AuthUser {
 // el tipo por omisión los declara como string | string[].
 export interface AuthRequest extends Request<Record<string, string>> {
   user?: AuthUser;
-  /** Equipos que administra el usuario (solo TEAM_MANAGER). */
+  /** Equipos asignados al usuario cuando la petición pide alcance de manager. */
   managedTeamIds?: string[];
 }
 
@@ -71,7 +71,9 @@ export const requireAdmin = requireRole(...ADMIN_ROLES);
 
 /**
  * Req. 45: carga los equipos del manager y los deja en req.managedTeamIds.
- * Los administradores pasan sin restricción de equipo.
+ * Los administradores pasan sin restricción, salvo cuando piden
+ * `?managed=true`: esa vista representa su responsabilidad como encargado,
+ * no su permiso administrativo sobre toda la liga.
  */
 export const loadManagedTeams = async (
   req: AuthRequest,
@@ -82,7 +84,9 @@ export const loadManagedTeams = async (
     return res.status(401).json({ success: false, error: 'No autenticado' });
   }
 
-  if (ADMIN_ROLES.includes(req.user.role as any)) {
+  const onlyAssigned = req.query.managed === 'true';
+
+  if (ADMIN_ROLES.includes(req.user.role as any) && !onlyAssigned) {
     req.managedTeamIds = undefined; // sin restricción
     return next();
   }

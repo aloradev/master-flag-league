@@ -112,4 +112,8 @@ INSERT INTO settings (id, league_id, season_id, key, value) VALUES
   "round_fee_cents": 50000,
   "referee_fee_cents": 25000
 }')
-ON CONFLICT (league_id, season_id, key) DO UPDATE SET value = EXCLUDED.value;
+-- Estos valores son únicamente el punto de partida. En producción el
+-- migrador corre en cada arranque, así que actualizar el conflicto aquí
+-- borraría cualquier cambio hecho desde las pantallas de Temporada o
+-- Finanzas. Una configuración existente pertenece a la liga, no al seed.
+ON CONFLICT (league_id, season_id, key) DO NOTHING;

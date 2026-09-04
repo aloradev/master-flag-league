@@ -3,7 +3,7 @@ import { query } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
-import { canAccessTeam, ROLES, type AuthRequest } from '../middleware/auth.js';
+import { ADMIN_ROLES, canAccessTeam, ROLES, type AuthRequest } from '../middleware/auth.js';
 import multer from 'multer';
 import { putPublicFile, deleteFile } from '../services/storage.service.js';
 import { makeLogo, isProcessableImage } from '../services/image.service.js';
@@ -242,8 +242,17 @@ export const assignManager = asyncHandler(async (req: AuthRequest, res: Response
     [userId]
   );
   if (!user.rows[0]) throw new AppError('Usuario no encontrado', 404);
-  if (user.rows[0].role_name !== ROLES.TEAM_MANAGER) {
-    throw new AppError('El usuario debe tener el rol Manager de Equipo', 400);
+  const rolesPermitidos = [ROLES.TEAM_MANAGER, ...ADMIN_ROLES];
+  if (!rolesPermitidos.includes(user.rows[0].role_name as any)) {
+    throw new AppError('El encargado debe ser Manager de Equipo o administrador', 400);
+  }
+
+  const alreadyAssigned = await query(
+    'SELECT id FROM team_users WHERE team_id = $1 AND user_id = $2',
+    [id, userId]
+  );
+  if (alreadyAssigned.rows[0]) {
+    throw new AppError('Ese usuario ya es encargado de este equipo', 409);
   }
 
   const current = await query('SELECT COUNT(*)::int AS total FROM team_users WHERE team_id = $1', [id]);
