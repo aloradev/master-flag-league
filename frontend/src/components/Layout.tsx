@@ -39,6 +39,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { to: '/admin/jornadas', label: 'Jornadas', Icon: IconFootball, primary: true },
     { to: '/admin/finanzas', label: 'Finanzas', Icon: IconMoney },
     { to: '/posiciones', label: 'Posiciones', Icon: IconTrophy },
+    { to: '/rankings', label: 'Rankings', Icon: IconTrophy },
     { to: '/admin/usuarios', label: 'Usuarios', Icon: IconUsers },
     { to: '/admin/arbitros', label: 'Árbitros', Icon: IconUsers },
     { to: '/admin/temporada', label: 'Temporada', Icon: IconSettings },
@@ -51,16 +52,19 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { to: '/equipo/pagos', label: 'Pagos', Icon: IconMoney },
     { to: '/jornadas', label: 'Jornadas', Icon: IconFootball },
     { to: '/posiciones', label: 'Posiciones', Icon: IconTrophy },
+    { to: '/rankings', label: 'Rankings', Icon: IconTrophy },
   ],
   FINANCE_ADMIN: [
     { to: '/admin/finanzas', label: 'Finanzas', Icon: IconMoney, primary: true },
     { to: '/jornadas', label: 'Jornadas', Icon: IconFootball, primary: true },
     { to: '/posiciones', label: 'Posiciones', Icon: IconTrophy, primary: true },
+    { to: '/rankings', label: 'Rankings', Icon: IconTrophy },
   ],
   REFEREE: [
     { to: '/arbitro', label: 'Mis partidos', Icon: IconFootball, primary: true },
     { to: '/jornadas', label: 'Jornadas', Icon: IconClipboard, primary: true },
     { to: '/posiciones', label: 'Posiciones', Icon: IconTrophy, primary: true },
+    { to: '/rankings', label: 'Rankings', Icon: IconTrophy },
   ],
 };
 

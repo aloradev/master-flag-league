@@ -36,6 +36,7 @@ import AdminFinances from './pages/admin/Finances';
 import ManagerPayments from './pages/manager/Payments';
 import RefereeGames from './pages/referee/MyGames';
 import RefereeGameMode from './pages/referee/GameMode';
+import PlayerRankings from './pages/PlayerRankings';
 
 /** Puerta de acceso: exige sesión y, si se indica, un rol permitido. */
 const Protected = ({
@@ -108,6 +109,7 @@ const App = () => {
         >
           <Route path="/jornadas" element={<Jornadas />} />
           <Route path="/posiciones" element={<Standings />} />
+          <Route path="/rankings" element={<PlayerRankings />} />
         </Route>
 
         {/* Modo Árbitro */}

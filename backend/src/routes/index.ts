@@ -13,6 +13,7 @@ import * as rounds from '../controllers/rounds.controller.js';
 import * as games from '../controllers/games.controller.js';
 import * as finance from '../controllers/finance.controller.js';
 import * as diagnostics from '../controllers/diagnostics.controller.js';
+import * as statistics from '../controllers/statistics.controller.js';
 
 import {
   requireAuth,
@@ -46,6 +47,7 @@ router.get('/public/round', publico.getPublicRound);
 router.get('/public/round/:id', publico.getPublicRound);
 router.get('/public/rounds', publico.listPublicRounds);
 router.get('/public/standings', publico.getPublicStandings);
+router.get('/public/statistics/players', statistics.publicPlayerStats);
 
 // A partir de aquí, todo exige sesión.
 router.use(requireAuth);
@@ -60,6 +62,7 @@ router.get('/seasons/active', seasons.getActiveSeason);
 router.get('/seasons/:seasonId/categories', seasons.listCategories);
 router.get('/seasons/:seasonId/fields', seasons.listFields);
 router.get('/seasons/:seasonId/settings', seasons.getSettings);
+router.get('/statistics/players', statistics.playerStats);
 
 // ═════════════════ EQUIPOS (admin: todos · manager: los suyos) ════════════
 router.get('/teams', loadManagedTeams, teams.listTeams);
