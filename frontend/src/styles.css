@@ -111,6 +111,22 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Acabado común para teclado, mouse y móvil: el foco no depende solo del
+   cambio de color del navegador y mantiene la identidad de la liga. */
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+:where(input, select, textarea):focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-primary) 18%, transparent);
+}
+
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
 /* Cifras alineadas: números de jersey, marcadores y tablas. */
 .tabular {
   font-variant-numeric: tabular-nums;
