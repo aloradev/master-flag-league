@@ -7,6 +7,7 @@ import { StatusBadge, EligibilityBadge } from '../../components/StatusBadge';
 import { PlayerAvatar, TeamCrest } from '../../components/AuthImage';
 import { IconShield, IconUsers } from '../../components/icons';
 import { diasHasta, fechaTexto } from '../../lib/format';
+import { activeTeamId, rememberTeam } from '../../lib/teamContext';
 
 const playerName = (p: TeamDetail['roster'][number]) =>
   `${p.first_name} ${p.last_name_paternal}`;
@@ -22,8 +23,10 @@ export default function MyTeam() {
   });
 
   const teamId =
-    teams.data?.find((candidate) => candidate.id === requestedTeamId)?.id ?? teams.data?.[0]?.id;
+    teams.data?.find((candidate) => candidate.id === requestedTeamId)?.id ??
+    teams.data?.find((candidate) => candidate.id === activeTeamId())?.id ?? teams.data?.[0]?.id;
   const teamQuery = teamId ? `?equipo=${encodeURIComponent(teamId)}` : '';
+  if (teamId && activeTeamId() !== teamId) rememberTeam(teamId);
 
   const team = useQuery({
     queryKey: ['team', teamId],
@@ -72,6 +75,7 @@ export default function MyTeam() {
               const next = new URLSearchParams(searchParams);
               next.set('equipo', event.target.value);
               next.delete('baja');
+              rememberTeam(event.target.value);
               setSearchParams(next);
             }}
           >

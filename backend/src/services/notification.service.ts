@@ -18,12 +18,32 @@ export interface Notification {
   channel?: Channel;
 }
 
+const remitente = (): string => {
+  const configurado = (process.env.EMAIL_FROM ?? '')
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .trim();
+  return configurado || 'Master Flag League <noreply@masterflagleague.mx>';
+};
+
+const remitenteValido = (value: string): boolean =>
+  /^(?:[^<>\r\n]+\s*<)?[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>?$/.test(value);
+
 const sendEmail = async (notification: Notification): Promise<boolean> => {
   const apiKey = process.env.RESEND_API_KEY;
 
   if (!apiKey) {
     console.log(
       `[notificación:pendiente] EMAIL a ${notification.to} — "${notification.subject}"`
+    );
+    return false;
+  }
+
+  const from = remitente();
+  if (!remitenteValido(from)) {
+    console.error(
+      `[notificación] EMAIL_FROM inválido: ${JSON.stringify(from)}. ` +
+        'Usa correo@dominio.com o Nombre <correo@dominio.com>.'
     );
     return false;
   }
@@ -36,7 +56,7 @@ const sendEmail = async (notification: Notification): Promise<boolean> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM || 'Master Flag League <noreply@masterflagleague.mx>',
+        from,
         to: [notification.to],
         subject: notification.subject,
         html: notification.body,

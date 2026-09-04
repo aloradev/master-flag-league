@@ -5,6 +5,7 @@ import { api, ApiError } from '../../lib/api';
 import type { PlayerDetail, TeamSummary } from '../../lib/types';
 import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
 import { IconWarning } from '../../components/icons';
+import { activeTeamId } from '../../lib/teamContext';
 
 /** Posiciones habituales en flag football. */
 const POSITIONS = ['QB', 'WR', 'RB', 'C', 'TE', 'DB', 'LB', 'RUSH', 'SAFETY'];
@@ -77,6 +78,7 @@ export default function PlayerForm() {
   const selectedTeam =
     teamId ||
     teams.data?.find((candidate) => candidate.id === requestedTeamId)?.id ||
+    teams.data?.find((candidate) => candidate.id === activeTeamId())?.id ||
     teams.data?.[0]?.id ||
     '';
   const contextTeamId = editando ? jugador.data?.team_id ?? requestedTeamId : selectedTeam;

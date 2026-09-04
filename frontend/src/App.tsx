@@ -38,6 +38,8 @@ import RefereeGames from './pages/referee/MyGames';
 import RefereeGameMode from './pages/referee/GameMode';
 import PlayerRankings from './pages/PlayerRankings';
 import PublicPlayer from './pages/publico/Player';
+import PowerRanking from './pages/PowerRanking';
+import SeasonHistory from './pages/SeasonHistory';
 
 /** Puerta de acceso: exige sesión y, si se indica, un rol permitido. */
 const Protected = ({
@@ -112,6 +114,8 @@ const App = () => {
           <Route path="/jornadas" element={<Jornadas />} />
           <Route path="/posiciones" element={<Standings />} />
           <Route path="/rankings" element={<PlayerRankings />} />
+          <Route path="/power-ranking" element={<PowerRanking />} />
+          <Route path="/historial" element={<SeasonHistory />} />
         </Route>
 
         {/* Modo Árbitro */}

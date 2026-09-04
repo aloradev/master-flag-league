@@ -7,6 +7,7 @@ import { IconCheckCircle, IconWarning } from '../../components/icons';
 import { TeamCrest } from '../../components/AuthImage';
 import { fechaLarga } from '../../lib/competition';
 import { ETIQUETA_CARGO, finance, pesos, pesosCortos } from '../../lib/finance';
+import { activeTeamId, rememberTeam } from '../../lib/teamContext';
 
 /**
  * ESTADO DE CUENTA DEL EQUIPO
@@ -27,6 +28,7 @@ export default function ManagerPayments() {
 
   const teamId =
     equipos.data?.find((candidate) => candidate.id === requestedTeamId)?.id ??
+    equipos.data?.find((candidate) => candidate.id === activeTeamId())?.id ??
     equipos.data?.[0]?.id;
 
   const estado = useQuery({
@@ -61,7 +63,7 @@ export default function ManagerPayments() {
           <select
             className="select select-bordered mt-1 w-full sm:w-80"
             value={teamId}
-            onChange={(event) => setSearchParams({ equipo: event.target.value })}
+            onChange={(event) => { rememberTeam(event.target.value); setSearchParams({ equipo: event.target.value }); }}
           >
             {equipos.data!.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>

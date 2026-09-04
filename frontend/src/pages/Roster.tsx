@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import type { TeamDetail, TeamSummary } from '../lib/types';
 import { Alert, Card, Spinner } from '../components/ui';
 import { useAuth, isAdmin } from '../store/auth';
+import { activeTeamId, rememberTeam } from '../lib/teamContext';
 
 /**
  * ROSTER OFICIAL (req. 10)
@@ -29,6 +30,7 @@ export default function Roster() {
   const teamId =
     id ??
     teams.data?.find((candidate) => candidate.id === requestedTeamId)?.id ??
+    teams.data?.find((candidate) => candidate.id === activeTeamId())?.id ??
     teams.data?.[0]?.id;
 
   const team = useQuery({
@@ -58,7 +60,7 @@ export default function Roster() {
           <select
             className="select select-bordered mt-1 w-full sm:w-80"
             value={teamId}
-            onChange={(event) => setSearchParams({ equipo: event.target.value })}
+            onChange={(event) => { rememberTeam(event.target.value); setSearchParams({ equipo: event.target.value }); }}
           >
             {teams.data!.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
