@@ -267,6 +267,27 @@ export default function AdminRounds() {
                     <Link to="/jornadas" className="btn btn-xs btn-ghost">
                       Ver partidos
                     </Link>
+
+                    {/* Compartir la jornada publicada.
+                        `wa.me` abre WhatsApp con el mensaje escrito: sin
+                        costo por mensaje, sin plantillas que aprobar y sin
+                        exigir un negocio constituido, que es lo que pide la
+                        API de Meta. El enlace apunta a /jornada SIN id, así
+                        que el mismo mensaje sigue sirviendo cuando se
+                        publique la jornada siguiente. */}
+                    {j.status !== 'DRAFT' && (
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(
+                          `${j.name || `Jornada ${j.number}`} ya está publicada.\n` +
+                            `Partidos, campos y horarios: ${window.location.origin}/jornada`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-xs btn-primary"
+                      >
+                        Compartir por WhatsApp
+                      </a>
+                    )}
                     {j.status === 'DRAFT' && (
                       <>
                         <Button

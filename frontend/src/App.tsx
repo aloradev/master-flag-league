@@ -13,6 +13,10 @@ import type { Role } from './lib/types';
 
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
+import Recuperar from './pages/Recuperar';
+import Restablecer from './pages/Restablecer';
+import JornadaPublica from './pages/publico/Jornada';
+import TablaPublica from './pages/publico/Tabla';
 import MyTeam from './pages/manager/MyTeam';
 import PlayerForm from './pages/manager/PlayerForm';
 import PlayerDetail from './pages/manager/PlayerDetail';
@@ -71,6 +75,17 @@ const App = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/ingresar" element={<Login />} />
+        {/* Sin sesión a propósito: quien no puede entrar tampoco puede
+            autenticarse para pedir ayuda. */}
+        <Route path="/recuperar" element={<Recuperar />} />
+        <Route path="/restablecer" element={<Restablecer />} />
+
+        {/* Públicas: es lo que se pega en el grupo de WhatsApp que los
+            encargados ya tienen. Sin id, /jornada muestra la vigente, así
+            que el mismo enlace sirve toda la temporada. */}
+        <Route path="/jornada" element={<JornadaPublica />} />
+        <Route path="/jornada/:id" element={<JornadaPublica />} />
+        <Route path="/tabla" element={<TablaPublica />} />
         <Route
           path="/cambiar-contrasena"
           element={

@@ -18,7 +18,18 @@ services:
     # bandera el build no encuentra tsc y compila con lo que haya en la
     # imagen de Render, que no es lo que se probó.
     buildCommand: npm ci --include=dev && npm run build
-    startCommand: npm run start
+    # Las migraciones corren SOLAS antes de arrancar.
+    #
+    # Antes eran un paso manual, y eso falló como tenía que fallar: se
+    # desplegó un cambio de esquema sin correrlas y la pantalla de equipos
+    # empezó a responder "Error interno del servidor". El aviso llegó por
+    # WhatsApp, no por el log.
+    #
+    # `migrations.sql` es idempotente de punta a punta (IF NOT EXISTS en
+    # tablas, columnas e índices), así que correrlo en cada arranque es
+    # seguro. Y si fallara, la API no arranca: el problema sale en el log
+    # del despliegue, que es donde se puede ver.
+    startCommand: npm run migrate:prod && npm run start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV

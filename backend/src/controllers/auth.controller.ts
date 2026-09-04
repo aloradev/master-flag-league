@@ -5,6 +5,14 @@ import { generateTokens, verifyToken } from '../utils/jwt.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { audit } from '../services/audit.service.js';
 import type { AuthRequest } from '../middleware/auth.js';
+import {
+  crearToken,
+  validarToken,
+  consumirToken,
+  enlaceDeRestablecimiento,
+  demasiadosIntentos,
+} from '../services/password-reset.service.js';
+import { send as enviarNotificacion } from '../services/notification.service.js';
 
 interface UserRow {
   id: string;
@@ -167,4 +175,141 @@ export const changePassword = asyncHandler(async (req: AuthRequest, res: Respons
   await audit(req, { action: 'CHANGE_PASSWORD', entityType: 'user', entityId: req.user!.id });
 
   res.json({ success: true, message: 'Contraseña actualizada' });
+});
+
+/**
+ * RESTABLECER CONTRASEÑA — SIN PASAR POR ADMINISTRACIÓN
+ *
+ * Antes, quien olvidaba su contraseña tenía que escribirle a
+ * administración para que le generara una temporal. Con veinte encargados
+ * y una jornada el sábado, eso es un cuello de botella.
+ *
+ * Límite conocido y aceptado: un token de sesión emitido ANTES del cambio
+ * sigue siendo válido hasta que expire (8 h). Revocarlo exigiría
+ * consultar la base en cada petición —`requireAuth` hoy no toca la base a
+ * propósito, y el plan gratuito de Neon cobra un arranque en frío por
+ * conexión—. Para una liga local, con ventana de 8 horas, no compensa.
+ */
+
+/** POST /api/v1/auth/forgot-password */
+export const forgotPassword = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { email } = req.body ?? {};
+
+  /**
+   * La respuesta es SIEMPRE la misma, exista el correo o no. Es la misma
+   * razón por la que el login no distingue entre "no existe" y
+   * "contraseña incorrecta": si aquí dijéramos "ese correo no está
+   * registrado", cualquiera podría averiguar quién pertenece a la liga
+   * probando correos.
+   */
+  const respuesta = {
+    success: true,
+    message:
+      'Si ese correo pertenece a una cuenta, te llegará un enlace para ' +
+      'restablecer tu contraseña. Revisa también la carpeta de correo no deseado.',
+  };
+
+  if (!email || typeof email !== 'string') return res.json(respuesta);
+
+  const correo = email.trim().toLowerCase();
+
+  // Dos frenos: uno por correo, para no inundar a nadie con mensajes; y
+  // uno por dirección de origen, para cortar el barrido de correos.
+  if (demasiadosIntentos(`correo:${correo}`, 5)) return res.json(respuesta);
+  if (demasiadosIntentos(`ip:${req.ip ?? 'sin-ip'}`, 20)) return res.json(respuesta);
+
+  const user = await findUserByEmail(correo);
+  if (!user || !user.active) return res.json(respuesta);
+
+  const { token } = await crearToken(user.id, null);
+  const enlace = enlaceDeRestablecimiento(token);
+
+  const enviado = await enviarNotificacion({
+    to: user.email,
+    subject: 'Restablece tu contraseña — Master Flag League',
+    body:
+      `<p>Hola ${user.name},</p>` +
+      `<p>Para poner una contraseña nueva, abre este enlace:</p>` +
+      `<p><a href="${enlace}">${enlace}</a></p>` +
+      `<p>Vence en una hora y solo sirve una vez. ` +
+      `Si no lo pediste, puedes ignorar este correo: tu contraseña no cambia.</p>`,
+  });
+
+  /**
+   * Si el correo no salió —sin RESEND_API_KEY, o sin dominio verificado—
+   * queda en el log del servidor, que es donde administración puede
+   * recuperarlo. El usuario no se enteraría de nada, y por eso existe el
+   * enlace que genera administración desde la pantalla de usuarios.
+   */
+  if (!enviado) {
+    console.warn(
+      `[reset] No se pudo enviar el correo a ${user.email}. ` +
+        `Enlace para entregar a mano: ${enlace}`
+    );
+  }
+
+  res.json(respuesta);
+});
+
+/**
+ * GET /api/v1/auth/reset-password/:token
+ *
+ * Comprueba el enlace sin gastarlo. Sin esto, alguien con un enlace
+ * vencido escribiría una contraseña nueva, la enviaría y solo entonces se
+ * enteraría de que el enlace ya no valía.
+ */
+export const checkResetToken = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const valido = await validarToken(req.params.token ?? '');
+  res.json({ success: true, data: { valid: Boolean(valido) } });
+});
+
+/** POST /api/v1/auth/reset-password */
+export const resetPassword = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { token, password } = req.body ?? {};
+
+  if (!token || !password) {
+    throw new AppError('Token y contraseña nueva son obligatorios', 400);
+  }
+
+  const check = validatePassword(password);
+  if (!check.valid) {
+    throw new AppError('La contraseña no cumple los requisitos', 400, check.errors);
+  }
+
+  const valido = await validarToken(token);
+  if (!valido) {
+    throw new AppError(
+      'Este enlace ya no sirve: venció o se usó. Pide uno nuevo desde "Olvidé mi contraseña".',
+      400
+    );
+  }
+
+  // Se gasta el token ANTES de cambiar la contraseña: si dos peticiones
+  // llegan juntas, solo una pasa de aquí.
+  const gastado = await consumirToken(valido.id);
+  if (!gastado) {
+    throw new AppError('Este enlace ya se usó. Pide uno nuevo.', 400);
+  }
+
+  await query(
+    `UPDATE users SET password_hash = $1, must_change_password = FALSE, updated_at = NOW()
+     WHERE id = $2`,
+    [await hashPassword(password), valido.userId]
+  );
+
+  /**
+   * La auditoría se registra con el usuario dueño de la cuenta, no con la
+   * sesión de quien llama —no hay sesión: esta ruta es pública—.
+   */
+  await audit({ user: { id: valido.userId } } as AuthRequest, {
+    action: 'RESET_PASSWORD',
+    entityType: 'user',
+    entityId: valido.userId,
+    newValue: { via: 'enlace' },
+  });
+
+  res.json({
+    success: true,
+    message: 'Contraseña actualizada. Ya puedes ingresar con la nueva.',
+  });
 });

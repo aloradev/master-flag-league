@@ -5,6 +5,7 @@
  * Mover esta línea más abajo devuelve ese fallo.
  */
 import { validateEnvironment } from './config/env.js';
+import { revisarEsquema, mensajeDeDesfase } from './db/verificar-esquema.js';
 
 import express from 'express';
 import cors from 'cors';
@@ -148,6 +149,41 @@ app.use('/api/v1', routes);
 
 app.use(notFound);
 app.use(errorHandler);
+
+/**
+ * Se comprueba el esquema ANTES de aceptar peticiones.
+ *
+ * Un desfase entre el código y la base no se nota al arrancar: se nota
+ * cuando alguien abre la pantalla de equipos y recibe "Error interno del
+ * servidor". Reportado tal cual: "ya no me carga los equipos", después de
+ * desplegar la baja de jugadores sin correr migraciones.
+ *
+ * En producción se aborta, para que el desfase salga en el log del
+ * despliegue y no en la cara de un encargado. En desarrollo solo avisa:
+ * quien está trabajando en el esquema no necesita que le cierren el
+ * servidor en la cara.
+ */
+const comprobarBase = async () => {
+  try {
+    const faltantes = await revisarEsquema();
+    if (faltantes.length === 0) return;
+
+    if (process.env.NODE_ENV === 'production') {
+      console.error(mensajeDeDesfase(faltantes));
+      process.exit(1);
+    }
+    console.warn(mensajeDeDesfase(faltantes));
+  } catch (err) {
+    // Si no se puede ni preguntar, el problema es la conexión y de eso ya
+    // avisa el healthcheck. No se impide arrancar por no poder revisar.
+    console.warn(
+      '⚠️  No se pudo comprobar el esquema:',
+      err instanceof Error ? err.message : err
+    );
+  }
+};
+
+await comprobarBase();
 
 app.listen(PORT, () => {
   console.log(`\n🏆 Master Flag League API`);

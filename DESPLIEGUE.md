@@ -209,6 +209,28 @@ alguien suba un escudo.
 El código sube los documentos como recursos `private` y los avatares
 como públicos; solo faltan las llaves.
 
+## 6.5 Migraciones — ya no son un paso manual
+
+`render.yaml` arranca con `npm run migrate:prod && npm run start`, así que
+cada despliegue pone la base al día antes de aceptar peticiones. El SQL es
+idempotente de punta a punta.
+
+Además, si la base quedara atrasada, la API **no arranca** y el log dice
+exactamente qué falta:
+
+```
+❌ La base de datos está atrasada respecto al código
+
+  ✗ falta players.removed_at
+
+Corre las migraciones contra esta base:
+    npm run migrate
+```
+
+Esto existe porque pasó: se desplegó un cambio de esquema sin migrar y la
+pantalla de equipos empezó a responder "Error interno del servidor", sin
+una línea en el log que lo explicara.
+
 ## 7. Resend — opcional
 
 Sin `RESEND_API_KEY` las notificaciones se registran en consola en lugar
@@ -582,3 +604,35 @@ cd ../backend && NODE_ENV=production npm install --include=dev && npm run build
 # Y correr el JavaScript compilado, no el TypeScript con tsx
 npm start
 ```
+
+---
+
+## Los enlaces que se comparten
+
+Dos páginas se leen **sin sesión**, y son las que se pegan en el grupo de
+WhatsApp de los encargados:
+
+| Enlace | Qué muestra |
+|---|---|
+| `TU-DOMINIO/jornada` | la jornada vigente: partidos, campo, hora, marcador |
+| `TU-DOMINIO/tabla` | la tabla general por categoría |
+
+`/jornada` va **sin número**: el servidor elige la jornada vigente. Por eso
+el enlace se pega una vez y sirve toda la temporada — cuando termina una
+jornada y se publica la siguiente, el mismo enlace ya muestra la nueva.
+
+En Jornadas, cada jornada publicada tiene un botón **Compartir por
+WhatsApp** que abre la aplicación con el mensaje ya escrito. Es un enlace
+`wa.me`, no la API de Meta: sin costo por mensaje, sin plantillas que
+aprobar y sin exigir un negocio constituido.
+
+## Restablecer contraseña
+
+Los encargados lo hacen solos desde **Olvidé mi contraseña** en la
+pantalla de ingreso; el enlace les llega por correo y vence en una hora.
+
+Eso necesita Resend configurado. Mientras no lo esté —o si a alguien no le
+llega— en **Usuarios** hay un botón **Generar enlace** que produce el
+mismo enlace al instante para pegarlo por WhatsApp. No cambia la
+contraseña actual, así que si la persona la encuentra antes de abrirlo,
+sigue entrando con la suya.

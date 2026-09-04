@@ -5,6 +5,7 @@ import * as users from '../controllers/users.controller.js';
 import * as seasons from '../controllers/seasons.controller.js';
 import * as teams from '../controllers/teams.controller.js';
 import * as players from '../controllers/players.controller.js';
+import * as publico from '../controllers/public.controller.js';
 import * as documents from '../controllers/documents.controller.js';
 import * as validation from '../controllers/validation.controller.js';
 import * as audit from '../controllers/audit.controller.js';
@@ -26,7 +27,25 @@ const router = Router();
 // ══════════════════════════ PÚBLICO (sin sesión) ══════════════════════════
 router.post('/auth/login', auth.login);
 router.post('/auth/refresh', auth.refresh);
+
+// ── Restablecer contraseña ──
+// Públicas por definición: quien no puede entrar tampoco puede
+// autenticarse para pedir ayuda. La respuesta de forgot-password es
+// idéntica exista o no el correo, para no revelar quién está registrado.
+router.post('/auth/forgot-password', auth.forgotPassword);
+router.get('/auth/reset-password/:token', auth.checkResetToken);
+router.post('/auth/reset-password', auth.resetPassword);
 router.get('/public/players/:id', players.getPublicPlayerProfile);
+
+// ── Jornada y tabla sin sesión ──
+// Es lo que se pega en el grupo de WhatsApp que los encargados ya tienen,
+// en lugar de pagar la API de Meta. Sin id, /public/round elige la
+// jornada vigente sola: el enlace se comparte una vez y sirve la
+// temporada entera.
+router.get('/public/round', publico.getPublicRound);
+router.get('/public/round/:id', publico.getPublicRound);
+router.get('/public/rounds', publico.listPublicRounds);
+router.get('/public/standings', publico.getPublicStandings);
 
 // A partir de aquí, todo exige sesión.
 router.use(requireAuth);
@@ -90,6 +109,7 @@ router.get('/admin/users', requireAdmin, users.listUsers);
 router.post('/admin/users', requireAdmin, users.createUser);
 router.put('/admin/users/:id', requireAdmin, users.updateUser);
 router.post('/admin/users/:id/reset-password', requireAdmin, users.resetPassword);
+router.post('/admin/users/:id/reset-link', requireAdmin, users.createResetLink);
 router.get('/admin/roles', requireAdmin, users.listRoles);
 
 router.post('/admin/seasons', requireRole(ROLES.SUPER_ADMIN), seasons.createSeason);

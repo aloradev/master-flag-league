@@ -178,6 +178,8 @@ const UserRowCard = ({ user, onChanged }: { user: UserRow; onChanged: () => void
   const { user: current } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [resetPassword, setResetPassword] = useState<string | null>(null);
+  const [enlace, setEnlace] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isSelf = user.id === current?.id;
@@ -195,10 +197,47 @@ const UserRowCard = ({ user, onChanged }: { user: UserRow; onChanged: () => void
   const reset = useMutation({
     mutationFn: () =>
       api.post<{ temporaryPassword: string }>(`/admin/users/${user.id}/reset-password`),
-    onSuccess: (data) => setResetPassword(data.temporaryPassword),
+    onSuccess: (data) => {
+      setEnlace(null);
+      setResetPassword(data.temporaryPassword);
+    },
     onError: (err) =>
       setError(err instanceof ApiError ? err.message : 'No se pudo restablecer la contraseña'),
   });
+
+  /**
+   * El enlace se prefiere sobre la contraseña temporal: NO cambia la
+   * contraseña actual, así que si el encargado encuentra la suya antes de
+   * abrirlo, sigue entrando con ella. La temporal, en cambio, deja fuera
+   * a quien no llegó a leer el mensaje.
+   */
+  const generarEnlace = useMutation({
+    mutationFn: () => api.post<{ url: string }>(`/admin/users/${user.id}/reset-link`),
+    onSuccess: async (data) => {
+      setResetPassword(null);
+      setEnlace(data.url);
+      setCopiado(false);
+      try {
+        await navigator.clipboard.writeText(data.url);
+        setCopiado(true);
+      } catch {
+        // Sin permiso de portapapeles: el enlace queda a la vista para
+        // seleccionarlo a mano, que es por lo que también se muestra.
+      }
+    },
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : 'No se pudo generar el enlace'),
+  });
+
+  const copiar = async () => {
+    if (!enlace) return;
+    try {
+      await navigator.clipboard.writeText(enlace);
+      setCopiado(true);
+    } catch {
+      setCopiado(false);
+    }
+  };
 
   return (
     <Card as="li" className="p-3">
@@ -236,6 +275,30 @@ const UserRowCard = ({ user, onChanged }: { user: UserRow; onChanged: () => void
             </div>
           )}
 
+          {enlace && (
+            <div className="space-y-2 rounded-field bg-info/10 p-3">
+              <p className="text-xs text-base-content/70">
+                Enlace para {user.name}. Vence en una hora y solo sirve una vez.
+              </p>
+              <p className="break-all font-mono text-xs">{enlace}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="xs" onClick={copiar}>
+                  {copiado ? 'Copiado ✓' : 'Copiar enlace'}
+                </Button>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `Hola ${user.name}, abre este enlace para poner tu contraseña de Master Flag League. Vence en una hora: ${enlace}`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-xs"
+                >
+                  Enviar por WhatsApp
+                </a>
+              </div>
+            </div>
+          )}
+
           {error && <Alert tone="error">{error}</Alert>}
 
           {canChangeRole && !isSelf && (
@@ -256,8 +319,17 @@ const UserRowCard = ({ user, onChanged }: { user: UserRow; onChanged: () => void
           )}
 
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => reset.mutate()} loading={reset.isPending}>
-              {reset.isPending ? 'Restableciendo…' : 'Restablecer contraseña'}
+            <Button
+              size="sm"
+              tone="primary"
+              onClick={() => generarEnlace.mutate()}
+              loading={generarEnlace.isPending}
+            >
+              {generarEnlace.isPending ? 'Generando…' : 'Generar enlace'}
+            </Button>
+
+            <Button size="sm" outline onClick={() => reset.mutate()} loading={reset.isPending}>
+              {reset.isPending ? 'Restableciendo…' : 'Contraseña temporal'}
             </Button>
 
             {!isSelf && (

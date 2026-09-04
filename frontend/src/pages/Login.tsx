@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth, homeFor } from '../store/auth';
 import { Alert, Button, Field } from '../components/ui';
 import { Logo } from '../components/Logo';
@@ -10,6 +10,8 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const { login, error, submitting, status, user, clearError } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const restablecida = params.get('restablecida') === '1';
 
   if (status === 'authenticated' && user) {
     return (
@@ -84,6 +86,12 @@ export default function Login() {
             />
           </Field>
 
+          {restablecida && !error && (
+            <Alert tone="success">
+              Tu contraseña quedó cambiada. Entra con la nueva.
+            </Alert>
+          )}
+
           {error && <Alert tone="error">{error}</Alert>}
 
           <Button
@@ -97,7 +105,16 @@ export default function Login() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-base-content/40">
+        <div className="mt-4 text-center">
+          <Link
+            to="/recuperar"
+            className="text-sm text-base-content/60 underline-offset-2 hover:text-base-content hover:underline"
+          >
+            Olvidé mi contraseña
+          </Link>
+        </div>
+
+        <p className="mt-5 text-center text-xs text-base-content/40">
           Si no tienes acceso, solicítalo a la administración de la liga.
         </p>
       </div>

@@ -565,3 +565,25 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_players_jersey_activo
   WHERE removed_at IS NULL AND jersey_number IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_players_activos
   ON players (team_id) WHERE removed_at IS NULL;
+
+-- ---------- RESTABLECER CONTRASEÑA ----------
+-- Antes solo administración podía reponer una contraseña, entregando una
+-- temporal a mano. Con veinte encargados eso es un cuello de botella el
+-- día del arranque.
+--
+-- Se guarda el HASH del token, nunca el token: si la base se filtra, no
+-- entrega el acceso a las cuentas. Un solo uso y una hora de vida.
+CREATE TABLE IF NOT EXISTS password_resets (
+  id            VARCHAR(36) PRIMARY KEY,
+  user_id       VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash    VARCHAR(64) NOT NULL,
+  expires_at    TIMESTAMPTZ NOT NULL,
+  used_at       TIMESTAMPTZ,
+  -- Quién lo generó: el propio usuario (NULL) o un administrador.
+  created_by    VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reset_token ON password_resets(token_hash);
+CREATE INDEX IF NOT EXISTS idx_reset_vigentes
+  ON password_resets(user_id, expires_at) WHERE used_at IS NULL;

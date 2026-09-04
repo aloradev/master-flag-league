@@ -466,6 +466,89 @@ de que ninguna validación pudiera decir qué revisar.
 
 ---
 
+## Acceso, aviso sin costo, y el desfase de esquema
+
+### "Ya no me carga los equipos"
+
+Se desplegó la baja de jugadores sin correr migraciones. La columna
+`players.removed_at` no existía, las consultas de equipos filtran por
+ella, y la pantalla respondía "Error interno del servidor". La API
+arrancaba sana y el healthcheck decía que todo bien; el aviso llegó por
+WhatsApp.
+
+Dos arreglos, y el segundo importa más que el primero:
+
+- **Render corre migraciones solo**, antes de arrancar. El SQL es
+  idempotente de punta a punta, así que es seguro en cada arranque, y si
+  falla la API no levanta: el problema sale en el log del despliegue.
+- **La API se niega a arrancar contra una base atrasada**, nombrando lo
+  que falta. Y las expectativas se **derivan de `migrations.sql`** —cada
+  `CREATE TABLE IF NOT EXISTS` y cada `ADD COLUMN IF NOT EXISTS`—, así que
+  no hay una lista escrita a mano que pueda quedarse atrás. En desarrollo
+  solo avisa.
+
+### Restablecer contraseña
+
+Antes solo administración podía reponer una contraseña, entregando una
+temporal a mano. Con veinte encargados y una jornada el sábado, eso es un
+cuello de botella.
+
+Un solo mecanismo con dos entregas: el encargado la pide desde la
+pantalla de ingreso y le llega por correo, o administración genera el
+enlace y lo pega en el grupo. La segunda existe porque el correo depende
+de un dominio verificado en Resend, y el día del arranque no puede haber
+nadie sin poder entrar por eso.
+
+Decisiones que sostienen el diseño:
+
+- En la base vive el **SHA-256 del token, nunca el token**: una base
+  filtrada no entrega el acceso a las cuentas.
+- Un solo uso y una hora de vida. Pedir uno nuevo invalida el anterior.
+- **La respuesta es idéntica exista o no el correo.** Si distinguiera,
+  cualquiera podría averiguar quién pertenece a la liga probando
+  direcciones — la misma razón por la que el ingreso no separa "no
+  existe" de "contraseña incorrecta".
+- Una contraseña que no cumple los requisitos **no gasta el enlace**: un
+  dedazo no debe dejar a nadie fuera.
+- Generar el enlace **no cambia la contraseña actual**. La temporal sí, y
+  por eso deja fuera a quien no llegó a leer el mensaje.
+
+Límite conocido: una sesión abierta antes del cambio sigue valiendo hasta
+8 horas. Revocarla exigiría consultar la base en cada petición, y
+`requireAuth` no la toca a propósito.
+
+### El aviso de jornada, sin costo
+
+La API de WhatsApp Business cobra por mensaje —unos $0.0085 USD por
+mensaje *utility* en México, calderilla— pero exige un negocio legalmente
+constituido con Constancia de Situación Fiscal, verificación en Business
+Manager y plantillas aprobadas por Meta. Y el 1 de octubre de 2026 los
+mensajes de servicio dejan de ser gratis. Es una dependencia cuyo precio
+se mueve por debajo.
+
+Los encargados ya están en un grupo de WhatsApp. Lo que faltaba no era un
+canal nuevo sino algo que pegar en el grupo que ya existe:
+
+- **`/jornada`** — sin sesión, y **sin id**: el servidor elige la jornada
+  vigente. Ese es el punto: el enlace se pega una vez y sirve la
+  temporada entera. Cuando la jornada 1 termina y se publica la 2, el
+  mismo enlace muestra la 2 sin avisar de nada.
+- **`/tabla`** — la tabla general, calculada, agrupada por categoría.
+- **Botón de compartir**, que es un enlace `wa.me`: abre WhatsApp con el
+  mensaje escrito, sin costo, sin plantillas y sin negocio constituido.
+
+Los controladores públicos **no reutilizan** los autenticados. Esos hacen
+`SELECT ro.*` y traen notas internas, quién generó la jornada y los
+árbitros con nombre y apellido. Aquí las columnas se enumeran una por
+una, y hay comprobaciones que fallan si alguien "simplifica"
+reutilizándolos.
+
+En la tabla, en 390 px, las columnas se eligen por prioridad en lugar de
+encogerse: lo primero que se salía de la pantalla era PTS, justo lo que
+la gente abre a ver.
+
+---
+
 ## Pendiente
 
 ### Cargar la liga real
@@ -477,8 +560,11 @@ Rankings, MVP, Power Ranking, rachas y récords. La tabla de posiciones ya
 existe desde la Fase 2.
 
 ### FASE 5 — Experiencia
-Perfiles públicos, tarjetas digitales, comunicados y notificaciones por
-WhatsApp y push.
+Perfiles públicos, tarjetas digitales y comunicados. Las notificaciones
+serán **push web** (llaves VAPID propias, sin terceros) y correo, no la
+API de WhatsApp: esa cobra por mensaje y exige un negocio constituido. La
+jornada y la tabla públicas, que era el 90% de lo que se iba a usar
+WhatsApp para avisar, ya están.
 
 ### FASE 6 — Playoffs e historia
 Brackets configurables, campeones, Hall of Fame e historial.
@@ -487,8 +573,8 @@ Brackets configurables, campeones, Hall of Fame e historial.
 
 ## Pruebas
 
-**725 comprobaciones** en ocho suites, más revisión en navegador real a
-390 px y 1280 px:
+**823 comprobaciones** en once suites, más revisión en navegador real a
+390 px, 768 px y 1280 px:
 
 ```bash
 cd backend && npm run test:all
@@ -504,6 +590,9 @@ cd backend && npm run test:all
 | `edicion.mjs` | quién puede cambiar qué de un jugador | 56 |
 | `bajas.mjs` | baja y borrado de jugadores | 35 |
 | `almacenamiento.mjs` | credenciales de imágenes y diagnóstico | 72 |
+| `recuperacion.mjs` | restablecer contraseña | 43 |
+| `publico.mjs` | jornada y tabla sin sesión, y qué NO se filtra | 31 |
+| `esquema.mjs` | desfase entre el código y la base | 24 |
 
 Cada suite nació de un fallo real, casi siempre encontrado usando la
 aplicación y no ejecutando pruebas. Están escritas para poder fallar: se

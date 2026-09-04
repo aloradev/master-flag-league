@@ -11,6 +11,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc && node scripts/copy-assets.mjs",
     "start": "node dist/index.js",
+    "migrate:prod": "node dist/db/migrate.js",
     "migrate": "tsx src/db/migrate.ts",
     "typecheck": "tsc --noEmit",
     "db:dev": "tsx scripts/dev-db.ts",
@@ -22,7 +23,10 @@
     "test:edicion": "node tests/edicion.mjs",
     "test:storage": "node tests/almacenamiento.mjs",
     "test:bajas": "node tests/bajas.mjs",
-    "test:all": "node tests/fixture.mjs && node tests/cors.mjs && node tests/integration.mjs && node tests/competition.mjs && node tests/finance.mjs && node tests/edicion.mjs && node tests/bajas.mjs && node tests/almacenamiento.mjs"
+    "test:esquema": "node tests/esquema.mjs",
+    "test:recuperacion": "node tests/recuperacion.mjs",
+    "test:publico": "node tests/publico.mjs",
+    "test:all": "node tests/fixture.mjs && node tests/cors.mjs && node tests/integration.mjs && node tests/competition.mjs && node tests/finance.mjs && node tests/edicion.mjs && node tests/bajas.mjs && node tests/almacenamiento.mjs && node tests/recuperacion.mjs && node tests/publico.mjs && node tests/esquema.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -5,6 +5,10 @@ import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
 import { ROLES, type AuthRequest } from '../middleware/auth.js';
+import {
+  crearToken,
+  enlaceDeRestablecimiento,
+} from '../services/password-reset.service.js';
 
 const ASSIGNABLE_ROLES = Object.values(ROLES);
 
@@ -183,6 +187,52 @@ export const resetPassword = asyncHandler(async (req: AuthRequest, res: Response
   await audit(req, { action: 'RESET_PASSWORD', entityType: 'user', entityId: id });
 
   res.json({ success: true, data: { temporaryPassword } });
+});
+
+/**
+ * POST /api/v1/admin/users/:id/reset-link
+ *
+ * El enlace que administración pega en el grupo de WhatsApp.
+ *
+ * Existe porque el correo depende de tener un dominio verificado en
+ * Resend, y el día del arranque no puede haber nadie sin poder entrar por
+ * eso. A diferencia de `resetPassword`, esto NO cambia la contraseña: si
+ * el encargado encuentra la suya antes de abrir el enlace, sigue
+ * entrando con ella. La contraseña temporal, en cambio, deja fuera a
+ * quien no llegó a leer el mensaje.
+ */
+export const createResetLink = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  const existing = await query<{ email: string; name: string; active: boolean }>(
+    'SELECT email, name, active FROM users WHERE id = $1',
+    [id]
+  );
+  const user = existing.rows[0];
+  if (!user) throw new AppError('Usuario no encontrado', 404);
+  if (!user.active) {
+    throw new AppError('Esta cuenta está desactivada: actívala antes de generar el enlace', 400);
+  }
+
+  const { token, expiraEn } = await crearToken(id, req.user?.id ?? null);
+
+  await audit(req, {
+    action: 'CREATE_RESET_LINK',
+    entityType: 'user',
+    entityId: id,
+    newValue: { para: user.email, vence: expiraEn.toISOString() },
+  });
+
+  res.json({
+    success: true,
+    data: {
+      url: enlaceDeRestablecimiento(token),
+      email: user.email,
+      name: user.name,
+      expires_at: expiraEn.toISOString(),
+    },
+    message: `Enlace generado. Vence en una hora y solo sirve una vez.`,
+  });
 });
 
 /** GET /api/v1/admin/roles */
