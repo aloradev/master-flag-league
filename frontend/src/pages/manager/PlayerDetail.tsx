@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { DocumentType, PlayerDetail as Player } from '../../lib/types';
@@ -8,6 +9,7 @@ import { StatusBadge, EligibilityBadge } from '../../components/StatusBadge';
 import { AuthImage, PlayerAvatar } from '../../components/AuthImage';
 import { IconCheckCircle, IconCircleX, IconPlus } from '../../components/icons';
 import { fileSize } from '../../lib/format';
+import { useAuth, isAdmin } from '../../store/auth';
 
 /** Orden de captura del flujo del manager (req. 48). */
 const DOC_ORDER: { type: DocumentType; label: string; help: string }[] = [
@@ -121,6 +123,104 @@ const DocumentSlot = ({
   );
 };
 
+/**
+ * Baja del jugador.
+ *
+ * El servidor decide si es una baja o un borrado real —según haya jugado
+ * o no— y por eso aquí no se pregunta: preguntarlo obligaría al usuario a
+ * saber algo que el sistema ya sabe. El motivo sí se pide, porque es lo
+ * único que no puede deducirse y es lo que queda en la auditoría.
+ */
+const HojaBaja = ({
+  nombre,
+  onCerrar,
+  onConfirmar,
+  enviando,
+  error,
+}: {
+  nombre: string;
+  onCerrar: () => void;
+  onConfirmar: (motivo: string) => void;
+  enviando: boolean;
+  error?: string;
+}) => {
+  const [motivo, setMotivo] = useState('');
+
+  useEffect(() => {
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !enviando) onCerrar();
+    };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [onCerrar, enviando]);
+
+  const MOTIVOS = ['Dejó el equipo', 'Se cambió de equipo', 'Lesión', 'Registro equivocado'];
+
+  // En `document.body`: dentro de una tarjeta con `backdrop-blur`, un
+  // `fixed` se mide contra la tarjeta y no contra la pantalla.
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      <div aria-hidden="true" onClick={onCerrar} className="mfl-fondo absolute inset-0 bg-black/60" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Dar de baja a ${nombre}`}
+        className="mfl-hoja relative w-full max-w-md space-y-3 rounded-t-box border-t
+                   border-base-300 bg-base-200 p-4 shadow-2xl sm:rounded-box sm:border"
+      >
+        <h2 className="text-sm font-bold">Dar de baja a {nombre}</h2>
+        <p className="text-xs text-base-content/60">
+          Sale del roster, de las listas y de los conteos, y su número queda libre. Si ya jugó
+          algún partido, sus anotaciones se conservan en el historial.
+        </p>
+
+        <div className="flex flex-wrap gap-1.5">
+          {MOTIVOS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMotivo(m)}
+              className={`mfl-toque rounded-field border px-2 py-1 text-xs ${
+                motivo === m
+                  ? 'border-primary bg-primary/15 text-primary'
+                  : 'border-base-300 text-base-content/70'
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+          rows={2}
+          placeholder="Motivo de la baja"
+          className="textarea textarea-bordered w-full text-sm"
+        />
+
+        {error && <Alert tone="error">{error}</Alert>}
+
+        <div className="flex gap-2">
+          <Button tone="ghost" className="flex-1" onClick={onCerrar} disabled={enviando}>
+            Cancelar
+          </Button>
+          <Button
+            tone="error"
+            className="flex-1"
+            loading={enviando}
+            disabled={motivo.trim().length < 3}
+            onClick={() => onConfirmar(motivo.trim())}
+          >
+            Dar de baja
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 export default function PlayerDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -128,11 +228,25 @@ export default function PlayerDetail() {
   const guardado = searchParams.get('guardado') === '1';
   const volvioARevision = searchParams.get('revision') === '1';
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [bajaAbierta, setBajaAbierta] = useState(false);
+  const destinoRef = useRef('/equipo?baja=1');
 
   const player = useQuery({
     queryKey: ['player', id],
     queryFn: () => api.get<Player>(`/players/${id}`),
     enabled: Boolean(id),
+  });
+
+  const baja = useMutation({
+    mutationFn: (motivo: string) => api.del<{ modo: string }>(`/players/${id}`, { reason: motivo }),
+    onSuccess: (_resultado, _motivo, _ctx) => {
+      void queryClient.invalidateQueries({ queryKey: ['team'] });
+      void queryClient.invalidateQueries({ queryKey: ['teams'] });
+      void queryClient.invalidateQueries({ queryKey: ['players'] });
+      navigate(destinoRef.current, { replace: true });
+    },
   });
 
   const refresh = () => {
@@ -146,6 +260,16 @@ export default function PlayerDetail() {
   }
 
   const data = player.data;
+
+  /**
+   * A dónde volver después de la baja. Un administrador llegó desde la
+   * ficha del equipo, y mandarlo a "Mi equipo" —que no tiene— lo dejaría
+   * en la pantalla de "todavía no tienes un equipo asignado".
+   */
+  destinoRef.current = isAdmin(user?.role)
+    ? `/admin/equipos/${data.team_id}`
+    : '/equipo?baja=1';
+
   const lastRejection = data.approval_history.find(
     (entry) => entry.action === 'REQUEST_CORRECTION' || entry.action === 'REJECT'
   );
@@ -303,6 +427,35 @@ export default function PlayerDetail() {
             ))}
           </Card>
         </section>
+      )}
+
+      {/* Salida del equipo. Al final y en tono de error: es la única
+          acción de esta pantalla que no se deshace. */}
+      <section className="pt-2">
+        <Card className="space-y-2 border-error/30 p-3">
+          <div>
+            <h2 className="text-sm font-semibold">Quitar del equipo</h2>
+            <p className="text-xs text-base-content/60">
+              Para cuando el jugador ya no forma parte del equipo. Su número queda libre.
+            </p>
+          </div>
+          <Button tone="error" size="sm" onClick={() => setBajaAbierta(true)}>
+            Dar de baja
+          </Button>
+        </Card>
+      </section>
+
+      {bajaAbierta && (
+        <HojaBaja
+          nombre={`${data.first_name} ${data.last_name_paternal}`}
+          enviando={baja.isPending}
+          error={baja.error instanceof ApiError ? baja.error.message : undefined}
+          onCerrar={() => {
+            baja.reset();
+            setBajaAbierta(false);
+          }}
+          onConfirmar={(motivo) => baja.mutate(motivo)}
+        />
       )}
     </div>
   );

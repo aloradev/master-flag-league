@@ -15,7 +15,8 @@ export const listSeasons = asyncHandler(async (req: AuthRequest, res: Response) 
   const result = await query(
     `SELECT s.*,
             (SELECT COUNT(*) FROM teams   WHERE season_id = s.id) AS teams_count,
-            (SELECT COUNT(*) FROM players WHERE season_id = s.id) AS players_count
+            (SELECT COUNT(*) FROM players
+              WHERE season_id = s.id AND removed_at IS NULL) AS players_count
      FROM seasons s
      WHERE ($1::text IS NULL OR s.league_id = $1)
      ORDER BY s.year DESC, s.start_date DESC`,

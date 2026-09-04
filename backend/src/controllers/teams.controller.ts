@@ -61,9 +61,12 @@ export const listTeams = asyncHandler(async (req: AuthRequest, res: Response) =>
 
   const result = await query(
     `SELECT ${TEAM_COLUMNS}, c.name AS category_name, c.color AS category_color, s.name AS season_name,
-            (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id) AS players_total,
-            (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id AND p.is_eligible) AS players_eligible,
-            (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id AND p.status = 'PENDING') AS players_pending,
+            (SELECT COUNT(*) FROM players p
+              WHERE p.team_id = t.id AND p.removed_at IS NULL) AS players_total,
+            (SELECT COUNT(*) FROM players p
+              WHERE p.team_id = t.id AND p.removed_at IS NULL AND p.is_eligible) AS players_eligible,
+            (SELECT COUNT(*) FROM players p
+              WHERE p.team_id = t.id AND p.removed_at IS NULL AND p.status = 'PENDING') AS players_pending,
             COALESCE(
               (SELECT json_agg(json_build_object('id', u.id, 'name', u.name, 'email', u.email))
                FROM team_users tu JOIN users u ON u.id = tu.user_id WHERE tu.team_id = t.id),
@@ -111,7 +114,7 @@ export const getTeam = asyncHandler(async (req: AuthRequest, res: Response) => {
     query(
       `SELECT id, first_name, last_name_paternal, last_name_maternal, jersey_number,
               position, photo_url, avatar_url, status, is_eligible, eligibility_reason
-       FROM players WHERE team_id = $1
+       FROM players WHERE team_id = $1 AND removed_at IS NULL
        ORDER BY jersey_number NULLS LAST, last_name_paternal`,
       [id]
     ),

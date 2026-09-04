@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import type { TeamDetail, TeamSummary } from '../../lib/types';
@@ -6,11 +6,15 @@ import { Card, Spinner, Alert, EmptyState, Stat } from '../../components/ui';
 import { StatusBadge, EligibilityBadge } from '../../components/StatusBadge';
 import { PlayerAvatar, TeamCrest } from '../../components/AuthImage';
 import { IconShield, IconUsers } from '../../components/icons';
+import { diasHasta, fechaTexto } from '../../lib/format';
 
 const playerName = (p: TeamDetail['roster'][number]) =>
   `${p.first_name} ${p.last_name_paternal}`;
 
 export default function MyTeam() {
+  const [searchParams] = useSearchParams();
+  const huboBaja = searchParams.get('baja') === '1';
+
   const teams = useQuery({
     queryKey: ['teams'],
     queryFn: () => api.get<TeamSummary[]>('/teams'),
@@ -47,15 +51,14 @@ export default function MyTeam() {
   const needsAttention = data.roster.filter(
     (p) => p.status === 'CORRECTIONS_REQUIRED' || p.status === 'REJECTED'
   );
-  const deadline = data.registration_deadline
-    ? new Date(`${data.registration_deadline}T12:00:00`)
-    : null;
-  const daysLeft = deadline
-    ? Math.ceil((deadline.getTime() - Date.now()) / 86_400_000)
-    : null;
+  const daysLeft = diasHasta(data.registration_deadline);
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
+      {huboBaja && (
+        <Alert tone="success">El jugador quedó fuera del roster y su número está libre.</Alert>
+      )}
+
       {/* Encabezado con la identidad del equipo */}
       <div className="flex items-center gap-4">
         <TeamCrest
@@ -113,9 +116,8 @@ export default function MyTeam() {
           <Alert tone="warning">
             {daysLeft === 0
               ? 'Hoy es el último día para registrar jugadores.'
-              : `Quedan ${daysLeft} día(s) para el cierre de registro (${deadline!.toLocaleDateString(
-                  'es-MX',
-                  { day: 'numeric', month: 'long' }
+              : `Quedan ${daysLeft} día(s) para el cierre de registro (${fechaTexto(
+                  data.registration_deadline
                 )}).`}
           </Alert>
         )}

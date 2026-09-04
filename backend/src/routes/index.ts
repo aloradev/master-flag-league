@@ -66,6 +66,9 @@ router.get('/players', loadManagedTeams, players.listPlayers);
 router.post('/players', loadManagedTeams, players.createPlayer);
 router.get('/players/:id', loadManagedTeams, players.getPlayer);
 router.put('/players/:id', loadManagedTeams, players.updatePlayer);
+// Baja o borrado del jugador: lo decide el servidor según haya jugado o
+// no. Con `loadManagedTeams`, un manager solo alcanza a los suyos.
+router.delete('/players/:id', loadManagedTeams, players.removePlayer);
 
 // ═══════════════════════════════ DOCUMENTOS ═══════════════════════════════
 router.post(

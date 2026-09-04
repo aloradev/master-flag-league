@@ -52,7 +52,10 @@ export const uploadDocument = asyncHandler(async (req: AuthRequest, res: Respons
     team_id: string;
     season_id: string;
     status: string;
-  }>('SELECT team_id, season_id, status FROM players WHERE id = $1', [playerId]);
+  }>(
+    'SELECT team_id, season_id, status FROM players WHERE id = $1 AND removed_at IS NULL',
+    [playerId]
+  );
 
   const player = playerResult.rows[0];
   if (!player) throw new AppError('Jugador no encontrado', 404);
@@ -211,7 +214,7 @@ export const serveDocument = asyncHandler(async (req: AuthRequest, res: Response
 
   let buffer: Buffer;
   try {
-    buffer = await getFile(doc.storage_key);
+    buffer = await getFile(doc.storage_key, doc.mime_type);
   } catch (err) {
     console.error('[documents] Error al leer archivo:', err);
     throw new AppError('El archivo no está disponible', 404);
@@ -230,7 +233,14 @@ export const serveDocument = asyncHandler(async (req: AuthRequest, res: Response
   res.setHeader('Content-Type', doc.mime_type || 'application/octet-stream');
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Disposition', 'inline');
+  /**
+   * El nombre importa: sin él, "guardar como" propone el identificador
+   * de la ruta, sin extensión, y el sistema operativo no sabe con qué
+   * abrirlo. Con `inline` el navegador lo muestra en lugar de bajarlo.
+   */
+  const extension = doc.mime_type === 'application/pdf' ? 'pdf' : 'jpg';
+  const nombre = `${doc.document_type.toLowerCase()}-${doc.player_id}.${extension}`;
+  res.setHeader('Content-Disposition', `inline; filename="${nombre}"`);
   res.send(buffer);
 });
 

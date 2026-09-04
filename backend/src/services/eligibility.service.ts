@@ -114,7 +114,7 @@ export const refreshSeasonEligibility = async (
   seasonId: string
 ): Promise<{ evaluated: number; changed: number }> => {
   const players = await query<{ id: string; is_eligible: boolean }>(
-    'SELECT id, is_eligible FROM players WHERE season_id = $1',
+    'SELECT id, is_eligible FROM players WHERE season_id = $1 AND removed_at IS NULL',
     [seasonId]
   );
 

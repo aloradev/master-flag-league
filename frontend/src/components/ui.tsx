@@ -9,6 +9,14 @@ export const Spinner = ({ label }: { label?: string }) => (
   </div>
 );
 
+/**
+ * OJO al `backdrop-blur`: convierte a la tarjeta en bloque contenedor de
+ * cualquier descendiente `position: fixed`. Un modal pintado dentro de
+ * una tarjeta no se despliega sobre la pantalla sino dentro de ella —el
+ * visor de documentos apareció recortado y sin fondo oscuro por esto—.
+ * Los modales se montan con `createPortal` en `document.body`; ahí no
+ * les afecta.
+ */
 export const Card = ({
   children,
   className = '',

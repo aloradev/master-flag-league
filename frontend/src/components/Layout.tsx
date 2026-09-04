@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, isAdmin } from '../store/auth';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
@@ -15,15 +15,18 @@ import {
   IconTrophy,
   IconMoney,
   IconLogout,
+  IconMore,
 } from './icons';
+import { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 
 interface NavItem {
   to: string;
   label: string;
   Icon: ComponentType<{ size?: number; className?: string }>;
-  /** La barra inferior del celular solo muestra los primarios: más de
-   *  cuatro iconos dejan de ser tocables con el pulgar. */
+  /** La barra inferior del celular da lugar propio solo a los primarios:
+   *  más de cinco iconos dejan de ser tocables con el pulgar. El resto no
+   *  desaparece — se alcanza por el botón "Más", que ocupa el quinto. */
   primary?: boolean;
   superAdminOnly?: boolean;
 }
@@ -68,10 +71,42 @@ export const Layout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  const location = useLocation();
+  const [menuAbierto, setMenuAbierto] = useState(false);
+
   const items = (isAdmin(user?.role) ? NAV_BY_ROLE.ADMIN : NAV_BY_ROLE[user?.role ?? ''] ?? [])
     .filter((item) => !item.superAdminOnly || user?.role === 'SUPER_ADMIN');
 
   const primaryItems = items.filter((item) => item.primary);
+  const restoItems = items.filter((item) => !item.primary);
+
+  /** `/admin` y `/equipo` son prefijo de sus propias subrutas: sin `end`
+   *  se quedarían marcados como activos en toda la sección. */
+  const esExacta = (to: string) => to === '/admin' || to === '/equipo';
+
+  const activa = (to: string) =>
+    esExacta(to)
+      ? location.pathname === to
+      : location.pathname === to || location.pathname.startsWith(`${to}/`);
+
+  /** Si la pantalla abierta vive dentro de "Más", el botón se pinta
+   *  activo: sin eso, en el celular ninguna pestaña queda marcada y se
+   *  pierde el "dónde estoy". */
+  const restoActivo = restoItems.some((item) => activa(item.to));
+
+  // Cambiar de ruta cierra la hoja, incluido el botón atrás del celular.
+  useEffect(() => {
+    setMenuAbierto(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!menuAbierto) return;
+    const alTeclear = (evento: KeyboardEvent) => {
+      if (evento.key === 'Escape') setMenuAbierto(false);
+    };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [menuAbierto]);
 
   const handleLogout = () => {
     logout();
@@ -148,15 +183,15 @@ export const Layout = () => {
         </main>
 
         {/* Navegación inferior — celular */}
-        {primaryItems.length > 0 && (
+        {items.length > 0 && (
           <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-base-300 bg-base-200/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
             {primaryItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === '/admin' || item.to === '/equipo'}
+                end={esExacta(item.to)}
                 className={({ isActive }) =>
-                  `flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs ${
+                  `mfl-toque flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs ${
                     isActive ? 'text-primary' : 'text-base-content/60'
                   }`
                 }
@@ -165,7 +200,78 @@ export const Layout = () => {
                 {item.label}
               </NavLink>
             ))}
+
+            {restoItems.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setMenuAbierto(true)}
+                aria-haspopup="dialog"
+                aria-expanded={menuAbierto}
+                className={`mfl-toque flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs ${
+                  restoActivo ? 'text-primary' : 'text-base-content/60'
+                }`}
+              >
+                <IconMore size={22} />
+                Más
+              </button>
+            )}
           </nav>
+        )}
+
+        {/* Las secciones que no caben en la barra. No es un adorno: sin
+            esto, desde el celular no había manera de abrir Pagos,
+            Finanzas, Usuarios ni Temporada. */}
+        {menuAbierto && (
+          <div className="fixed inset-0 z-40 flex items-end md:hidden">
+            {/* El fondo cierra al tocarlo pero se oculta del árbol de
+                accesibilidad: anunciado como botón, quien usa lector oye
+                dos controles "Cerrar" y el primero es invisible. */}
+            <div
+              aria-hidden="true"
+              onClick={() => setMenuAbierto(false)}
+              className="mfl-fondo absolute inset-0 bg-black/60"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Más secciones"
+              className="mfl-hoja relative max-h-[80vh] w-full overflow-y-auto rounded-t-box
+                         border-t border-base-300 bg-base-200 p-2
+                         pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl"
+            >
+              <div className="flex items-center justify-between px-2 pb-1 pt-2">
+                <h2 className="text-sm font-bold">Más secciones</h2>
+                <button
+                  type="button"
+                  onClick={() => setMenuAbierto(false)}
+                  className="btn btn-ghost btn-xs"
+                >
+                  Cerrar
+                </button>
+              </div>
+
+              <nav className="grid gap-1">
+                {restoItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={esExacta(item.to)}
+                    onClick={() => setMenuAbierto(false)}
+                    className={({ isActive }) =>
+                      `mfl-toque flex items-center gap-3 rounded-field px-3 py-3 text-sm ${
+                        isActive
+                          ? 'bg-primary/15 font-medium text-primary'
+                          : 'text-base-content/80'
+                      }`
+                    }
+                  >
+                    <item.Icon size={20} />
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+          </div>
         )}
       </div>
     </div>

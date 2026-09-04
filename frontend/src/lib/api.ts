@@ -97,7 +97,7 @@ export const api = {
   get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
-  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  del: <T>(path: string, body?: unknown) => request<T>(path, { method: 'DELETE', body }),
   upload: <T>(path: string, formData: FormData) =>
     request<T>(path, { method: 'POST', formData }),
 };

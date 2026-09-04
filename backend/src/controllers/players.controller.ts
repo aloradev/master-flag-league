@@ -10,6 +10,7 @@ import {
   getRequiredDocuments,
   documentLabel,
 } from '../services/eligibility.service.js';
+import { deleteFile } from '../services/storage.service.js';
 
 /**
  * Columnas del jugador que la API expone.
@@ -152,7 +153,10 @@ export const listPlayers = asyncHandler(async (req: AuthRequest, res: Response) 
     conditions.push(`p.team_id = ANY($${params.length})`);
   }
 
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  // Las bajas no aparecen en ninguna lista: para eso se dieron de baja.
+  conditions.push('p.removed_at IS NULL');
+
+  const where = `WHERE ${conditions.join(' AND ')}`;
 
   const result = await query(
     `SELECT p.id, p.first_name, p.last_name_paternal, p.last_name_maternal,
@@ -184,7 +188,7 @@ export const getPlayer = asyncHandler(async (req: AuthRequest, res: Response) =>
      JOIN teams t      ON t.id = p.team_id
      JOIN categories c ON c.id = p.category_id
      JOIN seasons s    ON s.id = p.season_id
-     WHERE p.id = $1`,
+     WHERE p.id = $1 AND p.removed_at IS NULL`,
     [id]
   );
 
@@ -310,7 +314,7 @@ export const createPlayer = asyncHandler(async (req: AuthRequest, res: Response)
 
   if (jerseyNumber != null) {
     const taken = await query(
-      'SELECT id FROM players WHERE team_id = $1 AND jersey_number = $2',
+      'SELECT id FROM players WHERE team_id = $1 AND jersey_number = $2 AND removed_at IS NULL',
       [teamId, jerseyNumber]
     );
     if (taken.rows[0]) {
@@ -363,7 +367,9 @@ export const createPlayer = asyncHandler(async (req: AuthRequest, res: Response)
 export const updatePlayer = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
-  const existing = await query('SELECT * FROM players WHERE id = $1', [id]);
+  const existing = await query('SELECT * FROM players WHERE id = $1 AND removed_at IS NULL', [
+    id,
+  ]);
   const before = existing.rows[0];
   if (!before) throw new AppError('Jugador no encontrado', 404);
   if (!canAccessTeam(req, before.team_id)) {
@@ -411,7 +417,8 @@ export const updatePlayer = asyncHandler(async (req: AuthRequest, res: Response)
 
   if (jerseyNumber != null && jerseyNumber !== before.jersey_number) {
     const taken = await query(
-      'SELECT id FROM players WHERE team_id = $1 AND jersey_number = $2 AND id <> $3',
+      `SELECT id FROM players
+       WHERE team_id = $1 AND jersey_number = $2 AND id <> $3 AND removed_at IS NULL`,
       [before.team_id, jerseyNumber, id]
     );
     if (taken.rows[0]) {
@@ -517,7 +524,7 @@ export const getPublicPlayerProfile = asyncHandler(async (req: AuthRequest, res:
      JOIN teams t      ON t.id = p.team_id
      JOIN categories c ON c.id = p.category_id
      JOIN seasons s    ON s.id = p.season_id
-     WHERE p.id = $1 AND p.status = 'APPROVED'`,
+     WHERE p.id = $1 AND p.status = 'APPROVED' AND p.removed_at IS NULL`,
     [req.params.id]
   );
 
@@ -525,6 +532,118 @@ export const getPublicPlayerProfile = asyncHandler(async (req: AuthRequest, res:
   if (!player) throw new AppError('Jugador no encontrado', 404);
 
   res.json({ success: true, data: { ...player, full_name: fullName(player) } });
+});
+
+/**
+ * DELETE /api/v1/players/:id — quitar a un jugador del equipo.
+ *
+ * Reportado usando la aplicación: alguien deja el equipo a media
+ * temporada y no había forma de sacarlo del roster.
+ *
+ * Hay dos casos distintos y el sistema los distingue solo, en lugar de
+ * preguntarle al usuario algo que puede averiguar:
+ *
+ *  · **Nunca jugó** — un alta equivocada, un duplicado, alguien que se
+ *    inscribió y no llegó. Se borra de verdad, con sus documentos y sus
+ *    archivos: no hay historia que conservar y sí datos personales que
+ *    no tiene sentido guardar.
+ *
+ *  · **Ya jugó** — se marca la baja. Borrarlo dejaría sus touchdowns sin
+ *    autor en `game_events` y los marcadores de partidos ya jugados
+ *    cambiarían hacia atrás. Desaparece de plantillas, listas y conteos;
+ *    el historial queda intacto.
+ *
+ * En los dos casos el dorsal queda libre para el siguiente jugador.
+ */
+export const removePlayer = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { reason } = (req.body ?? {}) as { reason?: string };
+
+  const existing = await query(
+    `SELECT id, team_id, first_name, last_name_paternal, jersey_number, status
+     FROM players WHERE id = $1 AND removed_at IS NULL`,
+    [id]
+  );
+  const player = existing.rows[0];
+  if (!player) throw new AppError('Jugador no encontrado', 404);
+  if (!canAccessTeam(req, player.team_id)) {
+    throw new AppError('No tienes acceso a este jugador', 403);
+  }
+
+  // El motivo es obligatorio por lo mismo que en un rechazo: sin él, el
+  // registro de auditoría no sirve para reconstruir qué pasó.
+  const motivo = (reason ?? '').trim();
+  if (motivo.length < 3) {
+    throw new AppError('Indica el motivo de la baja', 400);
+  }
+
+  const historia = await query<{ jugadas: string; mvp: string }>(
+    `SELECT
+       (SELECT COUNT(*) FROM game_events WHERE player_id = $1)                  AS jugadas,
+       (SELECT COUNT(*) FROM games
+         WHERE mvp_offensive_player_id = $1 OR mvp_defensive_player_id = $1)    AS mvp`,
+    [id]
+  );
+  const jugo =
+    Number(historia.rows[0]?.jugadas ?? 0) > 0 || Number(historia.rows[0]?.mvp ?? 0) > 0;
+
+  const nombre = `${player.first_name} ${player.last_name_paternal}`;
+
+  if (jugo) {
+    await query(
+      `UPDATE players
+       SET removed_at = NOW(), removed_by_user_id = $2, removal_reason = $3,
+           is_eligible = FALSE,
+           eligibility_reason = 'Baja del equipo',
+           updated_at = NOW()
+       WHERE id = $1`,
+      [id, req.user?.id ?? null, motivo]
+    );
+
+    await audit(req, {
+      action: 'REMOVE_PLAYER',
+      entityType: 'player',
+      entityId: id,
+      oldValue: { nombre, jersey: player.jersey_number, status: player.status },
+      newValue: { baja: true, motivo, conservado: 'tiene partidos jugados' },
+    });
+
+    return res.json({
+      success: true,
+      data: { id, modo: 'baja' },
+      message: `${nombre} queda dado de baja. Su historial de partidos se conserva.`,
+    });
+  }
+
+  /**
+   * Sin historia: borrado real. Los archivos se quitan primero, porque
+   * después de borrar la fila ya no se sabe dónde estaban —y son
+   * identificaciones oficiales, no miniaturas.
+   */
+  const docs = await query<{ storage_key: string; mime_type: string }>(
+    'SELECT storage_key, mime_type FROM player_documents WHERE player_id = $1',
+    [id]
+  );
+  for (const doc of docs.rows) {
+    if (doc.storage_key) await deleteFile(doc.storage_key, 'private', doc.mime_type);
+  }
+
+  // player_documents y player_approvals caen por ON DELETE CASCADE.
+  await query('DELETE FROM players WHERE id = $1', [id]);
+
+  await audit(req, {
+    action: 'DELETE_PLAYER',
+    entityType: 'player',
+    entityId: id,
+    oldValue: { nombre, jersey: player.jersey_number, status: player.status },
+    newValue: { borrado: true, motivo, documentos: docs.rows.length },
+  });
+
+  res.json({
+    success: true,
+    data: { id, modo: 'borrado' },
+    message: `${nombre} fue eliminado junto con sus documentos. Nunca jugó un partido.`,
+  });
 });
 
 /**
@@ -540,7 +659,7 @@ export const getTeamEligibility = asyncHandler(async (req: AuthRequest, res: Res
   const result = await query(
     `SELECT id, first_name, last_name_paternal, jersey_number, position,
             is_eligible, eligibility_reason
-     FROM players WHERE team_id = $1
+     FROM players WHERE team_id = $1 AND removed_at IS NULL
      ORDER BY jersey_number NULLS LAST`,
     [teamId]
   );

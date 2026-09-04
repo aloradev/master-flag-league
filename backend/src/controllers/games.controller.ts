@@ -166,7 +166,7 @@ export const getGame = asyncHandler(async (req: AuthRequest, res: Response) => {
       `SELECT id, first_name, last_name_paternal, last_name_maternal, jersey_number, position,
               is_eligible, eligibility_reason, avatar_url
        FROM players
-       WHERE team_id = $1 AND status <> 'INACTIVE'
+       WHERE team_id = $1 AND removed_at IS NULL
        ORDER BY jersey_number NULLS LAST, last_name_paternal`,
       [teamId]
     );
@@ -307,7 +307,7 @@ export const addEvent = asyncHandler(async (req: AuthRequest, res: Response) => 
   if (playerId) {
     const p = await query(
       `SELECT id, first_name, last_name_paternal, team_id, is_eligible, eligibility_reason
-       FROM players WHERE id = $1`,
+       FROM players WHERE id = $1 AND removed_at IS NULL`,
       [playerId]
     );
     const jugador = p.rows[0];
@@ -434,7 +434,10 @@ export const finishGame = asyncHandler(async (req: AuthRequest, res: Response) =
     ['mvpDefensivePlayerId', mvpDefensivePlayerId],
   ] as const) {
     if (!valor) continue;
-    const p = await query(`SELECT team_id FROM players WHERE id = $1`, [valor]);
+    const p = await query(
+      `SELECT team_id FROM players WHERE id = $1 AND removed_at IS NULL`,
+      [valor]
+    );
     if (!p.rows[0]) throw new AppError(`El jugador de ${campo} no existe`, 404);
     if (![game.home_team_id, game.away_team_id].includes(p.rows[0].team_id)) {
       throw new AppError('El MVP debe ser de uno de los dos equipos', 400);

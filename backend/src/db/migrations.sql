@@ -530,3 +530,38 @@ CREATE INDEX IF NOT EXISTS idx_gastos_arbitro    ON expenses(referee_id) WHERE v
 -- ============================================================
 ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE teams   ADD COLUMN IF NOT EXISTS logo_storage_key TEXT;
+
+-- ---------- BAJA DE JUGADORES ----------
+-- Reportado usando la aplicación: un jugador que dejó de jugar no se
+-- podía quitar del roster. No se borra sin más porque sus anotaciones
+-- viven en game_events: borrarlo dejaría touchdowns sin autor y los
+-- rankings de la temporada cambiarían hacia atrás. Se marca la baja y
+-- desaparece de plantillas, listas y conteos; el historial queda.
+ALTER TABLE players ADD COLUMN IF NOT EXISTS removed_at         TIMESTAMPTZ;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS removed_by_user_id VARCHAR(36) REFERENCES users(id);
+ALTER TABLE players ADD COLUMN IF NOT EXISTS removal_reason     TEXT;
+
+-- El dorsal se libera al dar de baja. Con la restricción de tabla
+-- original, el número de quien se fue quedaba bloqueado el resto de la
+-- temporada y el equipo no podía dárselo a nadie más.
+-- Se busca por definición y no por nombre: si la base se creó con otro
+-- nombre de restricción, un DROP ... IF EXISTS literal no encontraría
+-- nada, el índice parcial se crearía igual y el dorsal seguiría
+-- bloqueado sin que nada lo delatara.
+DO $$
+DECLARE nombre TEXT;
+BEGIN
+  SELECT conname INTO nombre
+  FROM pg_constraint
+  WHERE conrelid = 'players'::regclass
+    AND contype = 'u'
+    AND pg_get_constraintdef(oid) = 'UNIQUE (team_id, jersey_number)';
+  IF nombre IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE players DROP CONSTRAINT %I', nombre);
+  END IF;
+END $$;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_players_jersey_activo
+  ON players (team_id, jersey_number)
+  WHERE removed_at IS NULL AND jersey_number IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_players_activos
+  ON players (team_id) WHERE removed_at IS NULL;

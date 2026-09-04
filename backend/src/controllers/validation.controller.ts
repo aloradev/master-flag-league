@@ -68,7 +68,7 @@ export const getValidationQueue = asyncHandler(async (req: AuthRequest, res: Res
      FROM players p
      JOIN teams t      ON t.id = p.team_id
      JOIN categories c ON c.id = p.category_id
-     WHERE ${conditions.join(' AND ')}
+     WHERE ${conditions.join(' AND ')} AND p.removed_at IS NULL
      ORDER BY p.created_at ASC`,
     params
   );
@@ -243,7 +243,7 @@ export const getValidationStats = asyncHandler(async (req: AuthRequest, res: Res
        COUNT(*) FILTER (WHERE status = 'BLOCKED')::int                        AS blocked,
        COUNT(*) FILTER (WHERE is_eligible)::int                               AS eligible
      FROM players
-     WHERE ($1::text IS NULL OR season_id = $1)`,
+     WHERE ($1::text IS NULL OR season_id = $1) AND removed_at IS NULL`,
     [seasonId ?? null]
   );
 
@@ -253,7 +253,7 @@ export const getValidationStats = asyncHandler(async (req: AuthRequest, res: Res
             COUNT(p.id) FILTER (WHERE p.is_eligible)::int           AS eligible,
             COUNT(p.id) FILTER (WHERE p.status = 'PENDING')::int    AS pending
      FROM teams t
-     LEFT JOIN players p ON p.team_id = t.id
+     LEFT JOIN players p ON p.team_id = t.id AND p.removed_at IS NULL
      WHERE ($1::text IS NULL OR t.season_id = $1)
      GROUP BY t.id, t.name, t.color_primary
      ORDER BY pending DESC, t.name`,

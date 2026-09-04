@@ -4,6 +4,7 @@ import { api, ApiError } from '../../lib/api';
 import type { Season } from '../../lib/types';
 import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
 import { useAuth } from '../../store/auth';
+import { fechaTexto } from '../../lib/format';
 
 interface DocumentSettings {
   required: string[];
@@ -153,11 +154,7 @@ export default function SeasonConfig() {
         <h1 className="text-xl font-bold">{data.name}</h1>
         <p className="text-sm text-base-content/60">
           Inicia el{' '}
-          {new Date(`${data.start_date}T12:00:00`).toLocaleDateString('es-MX', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-          })}
+          {fechaTexto(data.start_date, { day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
       </div>
 

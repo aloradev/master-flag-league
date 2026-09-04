@@ -1,7 +1,7 @@
 # Estado del proyecto
 
 **Master Flag League** — Liga de Flag Football de Cancún, Quintana Roo
-Actualizado: 2 de septiembre de 2026
+Actualizado: 4 de septiembre de 2026
 
 ---
 
@@ -404,24 +404,111 @@ rol. Ahora su casa es finanzas y tiene su propia navegación.
 
 ---
 
+## Corrección: el celular, los PDF, las bajas y las fechas
+
+Cuatro cosas que salieron de usar la aplicación y de mirarla en un
+teléfono de verdad.
+
+### Media aplicación no existía en el celular
+
+La barra inferior pintaba solo cuatro destinos y no había desbordamiento.
+Desde un teléfono, un encargado **no podía abrir Pagos, Jornadas ni
+Posiciones**, y un administrador tampoco Finanzas, Usuarios, Temporada ni
+Auditoría. No estaban escondidas: eran inalcanzables, y el teléfono es
+donde se usa esto en la cancha. Ahora el quinto lugar es un botón "Más"
+con una hoja inferior, que se marca activo cuando la pantalla abierta
+vive dentro de ella.
+
+### Un PDF subido no se podía ver
+
+Dos fallos encadenados. En el servidor, la URL firmada para bajar el
+archivo de Cloudinary pedía siempre un `jpg` de tipo `image` con entrega
+pública, cuando los documentos se guardan como `private` y los PDF como
+`raw`: apuntaba a un objeto que no existe. En la interfaz, el PDF se
+abría como enlace a una URL `blob:` en pestaña nueva, cosa que en celular
+—donde se validan los registros— muestra una pestaña en blanco o baja un
+archivo sin nombre. Ahora se ve dentro de la aplicación, con descarga
+siempre a mano.
+
+De paso apareció que `Card` lleva `backdrop-blur`, y eso convierte a la
+tarjeta en bloque contenedor de cualquier `position: fixed` que tenga
+dentro: el visor salía recortado al tamaño de la tarjeta, sin fondo
+oscuro y por debajo del encabezado. Los modales se montan con
+`createPortal`.
+
+### No se podía quitar a un jugador del equipo
+
+Ahora sí, y el servidor decide cómo sin preguntar: si nunca jugó, se
+borra de verdad con sus documentos —es un alta equivocada y son datos
+personales—; si ya jugó, se marca la baja, porque borrarlo dejaría sus
+anotaciones sin autor y cambiaría hacia atrás partidos ya jugados. En los
+dos casos el dorsal queda libre y desaparece de plantillas, listas,
+conteos y de la cola de validación. 35 comprobaciones.
+
+### "Invalid Date" en el tablero
+
+Postgres devuelve las fechas como `2026-09-12T00:00:00.000Z` y cuatro
+pantallas le concatenaban `T12:00:00`, pensando en un `2026-09-12` pelón.
+Lo visible era feo; lo importante es que la resta de días daba `NaN`, y
+como `NaN >= 0` es falso, **los avisos de "faltan N días para el inicio"
+y "el registro cierra en N días" no se pintaban nunca**. A nueve días de
+arrancar, el aviso que más importaba estaba desaparecido.
+
+### Y dos regresiones que había dejado el arreglo de Cloudinary
+
+Admitir `CLOUDINARY_URL` rompió la comprobación del arranque, que contaba
+variables en lugar de mirar credenciales: con una URL válida más un
+`CLOUDINARY_NAME` olvidado de un intento anterior, la aplicación se
+negaba a arrancar teniendo todo lo necesario. Y peor: un typo en esa
+variable hacía que el SDK de Cloudinary lanzara **al importarse**, así
+que la API entera moría con un stack de Node en el log de Render, antes
+de que ninguna validación pudiera decir qué revisar.
+
+---
+
 ## Pendiente
 
-### Desplegar en línea
-Falta crear la base de datos gratuita y publicar. `render.yaml` y
-`DESPLIEGUE.md` ya tienen todo lo demás resuelto.
+### Cargar la liga real
+Equipos, encargados, categorías, campos, horarios y montos. Es lo que
+falta para el 12 de septiembre.
 
 ### FASE 3 — Estadísticas
-Rankings de jugadores, MVP acumulado, Power Ranking y récords. La tabla
-de posiciones, las rachas y la forma reciente ya están en la Fase 2.
+Rankings, MVP, Power Ranking, rachas y récords. La tabla de posiciones ya
+existe desde la Fase 2.
 
 ### FASE 5 — Experiencia
-Centro de jornada, perfiles públicos, tarjetas digitales, comunicados
-y notificaciones por WhatsApp y push.
+Perfiles públicos, tarjetas digitales, comunicados y notificaciones por
+WhatsApp y push.
 
 ### FASE 6 — Playoffs e historia
 Brackets configurables, campeones, Hall of Fame e historial.
 
 ---
+
+## Pruebas
+
+**725 comprobaciones** en ocho suites, más revisión en navegador real a
+390 px y 1280 px:
+
+```bash
+cd backend && npm run test:all
+```
+
+| Suite | Qué cubre | Checks |
+|---|---|---|
+| `fixture.mjs` | generador de jornadas, sin base de datos | 161 |
+| `cors.mjs` | normalización del origen | 10 |
+| `integration.mjs` | Fase 1 completa contra PostgreSQL | 154 |
+| `competition.mjs` | jornadas, partidos, Modo Árbitro | 114 |
+| `finance.mjs` | cargos, pagos, gastos, proyección | 123 |
+| `edicion.mjs` | quién puede cambiar qué de un jugador | 56 |
+| `bajas.mjs` | baja y borrado de jugadores | 35 |
+| `almacenamiento.mjs` | credenciales de imágenes y diagnóstico | 72 |
+
+Cada suite nació de un fallo real, casi siempre encontrado usando la
+aplicación y no ejecutando pruebas. Están escritas para poder fallar: se
+comprueba rompiendo el código a propósito y viendo que la prueba lo
+delate.
 
 ## Cómo correr el proyecto
 

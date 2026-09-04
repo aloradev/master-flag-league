@@ -7,6 +7,35 @@
  * convierte eso en una línea clara en el log de despliegue de Render.
  */
 
+import { credencialesCloudinary } from './credenciales.js';
+
+/**
+ * GUARDA PREVIA AL SDK DE CLOUDINARY.
+ *
+ * El SDK se autoconfigura al importarse y, si `CLOUDINARY_URL` no empieza
+ * con `cloudinary://`, lanza desde el cuerpo del módulo. Como los imports
+ * de un módulo ES se evalúan antes que su código, esa excepción ocurría
+ * antes de cualquier validación: la API no arrancaba y el log de Render
+ * mostraba un stack de Node en lugar de decir qué variable revisar.
+ *
+ * Por eso esto se ejecuta al importar este archivo —no dentro de
+ * `validateEnvironment()`— y por eso `./config/env.js` debe ser el PRIMER
+ * import de `index.ts`. Este módulo no importa el SDK, así que llega
+ * antes que él.
+ */
+const urlCloudinary = (process.env.CLOUDINARY_URL ?? '').trim();
+if (urlCloudinary && !credencialesCloudinary({ CLOUDINARY_URL: urlCloudinary })) {
+  console.error(
+    '\n❌ CLOUDINARY_URL mal escrita\n\n' +
+      '  Debe tener exactamente esta forma:\n' +
+      '    cloudinary://<api_key>:<api_secret>@<cloud_name>\n\n' +
+      '  La copias completa del panel de Cloudinary, en Settings → API Keys.\n' +
+      '  Alternativa: borrar CLOUDINARY_URL y definir las tres por separado\n' +
+      '  (CLOUDINARY_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET).\n'
+  );
+  process.exit(1);
+}
+
 interface Check {
   key: string;
   /** Sin ella la aplicación no puede funcionar: se aborta el arranque. */
@@ -41,14 +70,6 @@ const hasDatabaseConfig = (): boolean =>
 
 /** No detienen el arranque, pero degradan la plataforma de forma silenciosa. */
 const WARNINGS: Check[] = [
-  {
-    key: 'CLOUDINARY_NAME',
-    required: false,
-    message:
-      'Sin Cloudinary (las tres variables: NAME, API_KEY y API_SECRET) los documentos ' +
-      'se guardan en el disco de Render, que es EFÍMERO: las identificaciones de los ' +
-      'jugadores se borran en cada despliegue.',
-  },
   {
     key: 'RESEND_API_KEY',
     required: false,
@@ -93,18 +114,46 @@ export const validateEnvironment = (): void => {
    * fallo aparecía cuando alguien intentaba subir un escudo, no al
    * desplegar.
    *
-   * Ahora, si hay ALGUNA de las tres, se exigen las tres: es la
-   * diferencia entre enterarse en el log del despliegue y enterarse por
-   * un encargado que no puede subir su logo.
+   * Ahora la comprobación no cuenta variables sino credenciales: hay dos
+   * formas válidas de configurarlas —las tres sueltas o una sola
+   * CLOUDINARY_URL— y contar nombres rompía las dos. Con una URL válida
+   * más un CLOUDINARY_NAME olvidado de un intento anterior, la versión
+   * que contaba variables se negaba a arrancar teniendo todo lo que
+   * necesitaba; y con una URL mal escrita como única configuración, no
+   * decía nada y las imágenes se iban al disco efímero.
    */
-  const cloudinaryKeys = ['CLOUDINARY_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+  const cloudinaryKeys = [
+    'CLOUDINARY_NAME',
+    'CLOUDINARY_API_KEY',
+    'CLOUDINARY_API_SECRET',
+    'CLOUDINARY_URL',
+  ];
   const cloudinaryPuestas = cloudinaryKeys.filter((k) => process.env[k]);
-  if (cloudinaryPuestas.length > 0 && cloudinaryPuestas.length < cloudinaryKeys.length) {
-    const faltan = cloudinaryKeys.filter((k) => !process.env[k]);
+
+  if (credencialesCloudinary()) {
+    // Completas por cualquiera de las dos vías: nada que decir.
+  } else if (cloudinaryPuestas.length > 0) {
+    const tresPuestas = cloudinaryPuestas.filter((k) => k !== 'CLOUDINARY_URL');
+    const faltan = cloudinaryKeys
+      .filter((k) => k !== 'CLOUDINARY_URL')
+      .filter((k) => !process.env[k]);
     problems.push(
-      `  ✗ Cloudinary a medias — están ${cloudinaryPuestas.join(', ')} y falta(n) ` +
-        `${faltan.join(', ')}. Con las tres o con ninguna: a medias, la aplicación ` +
-        `arranca y cada subida de imagen falla con un 403.`
+      `  ✗ Cloudinary a medias — está(n) ${cloudinaryPuestas.join(', ')} pero no alcanzan ` +
+        `para armar las credenciales. ` +
+        (process.env.CLOUDINARY_URL
+          ? `CLOUDINARY_URL no tiene la forma cloudinary://llave:secreto@nombre` +
+            (tresPuestas.length > 0
+              ? `, y las sueltas están incompletas (falta(n) ${faltan.join(', ')}).`
+              : '.')
+          : `Falta(n) ${faltan.join(', ')}. Alternativa: definir solo CLOUDINARY_URL.`) +
+        ` Con todo o con nada: a medias, la aplicación arranca y cada subida de imagen ` +
+        `falla con un 403.`
+    );
+  } else {
+    console.warn(
+      '⚠️  Sin Cloudinary (las tres variables NAME, API_KEY y API_SECRET, o una sola ' +
+        'CLOUDINARY_URL) los documentos se guardan en el disco de Render, que es ' +
+        'EFÍMERO: las identificaciones de los jugadores se borran en cada despliegue.'
     );
   }
 

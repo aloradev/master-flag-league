@@ -155,16 +155,58 @@ despliegue. Sin Cloudinary, las identificaciones de tus jugadores
 desaparecen la próxima vez que subas un cambio. En un sistema cuyo
 propósito es guardar esa documentación, eso es pérdida de datos.
 
-Cuenta gratuita en [cloudinary.com](https://cloudinary.com) — 25 GB — y
-tres variables en Render:
+Cuenta gratuita en [cloudinary.com](https://cloudinary.com) — 25 GB.
+
+### Dónde están las credenciales
+
+En el panel de Cloudinary: **Settings → API Keys**. Ahí ves tres datos —
+*Cloud name*, *API Key* y *API Secret*— y también un botón que copia
+todo junto en una sola línea con la forma
+`cloudinary://<api_key>:<api_secret>@<cloud_name>`.
+
+### Las dos formas de configurarlas
+
+Sirven las dos. Elige una:
 
 ```
-CLOUDINARY_NAME
-CLOUDINARY_API_KEY
-CLOUDINARY_API_SECRET
+# Forma A — las tres por separado
+CLOUDINARY_NAME=tu-cloud-name
+CLOUDINARY_API_KEY=123456789012345
+CLOUDINARY_API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Forma B — la línea que el panel copia de un botón
+CLOUDINARY_URL=cloudinary://123456789012345:xxxxxxxxxxxxxxxxxxxxxxxxxxx@tu-cloud-name
 ```
 
-El código ya sube los documentos como recursos `private` y los avatares
+Si defines las tres de la forma A, ganan sobre `CLOUDINARY_URL`.
+
+Dos cosas que salen mal en la práctica:
+
+- **Pegar la línea completa en `CLOUDINARY_NAME`.** Esa línea va en
+  `CLOUDINARY_URL`, o se reparte en las tres.
+- **Un espacio o un salto de línea al final.** El panel de Render lo
+  conserva y Cloudinary responde el mismo 401 que con una llave
+  equivocada.
+
+### Comprobarlo sin adivinar
+
+Con la sesión de administrador abierta:
+
+```
+GET /api/v1/admin/diagnostics/storage
+```
+
+Responde qué variables llegaron, si tienen mala pinta —espacios, la URL
+en el lugar equivocado, la llave y el secreto invertidos— y el resultado
+de preguntarle a Cloudinary si las acepta, con el diagnóstico en
+castellano. La llave y el secreto salen enmascarados; el *cloud name* no,
+porque no es secreto y es el que más se equivoca.
+
+Si algo falta o está mal escrito, la API te lo dice **al arrancar**, en
+el log del despliegue, en lugar de dejarlo para la primera vez que
+alguien suba un escudo.
+
+El código sube los documentos como recursos `private` y los avatares
 como públicos; solo faltan las llaves.
 
 ## 7. Resend — opcional
@@ -194,7 +236,7 @@ se niega a arrancar y lo dice en el log de despliegue.
 | `DATABASE_URL` | cadena de Neon, la variante con `-pooler` |
 | `JWT_SECRET` | lo genera Render solo; no lo escribas a mano |
 | `FRONTEND_URL` | la URL de Vercel, sin barra final |
-| `CLOUDINARY_NAME` | de tu cuenta de Cloudinary |
+| `CLOUDINARY_NAME` | de tu cuenta de Cloudinary (o usa `CLOUDINARY_URL` sola) |
 | `CLOUDINARY_API_KEY` | de tu cuenta de Cloudinary |
 | `CLOUDINARY_API_SECRET` | de tu cuenta de Cloudinary |
 

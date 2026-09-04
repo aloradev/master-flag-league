@@ -109,6 +109,15 @@ export const IconFootball = (props: IconProps) => (
 );
 
 /** Tema claro. */
+/** Más: los tres puntos que abren el resto del menú en el celular. */
+export const IconMore = (props: IconProps) => (
+  <Svg {...props}>
+    <circle cx="5" cy="12" r="1.25" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.25" fill="currentColor" stroke="none" />
+    <circle cx="19" cy="12" r="1.25" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
 export const IconSun = (props: IconProps) => (
   <Svg {...props}>
     <circle cx="12" cy="12" r="4" />

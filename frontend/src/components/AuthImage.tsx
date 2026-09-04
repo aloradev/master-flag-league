@@ -1,6 +1,96 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { fetchProtectedBlob, documentPath, mediaUrl } from '../lib/api';
 import { IconDocument } from './icons';
+
+/**
+ * Visor del documento, dentro de la aplicación.
+ *
+ * Antes el documento se abría con un enlace a la URL del blob en una
+ * pestaña nueva. En escritorio pasa; en celular —que es donde se validan
+ * los registros— Safari y Chrome muestran una pestaña en blanco o bajan
+ * un archivo sin nombre, y el PDF quedaba imposible de ver. Aquí se
+ * muestra en su sitio, y debajo queda siempre el botón de descarga: en
+ * iOS el visor incrustado de PDF no funciona y sin esa salida no habría
+ * ninguna.
+ */
+const VisorDocumento = ({
+  objectUrl,
+  titulo,
+  esPdf,
+  onCerrar,
+}: {
+  objectUrl: string;
+  titulo: string;
+  esPdf: boolean;
+  onCerrar: () => void;
+}) => {
+  useEffect(() => {
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCerrar();
+    };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [onCerrar]);
+
+  const nombre = `${titulo.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.${esPdf ? 'pdf' : 'jpg'}`;
+
+  /**
+   * Se monta en `document.body`, no donde está la miniatura.
+   *
+   * La miniatura vive dentro de una tarjeta, y la tarjeta lleva
+   * `backdrop-blur`: eso la vuelve bloque contenedor de los
+   * descendientes `position: fixed`. Sin el portal, `inset-0` medía la
+   * tarjeta —356 × 100 px— en lugar de la pantalla: el visor salía
+   * recortado, el fondo oscuro no cubría nada, y el encabezado y la
+   * barra inferior de la aplicación quedaban encima.
+   */
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      {/* Oculto del árbol de accesibilidad: anunciado como botón, se oiría
+          un segundo control "Cerrar" invisible antes del real. */}
+      <div aria-hidden="true" onClick={onCerrar} className="mfl-fondo absolute inset-0 bg-black/70" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={titulo}
+        className="mfl-hoja relative flex max-h-[92vh] w-full max-w-3xl flex-col rounded-t-box
+                   border-t border-base-300 bg-base-200 shadow-2xl sm:rounded-box sm:border"
+      >
+        <div className="flex items-center justify-between border-b border-base-300/60 px-4 py-3">
+          <h2 className="truncate text-sm font-bold">{titulo}</h2>
+          <button type="button" onClick={onCerrar} className="btn btn-ghost btn-xs">
+            Cerrar
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-auto bg-base-300/40 p-2">
+          {esPdf ? (
+            <iframe
+              src={objectUrl}
+              title={titulo}
+              className="h-[65vh] w-full rounded-field bg-base-100"
+            />
+          ) : (
+            <img src={objectUrl} alt={titulo} className="mx-auto max-h-[70vh] w-auto rounded-field" />
+          )}
+        </div>
+
+        <div className="border-t border-base-300/60 p-3">
+          <a href={objectUrl} download={nombre} className="btn btn-sm btn-block">
+            Descargar
+          </a>
+          {esPdf && (
+            <p className="pt-2 text-center text-xs text-base-content/50">
+              Si el PDF no se ve aquí, descárgalo: algunos celulares no lo muestran incrustado.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
 
 /**
  * Muestra un documento protegido.
@@ -21,6 +111,7 @@ interface Props {
 export const AuthImage = ({ fileUrl, alt, mimeType, className = '', thumbnail }: Props) => {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [abierto, setAbierto] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -65,30 +156,49 @@ export const AuthImage = ({ fileUrl, alt, mimeType, className = '', thumbnail }:
     );
   }
 
-  if (mimeType === 'application/pdf') {
-    return thumbnail ? (
-      <a
-        href={objectUrl}
-        target="_blank"
-        rel="noreferrer"
-        className={`${box} flex-col gap-1 text-center hover:bg-base-300/70`}
-      >
-        <IconDocument size={22} />
-        <span className="text-xs text-base-content/60">Ver PDF</span>
-      </a>
-    ) : (
-      <iframe src={objectUrl} title={alt} className={`w-full ${className}`} />
+  const esPdf = mimeType === 'application/pdf';
+
+  const visor = abierto ? (
+    <VisorDocumento
+      objectUrl={objectUrl}
+      titulo={alt}
+      esPdf={esPdf}
+      onCerrar={() => setAbierto(false)}
+    />
+  ) : null;
+
+  if (!thumbnail) {
+    return (
+      <div className={box}>
+        {esPdf ? (
+          <iframe src={objectUrl} title={alt} className="size-full bg-base-100" />
+        ) : (
+          <img src={objectUrl} alt={alt} className="size-full object-contain" />
+        )}
+      </div>
     );
   }
 
-  return thumbnail ? (
-    <a href={objectUrl} target="_blank" rel="noreferrer" className={box}>
-      <img src={objectUrl} alt={alt} className="size-full object-cover" />
-    </a>
-  ) : (
-    <div className={box}>
-      <img src={objectUrl} alt={alt} className="size-full object-contain" />
-    </div>
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        aria-haspopup="dialog"
+        className={`mfl-toque ${box} ${esPdf ? 'flex-col gap-1 text-center' : ''}`}
+        title={`Ver ${alt}`}
+      >
+        {esPdf ? (
+          <>
+            <IconDocument size={22} />
+            <span className="text-xs text-base-content/60">Ver PDF</span>
+          </>
+        ) : (
+          <img src={objectUrl} alt={alt} className="size-full object-cover" />
+        )}
+      </button>
+      {visor}
+    </>
   );
 };
 

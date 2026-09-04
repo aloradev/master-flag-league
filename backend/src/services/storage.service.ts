@@ -2,6 +2,11 @@ import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
 import { dirname, join, extname } from 'path';
 import { v2 as cloudinary } from 'cloudinary';
 import { newPrefixedId } from '../utils/id.js';
+import {
+  credencialesCloudinary,
+  type CredencialesCloudinary,
+  type Entorno,
+} from '../config/credenciales.js';
 
 /**
  * ALMACENAMIENTO — DOS NIVELES DELIBERADOS
@@ -27,52 +32,8 @@ import { newPrefixedId } from '../utils/id.js';
 
 export type StorageDriver = 'local' | 'cloudinary';
 
-export interface CredencialesCloudinary {
-  cloudName: string;
-  apiKey: string;
-  apiSecret: string;
-  /** De dónde salieron: importa para diagnosticar. */
-  origen: 'tres-variables' | 'CLOUDINARY_URL';
-}
-
-/**
- * Lee las credenciales de Cloudinary de las DOS formas en que la gente
- * las configura.
- *
- * El panel de Cloudinary muestra como principal una sola línea:
- *
- *   CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
- *
- * Es lo que uno copia, y es lo que su propio SDK lee por omisión. Este
- * código solo miraba las tres variables separadas, así que quien pegara
- * la URL —lo natural— acababa con almacenamiento local sin saberlo: la
- * aplicación arrancaba bien y las imágenes se guardaban en el disco
- * efímero de Render, que se borra en cada despliegue. Silencioso y con
- * pérdida de datos, la peor combinación.
- *
- * Las tres variables sueltas ganan si están, porque son más explícitas.
- */
-export const credencialesCloudinary = (): CredencialesCloudinary | null => {
-  const limpiar = (v?: string) => (v ?? '').trim();
-
-  const cloudName = limpiar(process.env.CLOUDINARY_NAME);
-  const apiKey = limpiar(process.env.CLOUDINARY_API_KEY);
-  const apiSecret = limpiar(process.env.CLOUDINARY_API_SECRET);
-  if (cloudName && apiKey && apiSecret) {
-    return { cloudName, apiKey, apiSecret, origen: 'tres-variables' };
-  }
-
-  const url = limpiar(process.env.CLOUDINARY_URL);
-  if (url) {
-    // cloudinary://<api_key>:<api_secret>@<cloud_name>
-    const m = /^cloudinary:\/\/([^:]+):([^@]+)@(.+)$/.exec(url);
-    if (m) {
-      return { apiKey: m[1], apiSecret: m[2], cloudName: m[3], origen: 'CLOUDINARY_URL' };
-    }
-  }
-
-  return null;
-};
+export { credencialesCloudinary };
+export type { CredencialesCloudinary, Entorno };
 
 /**
  * Cloudinary se activa solo con las credenciales COMPLETAS.
@@ -83,8 +44,8 @@ export const credencialesCloudinary = (): CredencialesCloudinary | null => {
  * aparecía media hora después del despliegue, cuando alguien intentaba
  * subir un escudo, y sin ninguna pista de dónde venía.
  */
-export const activeDriver = (): StorageDriver =>
-  credencialesCloudinary() ? 'cloudinary' : 'local';
+export const activeDriver = (env: Entorno = process.env): StorageDriver =>
+  credencialesCloudinary(env) ? 'cloudinary' : 'local';
 
 const PRIVATE_DIR = process.env.PRIVATE_UPLOAD_DIR || join(process.cwd(), 'storage', 'private');
 const PUBLIC_DIR = process.env.PUBLIC_UPLOAD_DIR || join(process.cwd(), 'storage', 'public');
@@ -167,6 +128,32 @@ export interface StoredPublicFile extends StoredFile {
   url: string;
 }
 
+/**
+ * Cloudinary archiva los PDF como `raw` y las imágenes como `image`, y
+ * la URL firmada para bajarlos se construye distinto según cuál sea. Se
+ * decide en un solo lugar para que subida, descarga y borrado no puedan
+ * discrepar: cuando discrepaban, el PDF se subía bien y luego no había
+ * manera de verlo.
+ */
+export const esPdf = (mimeType: string, storageKey = ''): boolean =>
+  mimeType === 'application/pdf' || /\.pdf$/i.test(storageKey);
+
+const tipoDeRecurso = (mimeType: string, storageKey = ''): 'image' | 'raw' =>
+  esPdf(mimeType, storageKey) ? 'raw' : 'image';
+
+/** Formato REAL del archivo. Pedirle `jpg` a un PDF devuelve un 404. */
+const formatoDe = (mimeType: string, storageKey = ''): string => {
+  const porMime = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'application/pdf': 'pdf',
+  }[mimeType];
+  if (porMime) return porMime;
+  const ext = extname(storageKey).replace('.', '').toLowerCase();
+  return ext || 'jpg';
+};
+
 const extensionFor = (mimeType: string, originalName = ''): string => {
   const fromName = extname(originalName);
   if (fromName) return fromName;
@@ -196,10 +183,16 @@ export const putFile = async (
       cloudinary.uploader
         .upload_stream(
           {
-            public_id: key.replace(/\.[^.]+$/, ''),
+            /**
+             * Las imágenes llevan el public_id sin extensión —Cloudinary
+             * la añade según el formato—, pero un recurso `raw` se
+             * direcciona por su nombre completo: quitarle el `.pdf` deja
+             * un objeto que después no se encuentra.
+             */
+            public_id: esPdf(mimeType, key) ? key : key.replace(/\.[^.]+$/, ''),
             // `private` impide el acceso anónimo aunque se filtre la URL.
             type: 'private',
-            resource_type: mimeType === 'application/pdf' ? 'raw' : 'image',
+            resource_type: tipoDeRecurso(mimeType, key),
             folder: 'mfl/privado',
           },
           (error, result) => (error ? reject(traducirFalloDeCloudinary(error)) : resolve(result))
@@ -217,14 +210,49 @@ export const putFile = async (
   return { storageKey: key, driver, size: buffer.length, mimeType };
 };
 
-export const getFile = async (storageKey: string): Promise<Buffer> => {
+/**
+ * Descarga el archivo original.
+ *
+ * `mimeType` no es opcional por comodidad: sin él esta función pedía
+ * siempre un `jpg` de tipo `image` con el tipo de entrega por omisión
+ * (`upload`), y los documentos se guardan como `private` —y los PDF como
+ * `raw`—. Es decir, la URL firmada apuntaba a un objeto que no existe:
+ * las identificaciones no se podían ver en cuanto Cloudinary entraba en
+ * juego, y el PDF era donde más se notaba.
+ */
+export const getFile = async (storageKey: string, mimeType = ''): Promise<Buffer> => {
   if (activeDriver() === 'cloudinary') {
-    const signedUrl = cloudinary.utils.private_download_url(storageKey, 'jpg', {
-      expires_at: Math.floor(Date.now() / 1000) + 60,
-    });
-    const response = await fetch(signedUrl);
-    if (!response.ok) throw new Error(`Cloudinary respondió ${response.status}`);
-    return Buffer.from(await response.arrayBuffer());
+    /**
+     * Se intenta primero el tipo de recurso que corresponde al mime y,
+     * si no aparece, el otro. Los documentos subidos por la versión
+     * anterior quedaron archivados con el criterio viejo, y esta función
+     * no puede saber cuál fue: probar los dos los recupera sin migrar
+     * nada. El segundo intento solo ocurre cuando el primero falla.
+     */
+    const preferido = tipoDeRecurso(mimeType, storageKey);
+    const intentos: Array<'image' | 'raw'> =
+      preferido === 'raw' ? ['raw', 'image'] : ['image', 'raw'];
+
+    let ultimoEstado = 0;
+    for (const resourceType of intentos) {
+      const signedUrl = cloudinary.utils.private_download_url(
+        storageKey,
+        formatoDe(mimeType, storageKey),
+        {
+          resource_type: resourceType,
+          type: 'private',
+          expires_at: Math.floor(Date.now() / 1000) + 60,
+        }
+      );
+      const response = await fetch(signedUrl);
+      if (response.ok) return Buffer.from(await response.arrayBuffer());
+      ultimoEstado = response.status;
+    }
+
+    throw new StorageError(
+      `Cloudinary no entregó el archivo (${ultimoEstado}). La clave es "${storageKey}"; ` +
+        `revisa en el panel que exista bajo Media Library con acceso "private".`
+    );
   }
 
   // Bloquea traversal: la clave no puede salir del directorio privado.
@@ -292,12 +320,16 @@ export const publicDir = (): string => PUBLIC_DIR;
 
 export const deleteFile = async (
   storageKey: string,
-  visibility: 'private' | 'public' = 'private'
+  visibility: 'private' | 'public' = 'private',
+  mimeType = ''
 ): Promise<void> => {
   try {
     if (activeDriver() === 'cloudinary') {
+      // Sin el resource_type correcto, `destroy` busca una imagen que no
+      // existe, responde "not found" y el PDF se queda ocupando espacio.
       await cloudinary.uploader.destroy(storageKey, {
         type: visibility === 'private' ? 'private' : 'upload',
+        resource_type: tipoDeRecurso(mimeType, storageKey),
       });
       return;
     }

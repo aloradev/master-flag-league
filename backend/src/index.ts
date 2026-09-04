@@ -1,3 +1,11 @@
+/**
+ * PRIMERO, antes que nada: este import valida CLOUDINARY_URL antes de que
+ * el SDK de Cloudinary se cargue —el SDK lanza al importarse si la URL
+ * está mal escrita, y entonces el log solo muestra un stack de Node—.
+ * Mover esta línea más abajo devuelve ese fallo.
+ */
+import { validateEnvironment } from './config/env.js';
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -6,7 +14,6 @@ import routes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { healthCheck } from './config/database.js';
 import { activeDriver, publicDir, PUBLIC_ROUTE } from './services/storage.service.js';
-import { validateEnvironment } from './config/env.js';
 
 dotenv.config();
 

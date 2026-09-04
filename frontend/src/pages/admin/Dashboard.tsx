@@ -4,6 +4,7 @@ import { api } from '../../lib/api';
 import type { Season, ValidationStats } from '../../lib/types';
 import { Alert, Card, Spinner, Stat } from '../../components/ui';
 import { useAuth } from '../../store/auth';
+import { diasHasta, fechaTexto } from '../../lib/format';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -24,16 +25,7 @@ export default function AdminDashboard() {
   const data = stats.data;
   const pendingWork = (data?.pending ?? 0) + (data?.corrections ?? 0);
 
-  const startDate = season.data ? new Date(`${season.data.start_date}T12:00:00`) : null;
-  const daysToStart = startDate
-    ? Math.ceil((startDate.getTime() - Date.now()) / 86_400_000)
-    : null;
-
-  const asDate = (value: string) =>
-    new Date(`${value}T12:00:00`).toLocaleDateString('es-MX', {
-      day: 'numeric',
-      month: 'long',
-    });
+  const daysToStart = diasHasta(season.data?.start_date);
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -41,7 +33,7 @@ export default function AdminDashboard() {
         <h1 className="text-xl font-bold">Hola, {user?.name?.split(' ')[0]}</h1>
         <p className="text-sm text-base-content/60">
           {season.data
-            ? `${season.data.name} · inicia el ${asDate(season.data.start_date)}`
+            ? `${season.data.name} · inicia el ${fechaTexto(season.data.start_date)}`
             : 'Sin temporada activa'}
         </p>
       </div>
@@ -69,7 +61,7 @@ export default function AdminDashboard() {
             ? 'La temporada arranca hoy.'
             : `Faltan ${daysToStart} día(s) para el inicio de la temporada.`}
           {season.data?.registration_deadline &&
-            ` Registro cierra el ${asDate(season.data.registration_deadline)}.`}
+            ` Registro cierra el ${fechaTexto(season.data.registration_deadline)}.`}
         </Alert>
       )}
 

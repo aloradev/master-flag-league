@@ -21,7 +21,8 @@
     "test:finance": "node tests/finance.mjs",
     "test:edicion": "node tests/edicion.mjs",
     "test:storage": "node tests/almacenamiento.mjs",
-    "test:all": "node tests/fixture.mjs && node tests/cors.mjs && node tests/integration.mjs && node tests/competition.mjs && node tests/finance.mjs && node tests/edicion.mjs && node tests/almacenamiento.mjs"
+    "test:bajas": "node tests/bajas.mjs",
+    "test:all": "node tests/fixture.mjs && node tests/cors.mjs && node tests/integration.mjs && node tests/competition.mjs && node tests/finance.mjs && node tests/edicion.mjs && node tests/bajas.mjs && node tests/almacenamiento.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
