@@ -77,6 +77,13 @@ const WARNINGS: Check[] = [
       'Sin Resend las notificaciones se registran en consola en lugar de enviarse. ' +
       'Los managers no se enterarán de documentos rechazados.',
   },
+  {
+    key: 'EMAIL_FROM',
+    required: false,
+    message:
+      'Define un remitente de un dominio verificado en Resend, por ejemplo ' +
+      'Master Flag League <noreply@tu-dominio-verificado.com>.',
+  },
 ];
 
 /**

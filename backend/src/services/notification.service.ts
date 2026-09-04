@@ -18,8 +18,6 @@ export interface Notification {
   channel?: Channel;
 }
 
-const FROM = process.env.EMAIL_FROM || 'Master Flag League <noreply@masterflagleague.mx>';
-
 const sendEmail = async (notification: Notification): Promise<boolean> => {
   const apiKey = process.env.RESEND_API_KEY;
 
@@ -38,7 +36,7 @@ const sendEmail = async (notification: Notification): Promise<boolean> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: FROM,
+        from: process.env.EMAIL_FROM || 'Master Flag League <noreply@masterflagleague.mx>',
         to: [notification.to],
         subject: notification.subject,
         html: notification.body,
@@ -46,7 +44,8 @@ const sendEmail = async (notification: Notification): Promise<boolean> => {
     });
 
     if (!response.ok) {
-      console.error(`[notificación] Resend respondió ${response.status}`);
+      const detail = await response.text().catch(() => 'sin detalle');
+      console.error(`[notificación] Resend respondió ${response.status}: ${detail}`);
       return false;
     }
     return true;

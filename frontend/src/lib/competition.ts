@@ -214,7 +214,7 @@ export interface PlayerStat {
   category_id: string; category_name: string; games_played: number;
   touchdowns: number; yards: number; receptions: number; completions: number;
   interceptions: number; flag_pulls: number; passes_defended: number;
-  offensive_mvps: number; defensive_mvps: number;
+  offensive_mvps: number; defensive_mvps: number; offensive_score: number; defensive_score: number;
 }
 
 // ─────────────────────────────── LLAMADAS ─────────────────────────────────

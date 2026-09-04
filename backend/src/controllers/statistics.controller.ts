@@ -25,7 +25,14 @@ const stats = asyncHandler(async (req: AuthRequest, res: Response) => {
             COUNT(*) FILTER (WHERE e.event_type = 'FLAG_PULL')::int AS flag_pulls,
             COUNT(*) FILTER (WHERE e.event_type = 'PASS_DEFENDED')::int AS passes_defended,
             COUNT(DISTINCT g.id) FILTER (WHERE g.mvp_offensive_player_id = p.id)::int AS offensive_mvps,
-            COUNT(DISTINCT g.id) FILTER (WHERE g.mvp_defensive_player_id = p.id)::int AS defensive_mvps
+            COUNT(DISTINCT g.id) FILTER (WHERE g.mvp_defensive_player_id = p.id)::int AS defensive_mvps,
+            (COUNT(*) FILTER (WHERE e.event_type = 'TOUCHDOWN') * 6
+             + COUNT(*) FILTER (WHERE e.event_type = 'RECEPTION')
+             + COUNT(*) FILTER (WHERE e.event_type = 'PASS_COMPLETE') * 0.5
+             + COALESCE(SUM(e.yards) FILTER (WHERE e.event_type IN ('PASS_COMPLETE','RECEPTION','RUSH')), 0) * 0.05)::numeric AS offensive_score,
+            (COUNT(*) FILTER (WHERE e.event_type = 'INTERCEPTION') * 5
+             + COUNT(*) FILTER (WHERE e.event_type = 'FLAG_PULL')
+             + COUNT(*) FILTER (WHERE e.event_type = 'PASS_DEFENDED') * 2)::numeric AS defensive_score
      FROM players p
      JOIN teams t ON t.id = p.team_id
      JOIN categories c ON c.id = p.category_id

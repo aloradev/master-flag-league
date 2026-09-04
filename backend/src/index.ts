@@ -4,19 +4,20 @@
  * está mal escrita, y entonces el log solo muestra un stack de Node—.
  * Mover esta línea más abajo devuelve ese fallo.
  */
+// Carga .env antes de importar módulos que leen EMAIL_FROM y otras variables
+// durante su inicialización. En producción Render ya las inyecta; en local
+// esto evita que los servicios queden configurados con valores de respaldo.
+import 'dotenv/config';
 import { validateEnvironment } from './config/env.js';
 import { revisarEsquema, mensajeDeDesfase } from './db/verificar-esquema.js';
 
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 
 import routes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { healthCheck } from './config/database.js';
 import { activeDriver, publicDir, PUBLIC_ROUTE } from './services/storage.service.js';
-
-dotenv.config();
 
 // Antes de cualquier otra cosa: si falta configuración, mejor no arrancar.
 validateEnvironment();
