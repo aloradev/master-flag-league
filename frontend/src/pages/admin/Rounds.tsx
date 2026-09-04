@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import RoundGames from './RoundGames';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import type { Season } from '../../lib/types';
@@ -31,6 +32,7 @@ export default function AdminRounds() {
   const [propuesta, setPropuesta] = useState<Proposal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fecha, setFecha] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const season = useQuery({
     queryKey: ['season-active'],
@@ -56,7 +58,7 @@ export default function AdminRounds() {
   });
 
   const guardar = useMutation({
-    mutationFn: () => competition.createRound(seasonId!, propuesta ?? undefined),
+    mutationFn: () => competition.createRound(seasonId!, propuesta ? { ...propuesta, scheduledDate: fecha } : undefined),
     onSuccess: () => {
       setPropuesta(null);
       setError(null);
@@ -201,7 +203,7 @@ export default function AdminRounds() {
           )}
 
           <div className="flex flex-wrap gap-2 border-t border-base-300/60 pt-3">
-            <Button tone="success" loading={guardar.isPending} onClick={() => guardar.mutate()}>
+            <Button tone="success" disabled={!fecha} loading={guardar.isPending} onClick={() => guardar.mutate()}>
               Guardar como borrador
             </Button>
             <Button
@@ -264,6 +266,9 @@ export default function AdminRounds() {
                   )}
 
                   <div className="mt-2 flex flex-wrap gap-2">
+                    <Button size="xs" onClick={() => setEditingId(editingId === j.id ? null : j.id)}>
+                      {editingId === j.id ? 'Cerrar edición' : 'Programación y árbitros'}
+                    </Button>
                     <Link to="/jornadas" className="btn btn-xs btn-ghost">
                       Ver partidos
                     </Link>
@@ -310,6 +315,7 @@ export default function AdminRounds() {
                       </>
                     )}
                   </div>
+                  {editingId === j.id && season.data && <RoundGames id={j.id} season={season.data} />}
                 </Card>
               );
             })}

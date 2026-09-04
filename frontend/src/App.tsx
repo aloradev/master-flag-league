@@ -31,6 +31,7 @@ import Roster from './pages/Roster';
 import Jornadas from './pages/Jornadas';
 import Standings from './pages/Standings';
 import AdminRounds from './pages/admin/Rounds';
+import AdminReferees from './pages/admin/Referees';
 import AdminFinances from './pages/admin/Finances';
 import ManagerPayments from './pages/manager/Payments';
 import RefereeGames from './pages/referee/MyGames';
@@ -164,6 +165,7 @@ const App = () => {
           <Route path="/admin/equipos/:id/roster" element={<Roster />} />
           <Route path="/admin/usuarios" element={<AdminUsers />} />
           <Route path="/admin/jornadas" element={<AdminRounds />} />
+          <Route path="/admin/arbitros" element={<AdminReferees />} />
           <Route path="/admin/temporada" element={<SeasonConfig />} />
         </Route>
 

@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import { query } from '../config/database.js';
+import { query, withTransaction } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
@@ -488,6 +488,27 @@ export const updateGame = asyncHandler(async (req: AuthRequest, res: Response) =
     throw new AppError('El partido ya está cerrado. Corrige las jugadas, no el registro.', 409);
   }
 
+  if (game.status === 'LIVE' && [fieldId, scheduledTime, homeTeamId, awayTeamId].some((v) => v !== undefined)) {
+    throw new AppError('No se puede reprogramar un partido en vivo', 409);
+  }
+  if (fieldId !== undefined) {
+    const field = await query('SELECT id FROM fields WHERE id = $1 AND season_id = $2', [fieldId, game.season_id]);
+    if (!field.rows.length) throw new AppError('El campo no pertenece a esta temporada', 400);
+  }
+  if (scheduledTime !== undefined) {
+    if (typeof scheduledTime !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(scheduledTime)) {
+      throw new AppError('Hora inválida', 400);
+    }
+    const conflict = await query(
+      `SELECT 1 FROM game_referees current_ref
+       JOIN game_referees other_ref ON other_ref.referee_id = current_ref.referee_id
+       JOIN games other_game ON other_game.id = other_ref.game_id
+       WHERE current_ref.game_id = $1 AND other_game.id <> $1
+         AND other_game.round_id = $2 AND other_game.scheduled_time = $3::time
+         AND other_game.status <> 'CANCELLED' LIMIT 1`, [id, game.round_id, scheduledTime]);
+    if (conflict.rows.length) throw new AppError('Un árbitro asignado ya tiene otro partido a esa hora. Cambia la asignación primero.', 409);
+  }
+
   try {
     await query(
       `UPDATE games SET
@@ -554,14 +575,23 @@ export const assignReferees = asyncHandler(async (req: AuthRequest, res: Respons
   const { id } = req.params;
   const asignaciones: { refereeId: string; role?: string }[] = req.body?.assignments ?? [];
 
+  if (!Array.isArray(asignaciones) || asignaciones.length > 2 || asignaciones.some((a) => !a || typeof a.refereeId !== 'string' || !['PRINCIPAL', 'AUXILIAR'].includes(a.role ?? 'PRINCIPAL'))
+    || new Set(asignaciones.map((a) => a.refereeId)).size !== asignaciones.length
+    || new Set(asignaciones.map((a) => a.role ?? 'PRINCIPAL')).size !== asignaciones.length) {
+    throw new AppError('Asigna como máximo un principal y un auxiliar distintos', 400);
+  }
+
   const g = await query(
-    `SELECT id, round_id, scheduled_time FROM games WHERE id = $1`,
+    `SELECT id, season_id, status, round_id, scheduled_time FROM games WHERE id = $1`,
     [id]
   );
   const game = g.rows[0];
   if (!game) throw new AppError('Partido no encontrado', 404);
+  if (!['SCHEDULED', 'POSTPONED'].includes(game.status)) throw new AppError('Este partido ya no admite cambios de árbitros', 409);
 
   for (const a of asignaciones) {
+    const referee = await query('SELECT id FROM referees WHERE id = $1 AND season_id = $2 AND status = $3', [a.refereeId, game.season_id, 'ACTIVE']);
+    if (!referee.rows.length) throw new AppError('El árbitro debe estar activo y pertenecer a esta temporada', 400);
     const choque = await query(
       `SELECT g2.id, f.name AS field_name
        FROM game_referees gr
@@ -584,18 +614,17 @@ export const assignReferees = asyncHandler(async (req: AuthRequest, res: Respons
     }
   }
 
-  await query('BEGIN');
   try {
-    await query(`DELETE FROM game_referees WHERE game_id = $1`, [id]);
-    for (const a of asignaciones) {
-      await query(
+    await withTransaction(async (tx) => {
+      await tx(`DELETE FROM game_referees WHERE game_id = $1`, [id]);
+      for (const a of asignaciones) {
+        await tx(
         `INSERT INTO game_referees (id, game_id, referee_id, role) VALUES ($1, $2, $3, $4)`
         , [newPrefixedId('gref'), id, a.refereeId, a.role ?? 'PRINCIPAL']
       );
-    }
-    await query('COMMIT');
+      }
+    });
   } catch (e) {
-    await query('ROLLBACK');
     const msg = (e as Error).message ?? '';
     if (msg.includes('game_referees_game_id_role_key')) {
       throw new AppError('Un partido lleva un árbitro principal y un auxiliar, no dos iguales', 409);
@@ -682,14 +711,26 @@ export const listReferees = asyncHandler(async (req: AuthRequest, res: Response)
 /** POST /api/v1/admin/referees */
 export const createReferee = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { seasonId, name, phone, badgeNumber, certified, userId } = req.body ?? {};
-  if (!seasonId || !name) throw new AppError('Faltan seasonId y name', 400);
+  if (!seasonId || typeof name !== 'string' || !name.trim()) throw new AppError('Faltan seasonId y name', 400);
 
   const id = newPrefixedId('ref');
-  await query(
+  await withTransaction(async (tx) => {
+    // Serializa las altas por temporada para evitar duplicar una cuenta.
+    const season = await tx('SELECT id FROM seasons WHERE id = $1 FOR UPDATE', [seasonId]);
+    if (!season.rows.length) throw new AppError('Temporada no encontrada', 404);
+    if (userId) {
+      const user = await tx(`SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id
+        WHERE u.id = $1 AND u.active = true AND r.name = 'REFEREE'`, [userId]);
+      if (!user.rows.length) throw new AppError('Selecciona una cuenta activa con rol Árbitro', 400);
+      const duplicate = await tx('SELECT id FROM referees WHERE season_id = $1 AND user_id = $2', [seasonId, userId]);
+      if (duplicate.rows.length) throw new AppError('Este usuario ya es árbitro de la temporada', 409);
+    }
+    await tx(
     `INSERT INTO referees (id, season_id, user_id, name, phone, badge_number, certified)
      VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [id, seasonId, userId ?? null, name, phone ?? null, badgeNumber ?? null, Boolean(certified)]
+    [id, seasonId, userId ?? null, name.trim(), phone ?? null, badgeNumber ?? null, Boolean(certified)]
   );
+  });
 
   await audit(req, { action: 'CREATE_REFEREE', entityType: 'referee', entityId: id, newValue: { name } });
 

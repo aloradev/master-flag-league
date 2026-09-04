@@ -40,6 +40,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { to: '/admin/finanzas', label: 'Finanzas', Icon: IconMoney },
     { to: '/posiciones', label: 'Posiciones', Icon: IconTrophy },
     { to: '/admin/usuarios', label: 'Usuarios', Icon: IconUsers },
+    { to: '/admin/arbitros', label: 'Árbitros', Icon: IconUsers },
     { to: '/admin/temporada', label: 'Temporada', Icon: IconSettings },
     { to: '/admin/auditoria', label: 'Auditoría', Icon: IconClipboard, superAdminOnly: true },
   ],
