@@ -262,7 +262,7 @@ export default function PlayerForm() {
                 type="number"
                 inputMode="numeric"
                 min={0}
-                max={99}
+                max={1000}
                 className="input input-bordered w-full tabular"
                 value={form.jerseyNumber}
                 onChange={(e) => update('jerseyNumber')(e.target.value)}
