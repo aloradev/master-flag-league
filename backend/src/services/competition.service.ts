@@ -40,8 +40,6 @@ export const JUGADAS: Record<string, Jugada> = {
   RECEPTION:     { label: 'Recepción',        points: 0, side: 'OFFENSE', needsPlayer: true },
   RUSH:          { label: 'Acarreo',          points: 0, side: 'OFFENSE', needsPlayer: true },
   INTERCEPTION:  { label: 'Intercepción',     points: 0, side: 'DEFENSE', needsPlayer: true },
-  TACKLE:        { label: 'Tacleada',         points: 0, side: 'DEFENSE', needsPlayer: true },
-  SACK:          { label: 'Sack',             points: 0, side: 'DEFENSE', needsPlayer: true },
   PASS_DEFENDED: { label: 'Pase defendido',   points: 0, side: 'DEFENSE', needsPlayer: true },
   FLAG_PULL:     { label: 'Quite de flag',    points: 0, side: 'DEFENSE', needsPlayer: true },
 };

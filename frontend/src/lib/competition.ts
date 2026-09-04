@@ -213,7 +213,7 @@ export interface PlayerStat {
   avatar_url: string | null; team_id: string; team_name: string; short_name: string | null;
   category_id: string; category_name: string; games_played: number;
   touchdowns: number; yards: number; receptions: number; completions: number;
-  interceptions: number; tackles: number; sacks: number; passes_defended: number;
+  interceptions: number; flag_pulls: number; passes_defended: number;
   offensive_mvps: number; defensive_mvps: number;
 }
 
@@ -278,6 +278,8 @@ export const competition = {
   createReferee: (datos: Record<string, unknown>) => api.post<Referee>('/admin/referees', datos),
   playerStats: (seasonId: string, categoryId?: string, teamId?: string) =>
     api.get<PlayerStat[]>(`/statistics/players?seasonId=${encodeURIComponent(seasonId)}${categoryId ? `&categoryId=${encodeURIComponent(categoryId)}` : ''}${teamId ? `&teamId=${encodeURIComponent(teamId)}` : ''}`),
+  publicPlayerStats: (seasonId: string, playerId: string) =>
+    api.get<PlayerStat[]>(`/public/statistics/players?seasonId=${encodeURIComponent(seasonId)}&playerId=${encodeURIComponent(playerId)}`),
 };
 
 // ─────────────────────────────── AYUDAS ───────────────────────────────────

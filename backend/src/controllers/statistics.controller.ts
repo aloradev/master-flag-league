@@ -8,6 +8,7 @@ const stats = asyncHandler(async (req: AuthRequest, res: Response) => {
   const seasonId = String(req.query.seasonId ?? '');
   const categoryId = req.query.categoryId ? String(req.query.categoryId) : null;
   const teamId = req.query.teamId ? String(req.query.teamId) : null;
+  const playerId = req.query.playerId ? String(req.query.playerId) : null;
   if (!seasonId) return res.json({ success: true, data: [] });
   const r = await query(
     `SELECT p.id AS player_id,
@@ -21,8 +22,7 @@ const stats = asyncHandler(async (req: AuthRequest, res: Response) => {
             COUNT(*) FILTER (WHERE e.event_type = 'RECEPTION')::int AS receptions,
             COUNT(*) FILTER (WHERE e.event_type = 'PASS_COMPLETE')::int AS completions,
             COUNT(*) FILTER (WHERE e.event_type = 'INTERCEPTION')::int AS interceptions,
-            COUNT(*) FILTER (WHERE e.event_type IN ('TACKLE','FLAG_PULL'))::int AS tackles,
-            COUNT(*) FILTER (WHERE e.event_type = 'SACK')::int AS sacks,
+            COUNT(*) FILTER (WHERE e.event_type = 'FLAG_PULL')::int AS flag_pulls,
             COUNT(*) FILTER (WHERE e.event_type = 'PASS_DEFENDED')::int AS passes_defended,
             COUNT(DISTINCT g.id) FILTER (WHERE g.mvp_offensive_player_id = p.id)::int AS offensive_mvps,
             COUNT(DISTINCT g.id) FILTER (WHERE g.mvp_defensive_player_id = p.id)::int AS defensive_mvps
@@ -35,9 +35,10 @@ const stats = asyncHandler(async (req: AuthRequest, res: Response) => {
      WHERE p.season_id = $1 AND p.status = 'APPROVED' AND p.removed_at IS NULL
        AND ($2::text IS NULL OR p.category_id = $2)
        AND ($3::text IS NULL OR p.team_id = $3)
+       AND ($4::text IS NULL OR p.id = $4)
      GROUP BY p.id, t.id, c.id
-     ORDER BY touchdowns DESC, yards DESC, tackles DESC, player_name`,
-    [seasonId, categoryId, teamId]
+     ORDER BY touchdowns DESC, yards DESC, flag_pulls DESC, player_name`,
+    [seasonId, categoryId, teamId, playerId]
   );
   res.json({ success: true, data: r.rows });
 });

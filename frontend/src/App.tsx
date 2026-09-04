@@ -37,6 +37,7 @@ import ManagerPayments from './pages/manager/Payments';
 import RefereeGames from './pages/referee/MyGames';
 import RefereeGameMode from './pages/referee/GameMode';
 import PlayerRankings from './pages/PlayerRankings';
+import PublicPlayer from './pages/publico/Player';
 
 /** Puerta de acceso: exige sesión y, si se indica, un rol permitido. */
 const Protected = ({
@@ -88,6 +89,7 @@ const App = () => {
         <Route path="/jornada" element={<JornadaPublica />} />
         <Route path="/jornada/:id" element={<JornadaPublica />} />
         <Route path="/tabla" element={<TablaPublica />} />
+        <Route path="/jugador/:id" element={<PublicPlayer />} />
         <Route
           path="/cambiar-contrasena"
           element={

@@ -159,7 +159,7 @@ export const listPlayers = asyncHandler(async (req: AuthRequest, res: Response) 
   const where = `WHERE ${conditions.join(' AND ')}`;
 
   const result = await query(
-    `SELECT p.id, p.first_name, p.last_name_paternal, p.last_name_maternal,
+    `SELECT p.id, p.season_id, p.first_name, p.last_name_paternal, p.last_name_maternal,
             p.jersey_number, p.position, p.photo_url, p.avatar_url, p.status,
             p.is_eligible, p.eligibility_reason, p.created_at,
             t.id AS team_id, t.name AS team_name, t.color_primary AS team_color,
