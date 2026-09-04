@@ -2164,7 +2164,9 @@ ANTES DE ESCRIBIR UNA LÍNEA DE CÓDIGO:
 [ ] Hosting/infraestructura decidida
 [ ] Dominios y DNS configurados
 [ ] Variables de entorno documentadas
-[ ] Estrategia de backup definida
+[x] Estrategia de backup definida — pg_dump cifrado con AES-256-GCM a
+    Cloudinary, diario por GitHub Actions, con restauración probada en
+    cada corrida de pruebas (tests/respaldo.mjs)
 [ ] Plan de escalabilidad futuro
 [ ] Documentación de API planeada
 [ ] Versionado de código (git flow)

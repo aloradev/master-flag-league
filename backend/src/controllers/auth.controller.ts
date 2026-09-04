@@ -10,8 +10,13 @@ import {
   validarToken,
   consumirToken,
   enlaceDeRestablecimiento,
-  demasiadosIntentos,
 } from '../services/password-reset.service.js';
+import {
+  demasiadosIntentos,
+  estaFrenado,
+  registrarFallo,
+  limpiarFallos,
+} from '../services/freno.service.js';
 import { send as enviarNotificacion } from '../services/notification.service.js';
 
 interface UserRow {
@@ -46,15 +51,67 @@ export const login = asyncHandler(async (req: AuthRequest, res: Response) => {
     throw new AppError('Email y contraseña son obligatorios', 400);
   }
 
+  /**
+   * FRENO DE INTENTOS.
+   *
+   * `/auth/login` es público y la política de contraseña admite ocho
+   * caracteres con una letra y un número: probar contraseñas contra el
+   * correo de un encargado era gratis y sin tope.
+   *
+   * Se cuentan solo los intentos FALLIDOS y se limpian al entrar bien.
+   * Esa es la diferencia entre un freno y una forma de dejar a alguien
+   * fuera: si contara todos los intentos, cualquiera podría bloquear la
+   * cuenta de un encargado escribiendo su correo con contraseñas
+   * inventadas hasta el tope.
+   *
+   * Los dos topes protegen cosas distintas y por eso son muy distintos:
+   *
+   * · Por CORREO, 10 en 15 minutos. Es lo que detiene el ataque que
+   *   importa —probar contraseñas contra una cuenta concreta— y 10 deja
+   *   sitio de sobra a quien de verdad no se acuerda de la suya.
+   * · Por ORIGEN, 60. Sirve contra el barrido de muchos correos, y ese
+   *   tiene que ser holgado: en la cancha los encargados comparten el
+   *   WiFi del campo o el NAT de la misma operadora, así que un tope
+   *   bajo por origen dejaría fuera a un equipo entero por los dedazos
+   *   de tres personas. Un barrido de verdad necesita miles de intentos,
+   *   así que 60 sigue cortándolo.
+   */
+  const correoNormalizado = String(email).trim().toLowerCase();
+  const clavePorCorreo = `login:${correoNormalizado}`;
+  const clavePorOrigen = `login-ip:${req.ip ?? 'sin-ip'}`;
+
+  if (estaFrenado(clavePorCorreo, 10) || estaFrenado(clavePorOrigen, 60)) {
+    throw new AppError(
+      'Demasiados intentos fallidos. Espera unos minutos y vuelve a probar, ' +
+        'o usa "Olvidé mi contraseña".',
+      429
+    );
+  }
+
   const user = await findUserByEmail(email);
 
   // Mensaje idéntico para usuario inexistente y contraseña incorrecta:
   // no revela qué correos están registrados.
   const invalid = new AppError('Credenciales incorrectas', 401);
-  if (!user) throw invalid;
+  const apuntarFallo = () => {
+    registrarFallo(clavePorCorreo);
+    registrarFallo(clavePorOrigen);
+  };
+
+  if (!user) {
+    apuntarFallo();
+    throw invalid;
+  }
 
   const passwordOk = await comparePassword(password, user.password_hash);
-  if (!passwordOk) throw invalid;
+  if (!passwordOk) {
+    apuntarFallo();
+    throw invalid;
+  }
+
+  // Entró: los fallos de ESTE correo se olvidan. Los del origen no, para
+  // que un barrido no se limpie acertando una sola cuenta.
+  limpiarFallos(clavePorCorreo);
 
   if (!user.active) {
     throw new AppError('Esta cuenta está desactivada. Contacta a administración.', 403);

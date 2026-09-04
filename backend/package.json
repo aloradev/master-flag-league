@@ -12,6 +12,8 @@
     "build": "tsc && node scripts/copy-assets.mjs",
     "start": "node dist/index.js",
     "migrate:prod": "node dist/db/migrate.js",
+    "respaldo": "node scripts/respaldo.mjs",
+    "restaurar": "node scripts/restaurar.mjs",
     "migrate": "tsx src/db/migrate.ts",
     "typecheck": "tsc --noEmit",
     "db:dev": "tsx scripts/dev-db.ts",
@@ -26,7 +28,9 @@
     "test:esquema": "node tests/esquema.mjs",
     "test:recuperacion": "node tests/recuperacion.mjs",
     "test:publico": "node tests/publico.mjs",
-    "test:all": "node tests/fixture.mjs && node tests/cors.mjs && node tests/integration.mjs && node tests/competition.mjs && node tests/finance.mjs && node tests/edicion.mjs && node tests/bajas.mjs && node tests/almacenamiento.mjs && node tests/recuperacion.mjs && node tests/publico.mjs && node tests/esquema.mjs"
+    "test:respaldo": "node tests/respaldo.mjs",
+    "test:cabeceras": "node tests/cabeceras.mjs",
+    "test:all": "node tests/fixture.mjs && node tests/cors.mjs && node tests/integration.mjs && node tests/competition.mjs && node tests/finance.mjs && node tests/edicion.mjs && node tests/bajas.mjs && node tests/almacenamiento.mjs && node tests/recuperacion.mjs && node tests/publico.mjs && node tests/esquema.mjs && node tests/respaldo.mjs && node tests/cabeceras.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

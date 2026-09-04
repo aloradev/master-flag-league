@@ -27,6 +27,10 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 // Detrás del proxy de Render, para que req.ip sea la IP real del cliente.
 app.set('trust proxy', 1);
 
+// Express anuncia "X-Powered-By: Express" en cada respuesta. No abre
+// ninguna puerta por sí solo, pero le dice a quien escanea qué buscar.
+app.disable('x-powered-by');
+
 /**
  * El navegador envía el origen sin ruta ni barra final (RFC 6454: esquema,
  * host y puerto, nada más). En el panel de Render, en cambio, es natural pegar
@@ -73,11 +77,56 @@ app.use(
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// Cabeceras de seguridad mínimas sin dependencias extra.
-app.use((_req, res, next) => {
+/**
+ * CABECERAS DE SEGURIDAD.
+ *
+ * A mano y sin `helmet`: son seis cabeceras y una dependencia menos que
+ * auditar. Antes solo estaban tres.
+ *
+ * Notas de las que importan:
+ *
+ * · `Content-Security-Policy` con todo en `'none'`. Esto es una API que
+ *   responde JSON y sirve imágenes; no ejecuta scripts, no carga estilos
+ *   y no debe poder ser incrustada. Si algún día una respuesta acabara
+ *   reflejando HTML del usuario, esta política impide que ese HTML
+ *   ejecute nada. La interfaz vive en otro dominio (Vercel) y lleva su
+ *   propia política en `vercel.json`.
+ * · `Strict-Transport-Security` solo con NODE_ENV=production: en
+ *   desarrollo se trabaja sobre http://localhost, y una cabecera HSTS
+ *   servida ahí deja el navegador forzando https contra localhost para
+ *   todo lo demás que se desarrolle en esa máquina. Se arregla borrando
+ *   el estado del navegador, y es un rato perdido evitable.
+ * · `X-Frame-Options: DENY` se conserva junto a `frame-ancestors` porque
+ *   navegadores viejos no entienden la directiva de CSP.
+ */
+const enProduccion = process.env.NODE_ENV === 'production';
+
+app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'none'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+  );
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+
+  /**
+   * CORP protege contra lecturas entre orígenes de recursos que se
+   * piden SIN CORS —una etiqueta <img>, por ejemplo—. El JSON de la API
+   * viaja con CORS y no le afecta, pero los avatares y escudos de
+   * `/media` sí: la interfaz vive en Vercel y los carga con <img> desde
+   * el dominio de Render, que es otro sitio. Con `same-site` a secas,
+   * los escudos dejarían de aparecer en modo local sin un solo error
+   * visible. Por eso esa carpeta —y solo esa, que son derivados
+   * públicos de 512 px hechos para incrustarse— se marca cross-origin.
+   */
+  const esMediaPublico = req.path.startsWith(`${PUBLIC_ROUTE}/`);
+  res.setHeader('Cross-Origin-Resource-Policy', esMediaPublico ? 'cross-origin' : 'same-site');
+
+  if (enProduccion) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
   next();
 });
 

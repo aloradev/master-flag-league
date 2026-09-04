@@ -607,6 +607,65 @@ npm start
 
 ---
 
+## Respaldos — hay que configurarlos una vez
+
+En `ARQUITECTURA_MFL.md` esto era una casilla sin marcar. Dentro de la
+base van a estar los rosters completos y las identificaciones validadas
+de la temporada, y **el plan gratuito de Neon no da restauración a un
+punto en el tiempo**: si la base se pierde en octubre, se pierde la
+temporada.
+
+El respaldo corre en **GitHub Actions**, todos los días a las 3:00 a.m. de
+Cancún. No en Render, porque el plan gratuito no tiene tareas
+programadas — y porque un respaldo que dependa del mismo servicio que
+puede fallar no es un respaldo.
+
+Qué hace: `pg_dump` → gzip → **AES-256-GCM** → Cloudinary como recurso
+privado, conservando los últimos 14. Se cifra antes de subir porque el
+volcado lleva nombres, teléfonos y fechas de nacimiento; sin cifrar, una
+sola credencial filtrada entregaría todo.
+
+### Los tres secretos
+
+En el repositorio: **Settings → Secrets and variables → Actions**
+
+| Secreto | Qué es |
+|---|---|
+| `DATABASE_URL` | la cadena de Neon (la del pooler sirve) |
+| `BACKUP_KEY` | la clave de cifrado — ver abajo |
+| `CLOUDINARY_URL` | la línea que copia el panel de Cloudinary |
+
+Genera `BACKUP_KEY` así:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Y **guárdala en tu gestor de contraseñas**. Sin ella los respaldos no se
+pueden restaurar y no hay manera de recuperarla. Es lo único de todo este
+sistema que no se puede reponer.
+
+### Ensáyalo antes de necesitarlo
+
+En Actions, el flujo "Respaldo de la base" tiene un botón para lanzarlo a
+mano. Lánzalo una vez ahora, y después:
+
+```bash
+cd backend
+npm run respaldo -- --listar        # qué hay guardado
+```
+
+Y ensaya una restauración contra una base de juego, no contra la de la
+liga:
+
+```bash
+npm run restaurar -- --id=<el public_id que listó> --a=postgres://…/base_de_prueba
+```
+
+`--a` es obligatorio a propósito: lo peor que puede hacer ese script es
+sobrescribir la base de producción por descuido, así que hay que teclear a
+dónde va.
+
 ## Los enlaces que se comparten
 
 Dos páginas se leen **sin sesión**, y son las que se pegan en el grupo de

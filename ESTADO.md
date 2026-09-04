@@ -583,7 +583,91 @@ Ahora se lo pregunta a la API.
 
 ---
 
+## Respaldos, freno del ingreso y cabeceras
+
+Tres huecos que no había mencionado nunca, y el primero era el más grave
+de todo el proyecto.
+
+### No había ninguna estrategia de respaldo
+
+`ARQUITECTURA_MFL.md`, línea 2167: `[ ] Estrategia de backup definida`.
+Una casilla sin marcar, con los rosters y las identificaciones validadas
+de la temporada dentro de una base cuyo plan gratuito no da restauración a
+un punto en el tiempo.
+
+Ahora: `pg_dump` → gzip → **AES-256-GCM** → Cloudinary privado,
+conservando los últimos 14, todos los días a las 3 a.m. por GitHub
+Actions —no por Render, que en gratuito no tiene tareas programadas, y
+porque un respaldo que dependa del servicio que puede fallar no es un
+respaldo—.
+
+Decisiones que importan:
+
+- **Se cifra antes de subir.** El volcado lleva nombres, teléfonos y
+  fechas de nacimiento; guardarlo en claro en la misma cuenta donde viven
+  las identificaciones significaría que una credencial filtrada entrega
+  todo. La clave no vive en Cloudinary.
+- **GCM y no CBC**, porque autentica: un archivo corrupto o alterado
+  falla al restaurar en lugar de escribir basura sobre la base. Probado
+  volteando un byte.
+- **`--a` es obligatorio al restaurar.** Sin valor por omisión: lo peor
+  que puede hacer ese script es sobrescribir producción por descuido.
+
+Y sobre todo: **la restauración se ensaya en cada corrida de pruebas**. Un
+respaldo que nunca se ha restaurado es un archivo, no un respaldo. La
+suite vuelca la base real, cifra, descifra, restaura en una base vacía y
+compara las 24 tablas fila por fila, además de comprobar que los
+jugadores restaurados son idénticos y no solo igual de muchos.
+
+### El ingreso no tenía tope de intentos
+
+`/auth/login` era público, sin límite, con una política de contraseña de
+ocho caracteres, una letra y un número. Probar contraseñas contra el
+correo de un encargado era gratis.
+
+Se cuentan solo los intentos **fallidos** y se limpian al entrar bien. Esa
+es la diferencia entre un freno y una forma de dejar a alguien fuera: si
+contara todos los intentos, cualquiera podría bloquear la cuenta de un
+encargado escribiendo su correo con contraseñas inventadas.
+
+Dos topes con razones distintas: 10 por correo en 15 minutos —lo que
+detiene el ataque que importa—, y 60 por origen. El segundo es holgado a
+propósito: en la cancha los encargados comparten el WiFi del campo o el
+NAT de la misma operadora, y un tope bajo dejaría fuera a un equipo
+entero por los dedazos de tres personas.
+
+### De cabeceras de seguridad solo había una
+
+Ahora la API manda CSP con `default-src 'none'`, HSTS (solo en
+producción: servida en `http://localhost` deja el navegador forzando
+https contra localhost para todo lo demás), Permissions-Policy, CORP y
+`nosniff`, y ya no anuncia `X-Powered-By: Express`.
+
+La interfaz lleva su propia política en `vercel.json`. Lo delicado de un
+CSP es que rompe cosas **en silencio**, así que se comprobó sirviendo el
+build real con esas cabeceras y recorriendo la aplicación entera —público,
+encargado, visor de PDF, Modo Árbitro— escuchando violaciones. Cero.
+
+Dos trampas que sí estaban ahí y quedaron cubiertas:
+
+- `Cross-Origin-Resource-Policy: same-site` habría hecho desaparecer los
+  escudos de los equipos sin un solo error visible, porque la interfaz
+  los carga con `<img>` desde otro dominio. Solo `/media` va
+  cross-origin.
+- `index.html` tiene un script **en línea** —el que evita el destello de
+  tema— y `script-src 'self'` lo bloquea. Va permitido por su hash, y una
+  prueba recalcula ese hash desde el HTML y lo compara con `vercel.json`:
+  si alguien edita el script y no actualiza el hash, falla la prueba en
+  lugar de parpadear en producción.
+
+---
+
 ## Pendiente
+
+### Configurar los tres secretos del respaldo
+`DATABASE_URL`, `BACKUP_KEY` y `CLOUDINARY_URL` en los secretos del
+repositorio, y lanzar el flujo una vez a mano para ensayarlo. Ver
+DESPLIEGUE.md.
 
 ### Cargar la liga real
 Equipos, encargados, categorías, campos, horarios y montos. Es lo que
@@ -607,9 +691,10 @@ Brackets configurables, campeones, Hall of Fame e historial.
 
 ## Pruebas
 
-**823 comprobaciones** en once suites, más **71 comprobaciones en
+**885 comprobaciones** en trece suites, más **82 comprobaciones en
 navegador real** a 390 px (con toque y viewport de móvil), 768 px y
-1280 px, incluidas 20 del Modo Árbitro con dos aparatos a la vez:
+1280 px — incluidas 20 del Modo Árbitro con dos aparatos a la vez y 11
+recorriendo la aplicación con el CSP de producción puesto:
 
 ```bash
 cd backend && npm run test:all
@@ -625,9 +710,11 @@ cd backend && npm run test:all
 | `edicion.mjs` | quién puede cambiar qué de un jugador | 56 |
 | `bajas.mjs` | baja y borrado de jugadores | 35 |
 | `almacenamiento.mjs` | credenciales de imágenes y diagnóstico | 72 |
-| `recuperacion.mjs` | restablecer contraseña | 43 |
+| `recuperacion.mjs` | restablecer contraseña y freno del ingreso | 57 |
 | `publico.mjs` | jornada y tabla sin sesión, y qué NO se filtra | 31 |
 | `esquema.mjs` | desfase entre el código y la base | 24 |
+| `respaldo.mjs` | cifrado y restauración de ida y vuelta | 23 |
+| `cabeceras.mjs` | cabeceras de seguridad, y que no rompan nada | 25 |
 
 Cada suite nació de un fallo real, casi siempre encontrado usando la
 aplicación y no ejecutando pruebas. Están escritas para poder fallar: se

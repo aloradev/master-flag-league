@@ -1,0 +1,85 @@
+# RESPALDO DIARIO DE LA BASE DE DATOS
+#
+# Vive aquí y no en Render porque el plan gratuito de Render no tiene
+# tareas programadas, y porque un respaldo que dependa del mismo servicio
+# que puede fallar no es un respaldo. GitHub Actions es gratis para este
+# uso.
+#
+# Qué hace: pg_dump contra Neon, comprime, cifra con AES-256-GCM y sube el
+# archivo a Cloudinary como recurso privado, conservando los últimos 14.
+#
+# ─────────────────── SECRETOS QUE HAY QUE DEFINIR ───────────────────
+# En el repositorio: Settings → Secrets and variables → Actions
+#
+#   DATABASE_URL           la cadena de Neon (la del pooler sirve)
+#   BACKUP_KEY             genérala con:
+#                            node -e "console.log(require('crypto')
+#                              .randomBytes(32).toString('base64url'))"
+#                          y GUÁRDALA EN TU GESTOR DE CONTRASEÑAS.
+#                          Sin ella los respaldos no se pueden restaurar,
+#                          y no hay manera de recuperarla.
+#   CLOUDINARY_URL         la línea que copia el panel de Cloudinary
+#
+# El volcado nunca queda en el runner al terminar: el trabajo corre en una
+# máquina desechable y no se sube ningún artefacto.
+
+name: Respaldo de la base
+
+on:
+  schedule:
+    # 09:00 UTC = 3:00 a.m. en Cancún (UTC-5, sin horario de verano).
+    # De madrugada porque pg_dump toma una foto consistente y a esa hora
+    # no hay nadie registrando jugadores.
+    - cron: '0 9 * * *'
+  # Y a mano, para poder ensayarlo sin esperar al día siguiente.
+  workflow_dispatch:
+
+jobs:
+  respaldar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # El pg_dump del runner debe ser >= al servidor, o se niega a
+      # volcar. Neon corre PostgreSQL 16.
+      - name: Instalar cliente de PostgreSQL 16
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-16
+          pg_dump --version
+
+      - name: Instalar dependencias
+        working-directory: backend
+        run: npm ci
+
+      # El script de respaldo lee las credenciales de Cloudinary desde
+      # dist/, así que hace falta compilar.
+      - name: Compilar
+        working-directory: backend
+        run: npm run build
+
+      - name: Respaldar
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_KEY: ${{ secrets.BACKUP_KEY }}
+          CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
+        run: npm run respaldo
+
+      # Si falla, que se vea en la lista de respaldos qué hay guardado.
+      - name: Listar lo que hay guardado
+        if: always()
+        working-directory: backend
+        env:
+          CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
+        run: npm run respaldo -- --listar

@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { query } from '../config/database.js';
 import { newPrefixedId } from '../utils/id.js';
+export { demasiadosIntentos } from './freno.service.js';
 
 /**
  * RESTABLECER CONTRASEÑA.
@@ -126,29 +127,4 @@ export const enlaceDeRestablecimiento = (token: string): string => {
     .trim()
     .replace(/\/+$/, '');
   return `${base}/restablecer?token=${encodeURIComponent(token)}`;
-};
-
-/**
- * Freno de peticiones, en memoria.
- *
- * Suficiente aquí: el plan gratuito de Render corre un solo proceso, así
- * que no hay nada que compartir entre instancias, y si el proceso duerme
- * y despierta el contador se reinicia —lo cual no importa, porque el
- * objetivo es cortar un bucle de reintentos, no resistir un ataque
- * distribuido—. Si algún día hay varias instancias, esto se muda a la
- * base o a un contador externo.
- */
-const intentos = new Map<string, number[]>();
-const VENTANA_MS = 15 * 60_000;
-
-export const demasiadosIntentos = (clave: string, maximo: number): boolean => {
-  const ahora = Date.now();
-  const previos = (intentos.get(clave) ?? []).filter((t) => ahora - t < VENTANA_MS);
-  if (previos.length >= maximo) {
-    intentos.set(clave, previos);
-    return true;
-  }
-  previos.push(ahora);
-  intentos.set(clave, previos);
-  return false;
 };

@@ -19,6 +19,11 @@
  *    La temporal sí, y por eso deja fuera a quien no leyó el mensaje.
  *  · En la base vive el hash del token, nunca el token.
  *
+ * La última sección cubre otra cosa del mismo tema: el freno de intentos
+ * del ingreso. Va al final a propósito — deja el contador por origen con
+ * una docena de fallos apuntados, y así no estorba a las suites que
+ * corren después.
+ *
  * Uso:  node tests/recuperacion.mjs      (con la API arriba)
  */
 import pg from 'pg';
@@ -231,6 +236,81 @@ const run = async () => {
     check('La contraseña sigue siendo la que se puso', await entra(CLAVE_NUEVA) === 200);
 
     await cliente.end();
+  }
+
+  console.log('\n═══ 10. EL FRENO DEL INGRESO ═══');
+  /**
+   * `/auth/login` es público y la política de contraseña admite ocho
+   * caracteres con una letra y un número: probar contraseñas contra el
+   * correo de un encargado era gratis y sin tope.
+   *
+   * Primero el servicio por separado, que es donde vive la decisión que
+   * importa —contar solo fallos y limpiarlos al entrar— y se puede
+   * comprobar a fondo sin gastar intentos reales.
+   */
+  {
+    const { estaFrenado, registrarFallo, limpiarFallos, demasiadosIntentos, reiniciarFreno } =
+      await import('../dist/services/freno.service.js');
+    reiniciarFreno();
+
+    check('Una clave nueva no está frenada', estaFrenado('x', 3) === false);
+    registrarFallo('x');
+    registrarFallo('x');
+    check('Con fallos por debajo del tope, sigue pasando', estaFrenado('x', 3) === false);
+    registrarFallo('x');
+    check('Al alcanzar el tope, frena', estaFrenado('x', 3) === true);
+
+    check('Mirar si está frenado NO cuenta como intento',
+      estaFrenado('x', 3) === true && estaFrenado('x', 4) === false);
+
+    limpiarFallos('x');
+    check('Entrar bien borra los fallos de ese correo', estaFrenado('x', 3) === false);
+
+    // `demasiadosIntentos` sí cuenta cada llamada: es para pedir correos.
+    reiniciarFreno();
+    check('demasiadosIntentos cuenta el primer intento', demasiadosIntentos('y', 2) === false);
+    check('Y el segundo', demasiadosIntentos('y', 2) === false);
+    check('Y frena el tercero', demasiadosIntentos('y', 2) === true);
+    check('Sin dejar de frenar al insistir', demasiadosIntentos('y', 2) === true);
+    reiniciarFreno();
+  }
+
+  /**
+   * Y ahora contra la API de verdad. Se usa un correo de un solo uso: el
+   * tope por correo es de 10 fallos en 15 minutos.
+   */
+  {
+    const victima = `freno.${sufijo}@test.mx`;
+    const fallar = () =>
+      call('POST', '/auth/login', { body: { email: victima, password: 'MalaClave1' } });
+
+    let estados = [];
+    for (let i = 0; i < 11; i += 1) estados.push((await fallar()).status);
+
+    check('Los primeros intentos fallidos responden 401',
+      estados.slice(0, 10).every((s) => s === 401),
+      estados.slice(0, 10).join(','));
+    check('Y el que pasa del tope responde 429, no 401',
+      estados[10] === 429, `${estados[10]}`);
+
+    const frenado = await fallar();
+    check('El mensaje dice qué hacer, sin revelar si la cuenta existe',
+      /Demasiados intentos/i.test(frenado.body?.error ?? '') &&
+        !/no existe|no registrado/i.test(frenado.body?.error ?? ''),
+      frenado.body?.error);
+    check('Y ofrece la salida buena',
+      /Olvidé mi contraseña/i.test(frenado.body?.error ?? ''), frenado.body?.error);
+
+    /**
+     * Lo que separa un freno de una forma de dejar a alguien fuera: la
+     * cuenta que sí existe y tiene su contraseña buena sigue entrando,
+     * aunque este mismo origen acumule una docena de fallos.
+     */
+    const entraIgual = await call('POST', '/auth/login', {
+      body: { email: correo, password: CLAVE_NUEVA },
+    });
+    check('Una cuenta real con su contraseña sigue entrando',
+      entraIgual.status === 200, `${entraIgual.status}`);
   }
 
   console.log('\n════════════════════════════════════════');
