@@ -167,13 +167,16 @@ export const Layout = () => {
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <ThemeToggle compact />
+            {/* 44 px: "Cerrar sesión" queda a un dedo del marcador en el
+                Modo Árbitro, y a 32 px un toque errado a media jornada
+                saca al árbitro de la sesión. */}
             <button
               onClick={handleLogout}
-              className="btn btn-ghost btn-sm btn-square"
+              className="btn btn-ghost btn-square min-h-11 min-w-11"
               aria-label="Cerrar sesión"
               title="Cerrar sesión"
             >
-              <IconLogout size={18} />
+              <IconLogout size={20} />
             </button>
           </div>
         </header>
@@ -244,7 +247,7 @@ export const Layout = () => {
                 <button
                   type="button"
                   onClick={() => setMenuAbierto(false)}
-                  className="btn btn-ghost btn-xs"
+                  className="btn btn-ghost btn-sm min-h-11 px-3"
                 >
                   Cerrar
                 </button>

@@ -549,6 +549,40 @@ la gente abre a ver.
 
 ---
 
+## El Modo Árbitro, visto en un teléfono
+
+Era la única pantalla crítica verificada solo por API. Se revisó en un
+navegador real a 390 px, con toque y viewport de móvil, y con **dos
+aparatos a la vez**. 20 comprobaciones.
+
+Lo que ya estaba bien y ahora está confirmado:
+
+- El semáforo funciona como se diseñó: los elegibles son dorsales
+  tocables, y los no elegibles van en su propia sección —"No elegibles
+  (1) — no pueden registrar jugadas"— con el motivo, sin un solo
+  documento visible ni descargable, sin fecha de nacimiento y sin
+  teléfono.
+- **La sincronización entre dos árbitros funciona.** El segundo aparato
+  registró un Safety y el primero se enteró solo, sin recargar, por el
+  sondeo cada 4 s. Era una promesa de la arquitectura que nunca se había
+  visto correr.
+- El resultado llega solo a la tabla pública al cerrar el partido.
+
+Lo que hubo que arreglar: **blancos táctiles**. Nueve controles medían
+menos de 44 px, la medida que recomiendan iOS y las pautas de
+accesibilidad. Entre ellos "Iniciar partido" y "Finalizar partido" a 40, el
+"Cerrar" de todas las hojas inferiores a 24, y —el peor— **"Cerrar sesión"
+a 32 px, a un dedo del marcador**: un toque errado a media jornada sacaba
+al árbitro de la sesión. Los botones de jugada ya median 64 y estaban
+bien.
+
+También se quitó una prueba frágil: `competition.mjs` comparaba el nombre
+del administrador contra la cadena literal `'Ananias Lora'`, así que
+fallaba sobre cualquier base recién creada sin que nada estuviera roto.
+Ahora se lo pregunta a la API.
+
+---
+
 ## Pendiente
 
 ### Cargar la liga real
@@ -573,8 +607,9 @@ Brackets configurables, campeones, Hall of Fame e historial.
 
 ## Pruebas
 
-**823 comprobaciones** en once suites, más revisión en navegador real a
-390 px, 768 px y 1280 px:
+**823 comprobaciones** en once suites, más **71 comprobaciones en
+navegador real** a 390 px (con toque y viewport de móvil), 768 px y
+1280 px, incluidas 20 del Modo Árbitro con dos aparatos a la vez:
 
 ```bash
 cd backend && npm run test:all

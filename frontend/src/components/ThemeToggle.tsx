@@ -18,11 +18,11 @@ export const ThemeToggle = ({ compact = false }: { compact?: boolean }) => {
     return (
       <button
         onClick={toggle}
-        className="btn btn-ghost btn-sm btn-square"
+        className="btn btn-ghost btn-square min-h-11 min-w-11"
         aria-label={resolved === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
         title={resolved === 'dark' ? 'Tema claro' : 'Tema oscuro'}
       >
-        {resolved === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+        {resolved === 'dark' ? <IconSun size={20} /> : <IconMoon size={20} />}
       </button>
     );
   }

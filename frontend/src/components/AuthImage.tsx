@@ -59,7 +59,11 @@ const VisorDocumento = ({
       >
         <div className="flex items-center justify-between border-b border-base-300/60 px-4 py-3">
           <h2 className="truncate text-sm font-bold">{titulo}</h2>
-          <button type="button" onClick={onCerrar} className="btn btn-ghost btn-xs">
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="btn btn-ghost btn-sm min-h-11 px-3"
+          >
             Cerrar
           </button>
         </div>

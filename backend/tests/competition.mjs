@@ -506,9 +506,17 @@ const run = async () => {
     (delta.body?.data?.changes ?? []).length === 1, `${(delta.body?.data?.changes ?? []).length}`);
   check('El primer árbitro ve el marcador actualizado',
     delta.body?.data?.home_score === 4, `${delta.body?.data?.home_score}`);
+  /**
+   * El nombre se pregunta a la API en lugar de escribirlo aquí. Estaba
+   * fijo como 'Ananias Lora' y la prueba fallaba sobre cualquier base
+   * recién creada o con otro administrador, sin que nada estuviera roto:
+   * media hora persiguiendo una regresión que no existía.
+   */
+  const yo = await call('GET', '/auth/me', { token: admin });
+  const nombreAdmin = yo.body?.data?.name ?? yo.body?.data?.user?.name;
   check('Y quién lo registró',
-    delta.body?.data?.changes?.[0]?.recorded_by_name === 'Ananias Lora',
-    delta.body?.data?.changes?.[0]?.recorded_by_name);
+    Boolean(nombreAdmin) && delta.body?.data?.changes?.[0]?.recorded_by_name === nombreAdmin,
+    `"${delta.body?.data?.changes?.[0]?.recorded_by_name}" vs "${nombreAdmin}"`);
 
   // ══════════════════════════════════════════════════════════════
   console.log('\n═══ 11. DESHACER ═══');

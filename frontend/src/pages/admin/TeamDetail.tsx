@@ -407,7 +407,9 @@ const EditarEquipo = ({
       >
         <div className="flex items-center justify-between border-b border-base-300/60 pb-3">
           <h2 className="text-sm font-bold">Editar equipo</h2>
-          <Button size="xs" tone="ghost" onClick={onCerrar}>Cerrar</Button>
+          <Button size="sm" tone="ghost" className="min-h-11 px-3" onClick={onCerrar}>
+            Cerrar
+          </Button>
         </div>
 
         <Field label="Nombre" required>

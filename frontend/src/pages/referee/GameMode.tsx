@@ -282,7 +282,13 @@ const GameMode = () => {
 
       {/* ─────────────── ACCIÓN PRINCIPAL ─────────────── */}
       {game.status === 'SCHEDULED' && (
-        <Button tone="primary" block loading={ocupado === 'start'} onClick={arrancar}>
+        <Button
+          tone="primary"
+          block
+          className="min-h-11"
+          loading={ocupado === 'start'}
+          onClick={arrancar}
+        >
           Iniciar partido
         </Button>
       )}
@@ -325,10 +331,15 @@ const GameMode = () => {
             ))}
           </div>
 
+          {/* 44 px de alto como mínimo (`min-h-11`): es la medida que
+              recomiendan iOS y las pautas de accesibilidad para un blanco
+              táctil, y estos botones se tocan de pie, con guantes de frío
+              o con sol encima. Por omisión median 40. */}
           <div className="grid grid-cols-2 gap-3">
             <Button
               tone="secondary"
               outline
+              className="min-h-11"
               onClick={() => setHoja({ tipo: 'estadistica', teamId: game.home_team_id })}
             >
               Estadísticas
@@ -336,6 +347,7 @@ const GameMode = () => {
             <Button
               tone="error"
               outline
+              className="min-h-11"
               disabled={!ultima}
               loading={ocupado === `void:${ultima?.id}`}
               onClick={() => ultima && deshacer(ultima.id)}
@@ -352,7 +364,12 @@ const GameMode = () => {
             </p>
           )}
 
-          <Button tone="primary" block onClick={() => setHoja({ tipo: 'cerrar' })}>
+          <Button
+            tone="primary"
+            block
+            className="min-h-11"
+            onClick={() => setHoja({ tipo: 'cerrar' })}
+          >
             Finalizar partido
           </Button>
         </>
@@ -741,7 +758,7 @@ const HojaCierre = ({
             {etiqueta} <span className="font-normal opacity-60">(opcional)</span>
           </span>
           <select
-            className="select select-bordered w-full"
+            className="select select-bordered min-h-11 w-full"
             value={valor}
             onChange={(e) => poner(e.target.value)}
           >
@@ -756,10 +773,16 @@ const HojaCierre = ({
         </label>
       ))}
 
-      <Button tone="primary" block loading={ocupado === 'finish'} onClick={onConfirmar}>
+      <Button
+        tone="primary"
+        block
+        className="min-h-11"
+        loading={ocupado === 'finish'}
+        onClick={onConfirmar}
+      >
         Confirmar y cerrar
       </Button>
-      <Button tone="ghost" block onClick={onCerrar}>
+      <Button tone="ghost" block className="min-h-11" onClick={onCerrar}>
         Seguir registrando
       </Button>
     </Hoja>
@@ -804,7 +827,7 @@ const Hoja = ({
       <div className="sticky -top-4 -mx-4 -mt-4 mb-1 flex items-center justify-between
                       border-b border-base-300/60 bg-base-200 px-4 py-3">
         <h2 className="text-sm font-bold">{titulo}</h2>
-        <Button size="xs" tone="ghost" onClick={onCerrar}>
+        <Button size="sm" tone="ghost" className="min-h-11 px-3" onClick={onCerrar}>
           Cerrar
         </Button>
       </div>
