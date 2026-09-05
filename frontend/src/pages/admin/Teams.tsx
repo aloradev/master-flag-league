@@ -121,16 +121,6 @@ export default function AdminTeams() {
     queryFn: () => api.get<TeamSummary[]>('/teams'),
   });
 
-  if (teams.isLoading || season.isLoading) return <Spinner />;
-
-  if (season.isError) {
-    return <Alert tone="error">No se pudo cargar la temporada activa. Revisa la configuración de temporada e intenta nuevamente.</Alert>;
-  }
-
-  if (teams.isError) {
-    return <Alert tone="error">No se pudieron cargar los equipos. Actualiza la página y, si continúa, revisa la conexión con el servidor.</Alert>;
-  }
-
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['teams'] });
     void queryClient.invalidateQueries({ queryKey: ['validation-stats'] });
@@ -140,6 +130,16 @@ export default function AdminTeams() {
     mutationFn: (id: string) => api.del(`/admin/teams/${id}`),
     onSuccess: refresh,
   });
+
+  if (teams.isLoading || season.isLoading) return <Spinner />;
+
+  if (season.isError) {
+    return <Alert tone="error">No se pudo cargar la temporada activa. Revisa la configuración de temporada e intenta nuevamente.</Alert>;
+  }
+
+  if (teams.isError) {
+    return <Alert tone="error">No se pudieron cargar los equipos. Actualiza la página y, si continúa, revisa la conexión con el servidor.</Alert>;
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
