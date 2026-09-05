@@ -220,7 +220,9 @@ export interface PlayerStat {
 
 // ─────────────────────────────── LLAMADAS ─────────────────────────────────
 
-export const competition = {
+export const createCompetition = (apiClient = api) => {
+ const api = apiClient;
+ return {
   rounds: (seasonId?: string) =>
     api.get<RoundSummary[]>(`/rounds${seasonId ? `?seasonId=${seasonId}` : ''}`),
   round: (id: string) => api.get<RoundDetail>(`/rounds/${id}`),
@@ -282,6 +284,9 @@ export const competition = {
   publicPlayerStats: (seasonId: string, playerId: string) =>
     api.get<PlayerStat[]>(`/public/statistics/players?seasonId=${encodeURIComponent(seasonId)}&playerId=${encodeURIComponent(playerId)}`),
 };
+
+};
+export const competition = createCompetition();
 
 // ─────────────────────────────── AYUDAS ───────────────────────────────────
 

@@ -56,7 +56,7 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
 };
 
 /** Un enlace temporal de scrimmage solo puede tocar su partido. */
-export const restrictScrimmageToken = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const restrictScrimmageToken = async (req: AuthRequest, res: Response, next: NextFunction) => {
   if (!req.user?.scrimmageGameId) return next();
   const path = req.path;
   const allowed = path === '/auth/me' ||
@@ -65,6 +65,15 @@ export const restrictScrimmageToken = (req: AuthRequest, res: Response, next: Ne
     /^\/games\/[^/]+\/finish$/.test(path) ||
     /^\/games\/[^/]+\/events(\/[^/]+\/void)?$/.test(path);
   if (!allowed) return res.status(403).json({ success: false, error: 'El enlace temporal solo permite operar su scrimmage' });
+  if (path !== '/auth/me' && path.split('/')[2] !== req.user.scrimmageGameId) {
+    return res.status(403).json({ success: false, error: 'Este enlace pertenece a otro scrimmage' });
+  }
+  try {
+    const game = await query("SELECT id FROM games WHERE id = $1 AND game_type = 'SCRIMMAGE' AND status <> 'CANCELLED'", [req.user.scrimmageGameId]);
+    if (!game.rows.length) return res.status(404).json({ success: false, error: 'El scrimmage ya no está disponible' });
+  } catch (error) {
+    return next(error);
+  }
   next();
 };
 

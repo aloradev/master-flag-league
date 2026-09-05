@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -8,7 +8,7 @@ import {
 } from 'react-router-dom';
 import { useAuth, isAdmin, homeFor } from './store/auth';
 import { Layout } from './components/Layout';
-import { Spinner } from './components/ui';
+import { Alert, Spinner } from './components/ui';
 import type { Role } from './lib/types';
 
 import Login from './pages/Login';
@@ -43,7 +43,8 @@ import PartidoPublico from './pages/publico/Partido';
 import PowerRanking from './pages/PowerRanking';
 import SeasonHistory from './pages/SeasonHistory';
 import Playoffs from './pages/Playoffs';
-import { tokenStore } from './lib/api';
+import { temporaryApi } from './lib/api';
+import { createCompetition } from './lib/competition';
 
 /** Puerta de acceso: exige sesión y, si se indica, un rol permitido. */
 const Protected = ({
@@ -75,14 +76,14 @@ const Protected = ({
 
 const ScrimmageEntry = () => {
   const location = useLocation();
-  useEffect(() => {
-    const token = new URLSearchParams(location.search).get('access');
-    if (token) {
-      tokenStore.set(token);
-      window.location.href = `/arbitro/partido/${encodeURIComponent(location.pathname.split('/')[2] ?? '')}`;
-    }
-  }, [location.pathname, location.search]);
-  return <Spinner label="Abriendo el modo árbitro…" />;
+  const token = new URLSearchParams(location.search).get('access');
+  const client = useMemo(() => createCompetition(temporaryApi(token ?? '')), [token]);
+  return <main className="mx-auto min-h-screen max-w-2xl space-y-4 p-4">
+    <h1 className="text-xl font-bold">Modo árbitro · Scrimmage</h1>
+    {token
+      ? <RefereeGameMode key={`${location.pathname}:${token}`} client={client} temporary />
+      : <Alert tone="error">El enlace está incompleto. Solicita a administración que copie el acceso completo desde Scrimmages.</Alert>}
+  </main>;
 };
 
 const App = () => {

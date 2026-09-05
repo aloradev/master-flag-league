@@ -32,7 +32,8 @@ type Hoja =
  * detalladas, bitácora, cierre— vive detrás de un toque, porque estorba
  * al árbitro que solo necesita anotar el touchdown que acaba de pasar.
  */
-const GameMode = () => {
+const GameMode = ({ client = competition, temporary = false }: { client?: typeof competition; temporary?: boolean }) => {
+  const competition = client;
   const { id = '' } = useParams();
   const navigate = useNavigate();
 
@@ -63,7 +64,7 @@ const GameMode = () => {
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [id]);
+  }, [id, competition]);
 
   useEffect(() => {
     void cargar();
@@ -101,7 +102,7 @@ const GameMode = () => {
       vigente = false;
       clearInterval(reloj);
     };
-  }, [enVivo, id, cargar]);
+  }, [enVivo, id, cargar, competition]);
 
   const jugadasPrincipales = useMemo(
     () =>
@@ -295,8 +296,9 @@ const GameMode = () => {
 
       {terminado && (
         <Alert tone="success" title="Partido cerrado">
-          El resultado ya está en la tabla de posiciones. Si algo quedó mal, avisa a
-          administración: el marcador se corrige arreglando la jugada, no el número.
+          {game.game_type === 'SCRIMMAGE'
+            ? 'El resultado del scrimmage quedó guardado. Gracias por registrar el partido.'
+            : 'El resultado ya está en la tabla de posiciones. Si algo quedó mal, avisa a administración.'}
         </Alert>
       )}
 
@@ -479,7 +481,7 @@ const GameMode = () => {
         />
       )}
 
-      {terminado && (
+      {terminado && !temporary && (
         <Button tone="ghost" block onClick={() => navigate('/arbitro')}>
           Volver a mis partidos
         </Button>

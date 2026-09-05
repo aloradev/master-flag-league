@@ -53,6 +53,7 @@ export const setUnauthorizedHandler = (handler: UnauthorizedHandler) => {
 };
 
 interface RequestOptions {
+  accessToken?: string;
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
   /** FormData para subida de archivos: no se serializa ni lleva Content-Type. */
@@ -62,7 +63,7 @@ interface RequestOptions {
 
 const request = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
   const headers: Record<string, string> = {};
-  const token = tokenStore.get();
+  const token = options.accessToken ?? tokenStore.get();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
 
@@ -74,6 +75,9 @@ const request = async <T>(path: string, options: RequestOptions = {}): Promise<T
   });
 
   if (response.status === 401) {
+    if (options.accessToken !== undefined) {
+      throw new ApiError('El enlace temporal venció o no es válido. Solicita un nuevo acceso a administración.', 401);
+    }
     // Token vencido o revocado: se cierra la sesión en lugar de dejar
     // al usuario en una pantalla vacía sin explicación.
     onUnauthorized();
@@ -101,6 +105,15 @@ export const api = {
   upload: <T>(path: string, formData: FormData) =>
     request<T>(path, { method: 'POST', formData }),
 };
+
+/** Credencial exclusiva del enlace: nunca reemplaza la sesión del administrador. */
+export const temporaryApi = (accessToken: string): typeof api => ({
+  get: (path, signal) => request(path, { accessToken, signal }),
+  post: (path, body) => request(path, { accessToken, method: 'POST', body }),
+  put: (path, body) => request(path, { accessToken, method: 'PUT', body }),
+  del: (path, body) => request(path, { accessToken, method: 'DELETE', body }),
+  upload: (path, formData) => request(path, { accessToken, method: 'POST', formData }),
+});
 
 /**
  * Descarga un documento protegido como blob.
