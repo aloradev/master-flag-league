@@ -40,6 +40,7 @@ import PlayerRankings from './pages/PlayerRankings';
 import PublicPlayer from './pages/publico/Player';
 import PowerRanking from './pages/PowerRanking';
 import SeasonHistory from './pages/SeasonHistory';
+import Playoffs from './pages/Playoffs';
 
 /** Puerta de acceso: exige sesión y, si se indica, un rol permitido. */
 const Protected = ({
@@ -116,6 +117,7 @@ const App = () => {
           <Route path="/rankings" element={<PlayerRankings />} />
           <Route path="/power-ranking" element={<PowerRanking />} />
           <Route path="/historial" element={<SeasonHistory />} />
+          <Route path="/playoffs" element={<Playoffs />} />
         </Route>
 
         {/* Modo Árbitro */}

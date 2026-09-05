@@ -351,6 +351,7 @@ export const addEvent = asyncHandler(async (req: AuthRequest, res: Response) => 
 
   const marcador = await refrescarMarcador(id);
 
+
   res.status(201).json({
     success: true,
     data: {
@@ -385,6 +386,8 @@ export const voidEvent = asyncHandler(async (req: AuthRequest, res: Response) =>
   if (evento.voided_at) {
     return res.json({ success: true, data: { id: eventId, already_voided: true } });
   }
+  const frozen = await query(`SELECT 1 FROM playoff_games pg JOIN playoffs p ON p.id = pg.playoff_id WHERE pg.game_id = $1 AND (p.stage > pg.stage OR p.champion_id IS NOT NULL)`, [id]);
+  if (frozen.rows.length) throw new AppError('La fase ya avanzó. No se pueden cambiar sus resultados.', 409);
 
   await query(
     `UPDATE game_events SET voided_at = NOW(), voided_by = $1 WHERE id = $2`,
@@ -446,6 +449,9 @@ export const finishGame = asyncHandler(async (req: AuthRequest, res: Response) =
 
   const marcador = await refrescarMarcador(id);
 
+  if (marcador.home === marcador.away && (await query('SELECT game_id FROM playoff_games WHERE game_id = $1', [id])).rows.length) {
+    throw new AppError('En playoffs debe haber ganador. Registra el desempate antes de finalizar.', 409);
+  }
   await query(
     `UPDATE games SET status = 'FINISHED', ended_at = NOW(), closed_by = $1,
             mvp_offensive_player_id = $2, mvp_defensive_player_id = $3,
@@ -480,6 +486,10 @@ export const finishGame = asyncHandler(async (req: AuthRequest, res: Response) =
 export const updateGame = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const { fieldId, scheduledTime, homeTeamId, awayTeamId, notes, status } = req.body ?? {};
+  if ([homeTeamId, awayTeamId, status].some((value) => value !== undefined) &&
+      (await query('SELECT 1 FROM playoff_games WHERE game_id = $1', [id])).rows.length) {
+    throw new AppError('Los equipos y el estado de playoffs se gestionan desde la llave y el cierre del partido.', 409);
+  }
 
   const r = await query(`SELECT * FROM games WHERE id = $1`, [id]);
   const game = r.rows[0];
@@ -649,6 +659,10 @@ export const assignReferees = asyncHandler(async (req: AuthRequest, res: Respons
 export const declareWalkover = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const { winnerTeamId, reason } = req.body ?? {};
+  if ((await query(`SELECT 1 FROM playoff_games pg JOIN playoffs p ON p.id = pg.playoff_id
+    WHERE pg.game_id = $1 AND (p.stage > pg.stage OR p.champion_id IS NOT NULL)`, [id])).rows.length) {
+    throw new AppError('La fase ya avanzó. No se puede cambiar el ganador.', 409);
+  }
 
   const g = await query(
     `SELECT id, status, home_team_id, away_team_id, round_id FROM games WHERE id = $1`,

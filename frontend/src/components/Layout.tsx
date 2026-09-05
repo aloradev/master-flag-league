@@ -97,6 +97,8 @@ export const Layout = () => {
     });
   }
 
+  items.push({ to: '/playoffs', label: 'Playoffs', Icon: IconTrophy });
+  if (!items.some((item) => item.to === '/historial')) items.push({ to: '/historial', label: 'Historial', Icon: IconTrophy });
   const primaryItems = items.filter((item) => item.primary);
   const restoItems = items.filter((item) => !item.primary);
 

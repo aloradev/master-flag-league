@@ -587,3 +587,25 @@ CREATE TABLE IF NOT EXISTS password_resets (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_reset_token ON password_resets(token_hash);
 CREATE INDEX IF NOT EXISTS idx_reset_vigentes
   ON password_resets(user_id, expires_at) WHERE used_at IS NULL;
+
+-- Eliminación directa por categoría. La siembra queda congelada al crear.
+CREATE TABLE IF NOT EXISTS playoffs (
+  id VARCHAR(36) PRIMARY KEY,
+  season_id VARCHAR(36) NOT NULL REFERENCES seasons(id),
+  category_id VARCHAR(36) NOT NULL REFERENCES categories(id),
+  seeds JSONB NOT NULL,
+  slots JSONB NOT NULL,
+  stage INTEGER NOT NULL DEFAULT 0,
+  champion_id VARCHAR(36) REFERENCES teams(id),
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(season_id, category_id)
+);
+ALTER TABLE rounds ADD COLUMN IF NOT EXISTS playoff_id VARCHAR(36) REFERENCES playoffs(id);
+CREATE TABLE IF NOT EXISTS playoff_games (
+  playoff_id VARCHAR(36) NOT NULL REFERENCES playoffs(id),
+  game_id VARCHAR(36) UNIQUE NOT NULL REFERENCES games(id),
+  stage INTEGER NOT NULL,
+  slot INTEGER NOT NULL,
+  PRIMARY KEY(playoff_id, stage, slot)
+);

@@ -13,6 +13,7 @@ import * as rounds from '../controllers/rounds.controller.js';
 import * as games from '../controllers/games.controller.js';
 import * as finance from '../controllers/finance.controller.js';
 import * as diagnostics from '../controllers/diagnostics.controller.js';
+import * as playoffs from '../controllers/playoffs.controller.js';
 import * as statistics from '../controllers/statistics.controller.js';
 
 import {
@@ -137,6 +138,9 @@ router.delete('/admin/teams/:id/managers/:userId', requireAdmin, teams.removeMan
 router.get('/rounds', rounds.listRounds);
 router.get('/rounds/:id', rounds.getRound);
 router.get('/standings', rounds.getStandings);
+router.get('/playoffs', playoffs.list);
+router.post('/admin/playoffs', requireAdmin, playoffs.create);
+router.post('/admin/playoffs/:id/advance', requireAdmin, playoffs.advance);
 router.get('/seasons/:seasonId/slots', rounds.getSeasonSlots);
 router.get('/plays', games.listPlays);
 router.get('/referees', games.listReferees);

@@ -300,6 +300,7 @@ export const deleteRound = asyncHandler(async (req: AuthRequest, res: Response) 
   const r = await query(`SELECT * FROM rounds WHERE id = $1`, [id]);
   const round = r.rows[0];
   if (!round) throw new AppError('Jornada no encontrada', 404);
+  if (round.playoff_id) throw new AppError('Una fase de playoffs no se puede borrar. Reprograma su fecha y partidos.', 409);
   if (round.status !== 'DRAFT') {
     throw new AppError(
       'Solo se puede descartar una jornada en borrador. Una publicada se cancela, no se borra.',
@@ -324,6 +325,7 @@ export const cancelRound = asyncHandler(async (req: AuthRequest, res: Response) 
   const r = await query(`SELECT * FROM rounds WHERE id = $1`, [id]);
   const round = r.rows[0];
   if (!round) throw new AppError('Jornada no encontrada', 404);
+  if (round.playoff_id) throw new AppError('Una fase de playoffs no se puede cancelar. Reprograma su fecha y partidos.', 409);
 
   await query('BEGIN');
   try {
