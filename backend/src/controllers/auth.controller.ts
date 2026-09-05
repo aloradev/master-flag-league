@@ -178,7 +178,12 @@ export const me = asyncHandler(async (req: AuthRequest, res: Response) => {
 
   const teams = await teamsForUser(req.user!.id);
 
-  res.json({ success: true, data: { ...user, teams } });
+  res.json({ success: true, data: {
+    ...user,
+    role: req.user?.scrimmageGameId ? 'REFEREE' : user.role,
+    must_change_password: req.user?.scrimmageGameId ? false : user.must_change_password,
+    teams: req.user?.scrimmageGameId ? [] : teams,
+  } });
 });
 
 /** POST /api/v1/auth/refresh */

@@ -45,6 +45,9 @@ const esAdmin = (req: AuthRequest) =>
  * no estuvo.
  */
 const exigirPermisoDePartido = async (req: AuthRequest, gameId: string) => {
+  if (req.user?.scrimmageGameId && req.user.scrimmageGameId !== gameId) {
+    throw new AppError('Este enlace solo permite operar el scrimmage para el que fue creado', 403);
+  }
   if (esAdmin(req)) return;
   if (req.user?.role !== ROLES.REFEREE) {
     throw new AppError('Solo árbitros y administración pueden registrar en un partido', 403);
@@ -152,6 +155,9 @@ export const listMyGames = asyncHandler(async (req: AuthRequest, res: Response) 
  */
 export const getGame = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
+  if (req.user?.scrimmageGameId && req.user.scrimmageGameId !== id) {
+    throw new AppError('Este enlace solo permite consultar su scrimmage', 403);
+  }
 
   const r = await query(
     `SELECT ${GAME_COLUMNS}, ${CONTEXTO} FROM games g ${JOINS} WHERE g.id = $1`,
@@ -209,6 +215,9 @@ export const getGame = asyncHandler(async (req: AuthRequest, res: Response) => {
  */
 export const getGameLive = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
+  if (req.user?.scrimmageGameId && req.user.scrimmageGameId !== id) {
+    throw new AppError('Este enlace solo permite consultar su scrimmage', 403);
+  }
   const since = req.query.since as string | undefined;
 
   const r = await query(

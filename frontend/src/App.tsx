@@ -42,6 +42,7 @@ import PublicPlayer from './pages/publico/Player';
 import PowerRanking from './pages/PowerRanking';
 import SeasonHistory from './pages/SeasonHistory';
 import Playoffs from './pages/Playoffs';
+import { tokenStore } from './lib/api';
 
 /** Puerta de acceso: exige sesión y, si se indica, un rol permitido. */
 const Protected = ({
@@ -71,6 +72,18 @@ const Protected = ({
   return <>{children}</>;
 };
 
+const ScrimmageEntry = () => {
+  const location = useLocation();
+  useEffect(() => {
+    const token = new URLSearchParams(location.search).get('access');
+    if (token) {
+      tokenStore.set(token);
+      window.location.replace(`/arbitro/partido/${encodeURIComponent(location.pathname.split('/')[2] ?? '')}`);
+    }
+  }, [location.pathname, location.search]);
+  return <Spinner label="Abriendo el modo árbitro…" />;
+};
+
 const App = () => {
   const { restore, user, status } = useAuth();
 
@@ -94,6 +107,7 @@ const App = () => {
         <Route path="/jornada/:id" element={<JornadaPublica />} />
         <Route path="/tabla" element={<TablaPublica />} />
         <Route path="/jugador/:id" element={<PublicPlayer />} />
+        <Route path="/scrimmage/:id" element={<ScrimmageEntry />} />
         <Route
           path="/cambiar-contrasena"
           element={

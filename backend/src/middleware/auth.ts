@@ -8,6 +8,7 @@ export interface AuthUser {
   name: string;
   role: string;
   leagueId: string | null;
+  scrimmageGameId?: string;
 }
 
 // Request<Record<string,string>> fija los params como cadenas: en Express 5
@@ -49,6 +50,7 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
     name: payload.name,
     role: payload.role,
     leagueId: payload.leagueId ?? null,
+    scrimmageGameId: payload.scrimmageGameId,
   };
   next();
 };

@@ -4,6 +4,7 @@ import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import type { AuthRequest } from '../middleware/auth.js';
 import { newPrefixedId } from '../utils/id.js';
 import { audit } from '../services/audit.service.js';
+import { generateAccessToken } from '../utils/jwt.js';
 
 /** Partido de prueba: crea equipos temporales desde nombres, sin roster ni árbitro asignado. */
 export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -37,5 +38,14 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
     await q(`INSERT INTO games(id,season_id,round_id,category_id,home_team_id,away_team_id,scheduled_time,game_type) VALUES($1,$2,$3,$4,$5,$6,$7,'SCRIMMAGE')`, [gameId, seasonId, roundId, categoryId, home, away, time]);
   });
   await audit(req, { action: 'CREATE_SCRIMMAGE', entityType: 'game', entityId: gameId, newValue: { seasonId, categoryId, ...createdTeams, date, time } });
-  res.status(201).json({ success: true, data: { roundId, gameId, ...createdTeams } });
+  const accessToken = generateAccessToken({
+    id: req.user!.id, email: req.user!.email, name: req.user!.name,
+    role: 'REFEREE', leagueId: req.user!.leagueId ?? null,
+    scope: 'SCRIMMAGE_REFEREE', scrimmageGameId: gameId,
+  });
+  const base = process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'https://master-flag-league.vercel.app';
+  res.status(201).json({ success: true, data: {
+    roundId, gameId, ...createdTeams, accessToken,
+    accessUrl: `${base}/scrimmage/${gameId}?access=${encodeURIComponent(accessToken)}`,
+  } });
 });

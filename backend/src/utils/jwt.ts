@@ -6,6 +6,8 @@ export interface JWTPayload {
   name: string;
   role: string;
   leagueId: string | null;
+  scrimmageGameId?: string;
+  scope?: 'SCRIMMAGE_REFEREE';
   iat?: number;
   exp?: number;
 }
