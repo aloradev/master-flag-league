@@ -60,6 +60,7 @@ export interface Game {
   away_team_id: string;
   scheduled_time: string;
   status: GameStatus;
+  game_type?: 'OFFICIAL' | 'SCRIMMAGE';
   home_score: number;
   away_score: number;
   walkover_team_id: string | null;

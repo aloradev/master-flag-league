@@ -304,6 +304,10 @@ CREATE TABLE IF NOT EXISTS games (
   CHECK (home_team_id <> away_team_id),
   CHECK (status IN ('SCHEDULED', 'LIVE', 'FINISHED', 'CANCELLED', 'WALKOVER', 'POSTPONED'))
 );
+ALTER TABLE games ADD COLUMN IF NOT EXISTS game_type VARCHAR(20) NOT NULL DEFAULT 'OFFICIAL';
+DO $$ BEGIN
+  ALTER TABLE games ADD CONSTRAINT games_game_type_check CHECK (game_type IN ('OFFICIAL','SCRIMMAGE'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Un campo no puede tener dos partidos a la misma hora. Esto sí se puede
 -- expresar como índice, así que se expresa: la validación en el servicio

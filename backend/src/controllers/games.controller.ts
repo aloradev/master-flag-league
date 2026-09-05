@@ -15,7 +15,7 @@ import {
 
 const GAME_COLUMNS = `g.id, g.season_id, g.round_id, g.category_id, g.field_id,
   g.home_team_id, g.away_team_id, to_char(g.scheduled_time, 'HH24:MI') AS scheduled_time,
-  g.status, g.home_score, g.away_score, g.walkover_team_id,
+  g.status, g.game_type, g.home_score, g.away_score, g.walkover_team_id,
   g.mvp_offensive_player_id, g.mvp_defensive_player_id,
   g.started_at, g.ended_at, g.notes, g.created_at, g.updated_at`;
 
@@ -50,9 +50,9 @@ const exigirPermisoDePartido = async (req: AuthRequest, gameId: string) => {
     throw new AppError('Solo árbitros y administración pueden registrar en un partido', 403);
   }
   const r = await query(
-    `SELECT 1 FROM game_referees gr
-     JOIN referees rf ON rf.id = gr.referee_id
-     WHERE gr.game_id = $1 AND rf.user_id = $2`,
+    `SELECT 1 FROM games g LEFT JOIN game_referees gr ON gr.game_id = g.id
+     LEFT JOIN referees rf ON rf.id = gr.referee_id
+     WHERE g.id = $1 AND (g.game_type = 'SCRIMMAGE' OR rf.user_id = $2)`,
     [gameId, req.user.id]
   );
   if (r.rows.length === 0) {
@@ -132,13 +132,13 @@ export const listMyGames = asyncHandler(async (req: AuthRequest, res: Response) 
   const r = await query(
     `SELECT ${GAME_COLUMNS}, ${CONTEXTO}, gr.role AS my_role
      FROM games g ${JOINS}
-     JOIN game_referees gr ON gr.game_id = g.id
-     JOIN referees rf ON rf.id = gr.referee_id
-     WHERE rf.user_id = $1
+     LEFT JOIN game_referees gr ON gr.game_id = g.id
+     LEFT JOIN referees rf ON rf.id = gr.referee_id
+     WHERE (rf.user_id = $1 OR (g.game_type = 'SCRIMMAGE' AND $2::boolean))
        AND ro.status IN ('PUBLISHED', 'IN_PROGRESS')
        AND g.status IN ('SCHEDULED', 'LIVE')
      ORDER BY ro.scheduled_date, g.scheduled_time`,
-    [req.user!.id]
+    [req.user!.id, esAdmin(req) || req.user!.role === ROLES.REFEREE]
   );
   res.json({ success: true, data: r.rows });
 });
@@ -295,7 +295,7 @@ export const addEvent = asyncHandler(async (req: AuthRequest, res: Response) => 
     const jugada = JUGADAS[eventType];
 
     const g = await query(
-      `SELECT g.id, g.status, g.season_id, g.home_team_id, g.away_team_id, s.require_approval_to_play
+    `SELECT g.id, g.status, g.game_type, g.season_id, g.home_team_id, g.away_team_id, s.require_approval_to_play
        FROM games g JOIN seasons s ON s.id = g.season_id WHERE g.id = $1`,
       [id]
     );
@@ -308,7 +308,7 @@ export const addEvent = asyncHandler(async (req: AuthRequest, res: Response) => 
       throw new AppError('Ese equipo no juega este partido', 400);
     }
 
-    if (jugada.needsPlayer && !playerId) {
+    if (jugada.needsPlayer && !playerId && game.game_type !== 'SCRIMMAGE') {
       throw new AppError(`"${jugada.label}" necesita señalar al jugador`, 400);
     }
 

@@ -44,6 +44,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { to: '/historial', label: 'Historial', Icon: IconTrophy },
     { to: '/admin/usuarios', label: 'Usuarios', Icon: IconUsers },
     { to: '/admin/arbitros', label: 'Árbitros', Icon: IconUsers },
+    { to: '/admin/scrimmages', label: 'Scrimmages', Icon: IconFootball },
     { to: '/admin/temporada', label: 'Temporada', Icon: IconSettings },
     { to: '/admin/auditoria', label: 'Auditoría', Icon: IconClipboard, superAdminOnly: true },
   ],

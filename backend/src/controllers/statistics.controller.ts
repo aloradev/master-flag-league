@@ -37,7 +37,7 @@ const stats = asyncHandler(async (req: AuthRequest, res: Response) => {
      JOIN teams t ON t.id = p.team_id
      JOIN categories c ON c.id = p.category_id
      LEFT JOIN games g ON (g.home_team_id = t.id OR g.away_team_id = t.id)
-       AND g.season_id = p.season_id AND g.status IN ('FINISHED','WALKOVER')
+       AND g.season_id = p.season_id AND g.status IN ('FINISHED','WALKOVER') AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
      LEFT JOIN game_events e ON e.game_id = g.id AND e.player_id = p.id AND e.voided_at IS NULL
      WHERE p.season_id = $1 AND p.status = 'APPROVED' AND p.removed_at IS NULL
        AND ($2::text IS NULL OR p.category_id = $2)

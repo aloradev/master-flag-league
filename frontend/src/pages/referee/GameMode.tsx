@@ -142,7 +142,7 @@ const GameMode = () => {
     setError(null);
     // Lo que no necesita jugador se registra de una vez: obligar a elegir
     // a alguien para un safety sería inventar un dato.
-    if (!jugada.needsPlayer) void registrar(teamId, eventType);
+    if (!jugada.needsPlayer || game?.game_type === 'SCRIMMAGE') void registrar(teamId, eventType);
     else setHoja({ tipo: 'jugador', teamId, eventType });
   };
 

@@ -16,6 +16,7 @@ import * as diagnostics from '../controllers/diagnostics.controller.js';
 import * as operations from '../controllers/operations.controller.js';
 import * as playoffs from '../controllers/playoffs.controller.js';
 import * as statistics from '../controllers/statistics.controller.js';
+import * as scrimmages from '../controllers/scrimmages.controller.js';
 
 import {
   requireAuth,
@@ -131,6 +132,7 @@ router.put(
 );
 
 router.post('/admin/teams', requireAdmin, teams.createTeam);
+router.post('/admin/scrimmages', requireAdmin, scrimmages.create);
 router.delete('/admin/teams/:id', requireAdmin, teams.deleteTeam);
 router.post('/admin/teams/:id/managers', requireAdmin, teams.assignManager);
 router.delete('/admin/teams/:id/managers/:userId', requireAdmin, teams.removeManager);

@@ -40,6 +40,8 @@ const partidos = async (roundId: string) => {
             hl.logo_url AS home_logo_url, hl.color_primary AS home_color,
             aw.name AS away_team_name, aw.short_name AS away_short_name,
             aw.logo_url AS away_logo_url, aw.color_primary AS away_color
+            ,COALESCE((SELECT json_agg(json_build_object('team_id', ge.team_id, 'points', ge.points, 'quarter', ge.quarter, 'created_at', ge.created_at) ORDER BY ge.created_at)
+                       FROM game_events ge WHERE ge.game_id = g.id AND ge.voided_at IS NULL AND ge.event_type = 'TOUCHDOWN'), '[]'::json) AS touchdowns
      FROM games g
      JOIN categories c ON c.id = g.category_id
      JOIN teams hl ON hl.id = g.home_team_id
@@ -47,7 +49,7 @@ const partidos = async (roundId: string) => {
      LEFT JOIN fields f ON f.id = g.field_id
      WHERE g.round_id = $1 AND g.status <> 'CANCELLED'
      ORDER BY g.scheduled_time, f.name, c.sort_order`,
-    [roundId]
+     [roundId]
   );
   return r.rows;
 };

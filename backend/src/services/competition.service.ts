@@ -411,11 +411,13 @@ export const calcularPosiciones = async (
               g.home_score AS pf, g.away_score AS pa, ro.number AS jornada
        FROM games g JOIN rounds ro ON ro.id = g.round_id
        WHERE g.season_id = $1 AND g.status IN ('FINISHED', 'WALKOVER') AND ro.playoff_id IS NULL
+         AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
        UNION ALL
        SELECT g.category_id, g.away_team_id, g.home_team_id,
               g.away_score, g.home_score, ro.number
        FROM games g JOIN rounds ro ON ro.id = g.round_id
        WHERE g.season_id = $1 AND g.status IN ('FINISHED', 'WALKOVER') AND ro.playoff_id IS NULL
+         AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
      )
      SELECT t.id AS team_id, t.name AS team_name, t.short_name, t.logo_url, t.category_id,
             COUNT(r.team_id)::int                                  AS played,
