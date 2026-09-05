@@ -82,13 +82,14 @@ export const listRounds = asyncHandler(async (req: AuthRequest, res: Response) =
   const r = await query(
     `SELECT ro.id, ro.season_id, ro.number, ro.name, ro.scheduled_date, ro.status,
             ro.notes, ro.published_at, ro.created_at,
-            (SELECT COUNT(*) FROM games   WHERE round_id = ro.id AND status <> 'CANCELLED')::int AS games_count,
-            (SELECT COUNT(*) FROM games   WHERE round_id = ro.id AND status IN ('FINISHED','WALKOVER'))::int AS finished_count,
+            (SELECT COUNT(*) FROM games   WHERE round_id = ro.id AND status <> 'CANCELLED' AND COALESCE(game_type, 'OFFICIAL') = 'OFFICIAL')::int AS games_count,
+            (SELECT COUNT(*) FROM games   WHERE round_id = ro.id AND status IN ('FINISHED','WALKOVER') AND COALESCE(game_type, 'OFFICIAL') = 'OFFICIAL')::int AS finished_count,
             (SELECT COUNT(*) FROM round_byes WHERE round_id = ro.id)::int AS byes_count,
             COALESCE((SELECT json_agg(to_char(start_time,'HH24:MI') ORDER BY sort_order, start_time)
                       FROM round_time_slots WHERE round_id = ro.id), '[]') AS slots
      FROM rounds ro
      WHERE ($1::text IS NULL OR ro.season_id = $1)
+       AND (ro.name IS NULL OR ro.name <> 'Scrimmage de prueba')
        AND ($2::boolean OR ro.status <> 'DRAFT')
      ORDER BY ro.number DESC`,
     [seasonId ?? null, esAdmin]

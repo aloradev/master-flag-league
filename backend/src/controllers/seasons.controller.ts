@@ -14,7 +14,7 @@ import { refreshSeasonEligibility } from '../services/eligibility.service.js';
 export const listSeasons = asyncHandler(async (req: AuthRequest, res: Response) => {
   const result = await query(
     `SELECT s.*,
-            (SELECT COUNT(*) FROM teams   WHERE season_id = s.id) AS teams_count,
+            (SELECT COUNT(*) FROM teams   WHERE season_id = s.id AND team_type = 'OFFICIAL') AS teams_count,
             (SELECT COUNT(*) FROM players
               WHERE season_id = s.id AND removed_at IS NULL) AS players_count
      FROM seasons s
@@ -140,7 +140,7 @@ export const updateSeason = asyncHandler(async (req: AuthRequest, res: Response)
 /** GET /api/v1/seasons/:seasonId/categories */
 export const listCategories = asyncHandler(async (req: AuthRequest, res: Response) => {
   const result = await query(
-    `SELECT c.*, (SELECT COUNT(*) FROM teams WHERE category_id = c.id) AS teams_count
+    `SELECT c.*, (SELECT COUNT(*) FROM teams WHERE category_id = c.id AND team_type = 'OFFICIAL') AS teams_count
      FROM categories c WHERE c.season_id = $1 ORDER BY c.sort_order, c.name`,
     [req.params.seasonId]
   );
@@ -225,8 +225,8 @@ export const deleteCategory = asyncHandler(async (req: AuthRequest, res: Respons
   const category = await query('SELECT id, season_id, name FROM categories WHERE id = $1', [id]);
   if (!category.rows[0]) throw new AppError('Categoría no encontrada', 404);
   const used = await query(`SELECT
-    (SELECT COUNT(*) FROM teams WHERE category_id = $1)::int AS teams,
-    (SELECT COUNT(*) FROM games WHERE category_id = $1)::int AS games`, [id]);
+    (SELECT COUNT(*) FROM teams WHERE category_id = $1 AND team_type = 'OFFICIAL')::int AS teams,
+    (SELECT COUNT(*) FROM games WHERE category_id = $1 AND COALESCE(game_type, 'OFFICIAL') = 'OFFICIAL')::int AS games`, [id]);
   if (used.rows[0].teams > 0 || used.rows[0].games > 0) {
     throw new AppError('No se puede eliminar: la categoría tiene equipos o partidos. Suspéndela o elimina primero los datos dependientes.', 409);
   }

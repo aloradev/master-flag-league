@@ -6,6 +6,44 @@ import { newPrefixedId } from '../utils/id.js';
 import { audit } from '../services/audit.service.js';
 import { generateAccessToken } from '../utils/jwt.js';
 
+export const list = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const seasonId = String(req.query.seasonId ?? '');
+  const result = await query(`
+    SELECT g.id AS game_id, g.scheduled_time, g.status, g.home_score, g.away_score,
+           r.id AS round_id, r.scheduled_date,
+           h.name AS home_team_name, a.name AS away_team_name,
+           c.name AS category_name
+    FROM games g
+    JOIN rounds r ON r.id = g.round_id
+    JOIN teams h ON h.id = g.home_team_id
+    JOIN teams a ON a.id = g.away_team_id
+    JOIN categories c ON c.id = g.category_id
+    WHERE g.game_type = 'SCRIMMAGE' AND ($1::text = '' OR g.season_id = $1)
+    ORDER BY r.scheduled_date DESC, g.scheduled_time DESC`, [seasonId]);
+  res.json({ success: true, data: result.rows });
+});
+
+export const remove = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  await withTransaction(async (q) => {
+    const game = await q(`SELECT id, round_id, home_team_id, away_team_id, game_type FROM games WHERE id = $1 FOR UPDATE`, [id]);
+    if (!game.rows[0]) throw new AppError('Scrimmage no encontrado', 404);
+    if (game.rows[0].game_type !== 'SCRIMMAGE') throw new AppError('Solo se pueden eliminar partidos de scrimmage desde aquí', 409);
+    await q('DELETE FROM games WHERE id = $1', [id]);
+    const remaining = await q('SELECT 1 FROM games WHERE round_id = $1 LIMIT 1', [game.rows[0].round_id]);
+    if (!remaining.rows[0]) await q('DELETE FROM rounds WHERE id = $1', [game.rows[0].round_id]);
+    for (const teamId of [game.rows[0].home_team_id, game.rows[0].away_team_id]) {
+      await q(`DELETE FROM teams t
+        WHERE t.id = $1 AND t.team_type = 'SCRIMMAGE'
+          AND NOT EXISTS (SELECT 1 FROM games g WHERE g.home_team_id = t.id OR g.away_team_id = t.id)
+          AND NOT EXISTS (SELECT 1 FROM players p WHERE p.team_id = t.id)
+          AND NOT EXISTS (SELECT 1 FROM team_users tu WHERE tu.team_id = t.id)`, [teamId]);
+    }
+  });
+  await audit(req, { action: 'DELETE_SCRIMMAGE', entityType: 'game', entityId: id });
+  res.json({ success: true, data: { id } });
+});
+
 /** Partido de prueba: crea equipos temporales desde nombres, sin roster ni árbitro asignado. */
 export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { seasonId, categoryId, homeTeamId, awayTeamId, homeTeamName, awayTeamName, date, time, name } = req.body ?? {};
@@ -33,9 +71,10 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
     const away = await resolveTeam(awayTeamId, awayTeamName);
     if (home === away) throw new AppError('Los equipos deben ser distintos', 400);
     createdTeams = { homeTeamId: home, awayTeamId: away };
-    const existingRound = await q(`SELECT id FROM rounds
-      WHERE season_id = $1 AND scheduled_date = $2 AND name = 'Scrimmage de prueba'
-        AND status IN ('PUBLISHED','IN_PROGRESS') ORDER BY number LIMIT 1`, [seasonId, date]);
+    const existingRound = await q(`SELECT r.id FROM rounds r
+      JOIN games sg ON sg.round_id = r.id AND sg.game_type = 'SCRIMMAGE'
+      WHERE r.season_id = $1 AND r.scheduled_date = $2
+        AND r.status IN ('PUBLISHED','IN_PROGRESS') ORDER BY r.number LIMIT 1`, [seasonId, date]);
     if (existingRound.rows[0]) {
       roundId = existingRound.rows[0].id;
     } else {

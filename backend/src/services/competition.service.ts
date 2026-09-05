@@ -448,6 +448,7 @@ export const calcularPosiciones = async (
      LEFT JOIN resultados r ON r.team_id = t.id
      WHERE t.season_id = $1
        AND t.status = 'ACTIVE'
+       AND t.team_type = 'OFFICIAL'
        AND ($2::text IS NULL OR t.category_id = $2)
      GROUP BY t.id, t.name, t.short_name, t.logo_url, t.category_id
      ORDER BY t.name`,

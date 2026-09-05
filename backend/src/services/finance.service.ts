@@ -270,6 +270,7 @@ export const estadosDeCuenta = async (
      ) pg ON TRUE
      WHERE t.season_id = $1
        AND t.status = 'ACTIVE'
+       AND t.team_type = 'OFFICIAL'
        AND ($2::text[] IS NULL OR t.id = ANY($2))
      GROUP BY t.id, t.name, t.short_name, t.logo_url, t.category_id, c.name, c.sort_order
      ORDER BY c.sort_order, t.name`,
@@ -402,7 +403,7 @@ export const generarCargosDeInscripcion = async (
   if (!vence) throw new Error('La temporada no tiene fecha de cierre de registro ni de arranque.');
 
   const equipos = await query(
-    `SELECT id, name FROM teams WHERE season_id = $1 AND status = 'ACTIVE' ORDER BY name`,
+    `SELECT id, name FROM teams WHERE season_id = $1 AND status = 'ACTIVE' AND team_type = 'OFFICIAL' ORDER BY name`,
     [seasonId]
   );
 
@@ -485,6 +486,7 @@ export const generarCargosDeJornada = async (
      FROM games g
      JOIN teams t ON t.id IN (g.home_team_id, g.away_team_id)
      WHERE g.round_id = $1 AND g.status <> 'CANCELLED'
+       AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
      ORDER BY t.name`,
     [roundId]
   );
@@ -546,7 +548,8 @@ export const pagosPorArbitro = async (seasonId: string) => {
              JOIN games g ON g.id = gr.game_id
              JOIN rounds r2 ON r2.id = g.round_id
              WHERE gr.referee_id = rf.id AND r2.season_id = $1
-               AND g.status IN ('FINISHED', 'WALKOVER')) AS games_worked
+               AND g.status IN ('FINISHED', 'WALKOVER')
+               AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL') AS games_worked
      FROM referees rf
      LEFT JOIN expenses e ON e.referee_id = rf.id AND e.season_id = $1
      WHERE rf.season_id = $1
