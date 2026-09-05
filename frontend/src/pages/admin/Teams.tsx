@@ -123,6 +123,10 @@ export default function AdminTeams() {
 
   if (teams.isLoading || season.isLoading) return <Spinner />;
 
+  if (season.isError) {
+    return <Alert tone="error">No se pudo cargar la temporada activa. Revisa la configuración de temporada e intenta nuevamente.</Alert>;
+  }
+
   if (teams.isError) {
     return <Alert tone="error">No se pudieron cargar los equipos. Actualiza la página y, si continúa, revisa la conexión con el servidor.</Alert>;
   }
@@ -177,6 +181,7 @@ export default function AdminTeams() {
             const total = Number(team.players_total);
             const eligible = Number(team.players_eligible);
             const pending = Number(team.players_pending);
+            const managers = Array.isArray(team.managers) ? team.managers : [];
 
             return (
               <Card as="li" key={team.id}>
@@ -203,13 +208,13 @@ export default function AdminTeams() {
                       )}
                     </p>
                     <p className="mt-0.5 truncate text-xs text-base-content/40">
-                      {team.managers.length === 0
+                      {managers.length === 0
                         ? 'Sin encargados asignados'
-                        : team.managers.map((m) => m.name).join(', ')}
+                        : managers.map((m) => m.name).join(', ')}
                     </p>
                   </div>
 
-                  {team.managers.length === 0 && (
+                  {managers.length === 0 && (
                     <span
                       className="shrink-0 text-warning"
                       title="Falta asignar encargado"
