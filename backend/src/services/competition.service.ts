@@ -146,6 +146,7 @@ export const cargarHistorial = async (seasonId: string): Promise<Historial> => {
      JOIN rounds r ON r.id = g.round_id
      WHERE g.season_id = $1
        AND r.status <> 'DRAFT'
+       AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
        AND g.status <> 'CANCELLED'`,
     [seasonId]
   );
@@ -195,7 +196,17 @@ export const cargarCategoriasConEquipos = async (
     `SELECT c.id AS category_id, c.name AS category_name, c.sort_order,
             t.id AS team_id, t.name AS team_name
      FROM categories c
-     LEFT JOIN teams t ON t.category_id = c.id AND t.status = 'ACTIVE'
+     LEFT JOIN teams t ON t.category_id = c.id
+       AND t.season_id = c.season_id
+       AND t.status = 'ACTIVE'
+       AND t.team_type = 'OFFICIAL'
+       AND EXISTS (
+         SELECT 1 FROM players p
+         WHERE p.team_id = t.id
+           AND p.removed_at IS NULL
+           AND p.status = 'APPROVED'
+           AND p.is_eligible = TRUE
+       )
      WHERE c.season_id = $1
      ORDER BY c.sort_order, c.name, t.name`,
     [seasonId]

@@ -13,7 +13,7 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new AppError('Indica una fecha y hora válidas. La hora se interpreta como hora local de Cancún.', 400);
   if ((!homeTeamId && !homeTeamName) || (!awayTeamId && !awayTeamName)) throw new AppError('Escribe los nombres de ambos equipos', 400);
   if (homeTeamId && awayTeamId && homeTeamId === awayTeamId) throw new AppError('Los equipos deben ser distintos', 400);
-  const roundId = newPrefixedId('round'); const gameId = newPrefixedId('game');
+  let roundId = newPrefixedId('round'); const gameId = newPrefixedId('game');
   let createdTeams: { homeTeamId: string; awayTeamId: string } = { homeTeamId: '', awayTeamId: '' };
   await withTransaction(async (q) => {
     const resolveTeam = async (id: string | undefined, label: string | undefined) => {
@@ -33,8 +33,15 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
     const away = await resolveTeam(awayTeamId, awayTeamName);
     if (home === away) throw new AppError('Los equipos deben ser distintos', 400);
     createdTeams = { homeTeamId: home, awayTeamId: away };
-    const number = (await q('SELECT COALESCE(MAX(number),0)+1 AS n FROM rounds WHERE season_id = $1', [seasonId])).rows[0].n;
-    await q(`INSERT INTO rounds(id,season_id,number,name,scheduled_date,status,generated_by) VALUES($1,$2,$3,$4,$5,'PUBLISHED',$6)`, [roundId, seasonId, number, name?.trim() || 'Scrimmage de prueba', date, req.user!.id]);
+    const existingRound = await q(`SELECT id FROM rounds
+      WHERE season_id = $1 AND scheduled_date = $2 AND name = 'Scrimmage de prueba'
+        AND status IN ('PUBLISHED','IN_PROGRESS') ORDER BY number LIMIT 1`, [seasonId, date]);
+    if (existingRound.rows[0]) {
+      roundId = existingRound.rows[0].id;
+    } else {
+      const number = (await q('SELECT COALESCE(MAX(number),0)+1 AS n FROM rounds WHERE season_id = $1', [seasonId])).rows[0].n;
+      await q(`INSERT INTO rounds(id,season_id,number,name,scheduled_date,status,generated_by) VALUES($1,$2,$3,$4,$5,'PUBLISHED',$6)`, [roundId, seasonId, number, name?.trim() || 'Scrimmage de prueba', date, req.user!.id]);
+    }
     await q(`INSERT INTO games(id,season_id,round_id,category_id,home_team_id,away_team_id,scheduled_time,game_type) VALUES($1,$2,$3,$4,$5,$6,$7,'SCRIMMAGE')`, [gameId, seasonId, roundId, categoryId, home, away, time]);
   });
   await audit(req, { action: 'CREATE_SCRIMMAGE', entityType: 'game', entityId: gameId, newValue: { seasonId, categoryId, ...createdTeams, date, time } });
