@@ -1,6 +1,8 @@
 import type { Response } from 'express';
-import { query } from '../config/database.js';
+import { query, withTransaction } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { audit as writeAudit } from '../services/audit.service.js';
+import { drainEmailQueue } from '../services/email-queue.service.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
 import type { AuthRequest } from '../middleware/auth.js';
@@ -246,7 +248,9 @@ export const updateRound = asyncHandler(async (req: AuthRequest, res: Response) 
  */
 export const publishRound = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const r = await query(`SELECT * FROM rounds WHERE id = $1`, [id]);
+  const result = await withTransaction(async (query) => {
+  const audit: typeof writeAudit = (request, entry) => writeAudit(request, entry, query);
+  const r = await query(`SELECT * FROM rounds WHERE id = $1 FOR UPDATE`, [id]);
   const round = r.rows[0];
   if (!round) throw new AppError('Jornada no encontrada', 404);
   if (round.status !== 'DRAFT') throw new AppError('La jornada ya está publicada', 409);
@@ -285,13 +289,16 @@ export const publishRound = asyncHandler(async (req: AuthRequest, res: Response)
   });
 
   const actualizada = await query(`SELECT * FROM rounds WHERE id = $1`, [id]);
-  void notifyRoundPublished({
+  await notifyRoundPublished({
     seasonId: round.season_id,
     roundId: id,
     roundName: round.name || `Jornada ${round.number}`,
-    scheduledDate: String(round.scheduled_date).slice(0, 10),
+    scheduledDate: new Date(round.scheduled_date).toLocaleDateString('es-MX', { timeZone: 'UTC' }),
+  }, query);
+  return { success: true, data: actualizada.rows[0] };
   });
-  res.json({ success: true, data: actualizada.rows[0] });
+  void drainEmailQueue();
+  res.json(result);
 });
 
 /** DELETE /api/v1/admin/rounds/:id — solo borradores */
@@ -322,13 +329,12 @@ export const deleteRound = asyncHandler(async (req: AuthRequest, res: Response) 
 export const cancelRound = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const { reason } = req.body ?? {};
-  const r = await query(`SELECT * FROM rounds WHERE id = $1`, [id]);
+  const round = await withTransaction(async (query) => {
+  const r = await query(`SELECT * FROM rounds WHERE id = $1 FOR UPDATE`, [id]);
   const round = r.rows[0];
   if (!round) throw new AppError('Jornada no encontrada', 404);
   if (round.playoff_id) throw new AppError('Una fase de playoffs no se puede cancelar. Reprograma su fecha y partidos.', 409);
 
-  await query('BEGIN');
-  try {
     // Los partidos ya jugados se conservan: cancelar la jornada por lluvia
     // no debe borrar el resultado del que sí alcanzó a jugarse.
     await query(
@@ -341,11 +347,8 @@ export const cancelRound = asyncHandler(async (req: AuthRequest, res: Response) 
        WHERE id = $1`,
       [id, reason ?? null]
     );
-    await query('COMMIT');
-  } catch (e) {
-    await query('ROLLBACK');
-    throw e;
-  }
+    return round;
+  });
 
   await audit(req, {
     action: 'CANCEL_ROUND',

@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { query } from '../config/database.js';
+import { query as defaultQuery } from '../config/database.js';
 import { newPrefixedId } from '../utils/id.js';
 export { demasiadosIntentos } from './freno.service.js';
 
@@ -41,8 +42,10 @@ export interface TokenCreado {
  */
 export const crearToken = async (
   userId: string,
-  creadoPor: string | null = null
+  creadoPor: string | null = null,
+  query: typeof defaultQuery = defaultQuery
 ): Promise<TokenCreado> => {
+  await query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
   // Los anteriores sin usar dejan de valer.
   await query(
     `UPDATE password_resets SET used_at = NOW()

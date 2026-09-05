@@ -1,3 +1,4 @@
+import { query as defaultQuery } from '../config/database.js';
 import { query } from '../config/database.js';
 
 /**
@@ -21,7 +22,7 @@ export interface EligibilityResult {
 }
 
 /** Documentos exigidos por la temporada (configurable en `settings`). */
-export const getRequiredDocuments = async (seasonId: string): Promise<string[]> => {
+export const getRequiredDocuments = async (seasonId: string, query: typeof defaultQuery = defaultQuery): Promise<string[]> => {
   const result = await query<{ value: { required?: string[] } }>(
     `SELECT value FROM settings WHERE season_id = $1 AND key = 'documents' LIMIT 1`,
     [seasonId]
@@ -33,7 +34,7 @@ export const getRequiredDocuments = async (seasonId: string): Promise<string[]> 
 };
 
 /** Calcula la elegibilidad sin escribir en la base de datos. */
-export const computeEligibility = async (playerId: string): Promise<EligibilityResult> => {
+export const computeEligibility = async (playerId: string, query: typeof defaultQuery = defaultQuery): Promise<EligibilityResult> => {
   const playerResult = await query<{ status: string; season_id: string }>(
     'SELECT status, season_id FROM players WHERE id = $1',
     [playerId]
@@ -50,7 +51,7 @@ export const computeEligibility = async (playerId: string): Promise<EligibilityR
     };
   }
 
-  const required = await getRequiredDocuments(player.season_id);
+  const required = await getRequiredDocuments(player.season_id, query);
 
   const docsResult = await query<{ document_type: string }>(
     `SELECT DISTINCT document_type FROM player_documents
@@ -85,8 +86,8 @@ export const computeEligibility = async (playerId: string): Promise<EligibilityR
 };
 
 /** Recalcula y persiste la elegibilidad. Llamar tras cualquier cambio relevante. */
-export const refreshEligibility = async (playerId: string): Promise<EligibilityResult> => {
-  const result = await computeEligibility(playerId);
+export const refreshEligibility = async (playerId: string, query: typeof defaultQuery = defaultQuery): Promise<EligibilityResult> => {
+  const result = await computeEligibility(playerId, query);
   await query(
     `UPDATE players SET is_eligible = $1, eligibility_reason = $2, updated_at = NOW()
      WHERE id = $3`,

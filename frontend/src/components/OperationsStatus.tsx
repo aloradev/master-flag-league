@@ -1,0 +1,31 @@
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
+import { Alert, Button, Card } from './ui';
+
+interface Operations {
+  database: string; workerEnabled: boolean; resendConfigured: boolean; webhookConfigured: boolean;
+  counts: Record<string, number>; stalled: number;
+  recentFailures: { id: string; attempts: number; last_error: string; updated_at: string }[];
+}
+export function OperationsStatus() {
+  const status = useQuery({ queryKey: ['operations'], queryFn: () => api.get<Operations>('/admin/operations'), refetchInterval: 60_000 });
+  const process = useMutation({ mutationFn: () => api.post('/admin/operations/process-emails', {}), onSuccess: () => { void status.refetch(); } });
+  const data = status.data;
+  return <Card className="space-y-3 p-4">
+    <h2 className="font-semibold">Estado operativo y correos</h2>
+    <p className="text-sm">Solo Super Administración. Se actualiza cada minuto mientras esta pantalla está abierta.</p>
+    {status.isLoading && <p>Cargando estado…</p>}
+    {status.error && <Alert tone="error">{status.error.message}</Alert>}
+    {data && <>
+      <p className="text-sm">Base conectada · Procesador {data.workerEnabled ? 'activo' : 'pausado'} · Resend {data.resendConfigured ? 'configurado' : 'sin configurar'}</p>
+      {!data.webhookConfigured && <Alert tone="warning">Sin canal externo de alertas: los avisos solo aparecen en los logs del backend.</Alert>}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[['PENDING', 'Pendientes'], ['PROCESSING', 'Procesando'], ['SENT', 'Aceptados por Resend'], ['FAILED', 'Fallidos']].map(([key, label]) => <div className="rounded-lg bg-base-200 p-3" key={key}><strong className="text-xl">{data.counts[key] || 0}</strong><p className="text-xs">{label}</p></div>)}</div>
+      <p className="text-xs">Aceptado por Resend no confirma entrega en la bandeja del destinatario. Los conteos son acumulados.</p>
+      {data.stalled > 0 && <Alert tone="warning">{data.stalled} correos llevan más de 15 minutos pendientes.</Alert>}
+      {data.recentFailures.map((failure) => <p key={failure.id} className="text-xs">{failure.last_error} · {failure.attempts} intentos · {new Date(failure.updated_at).toLocaleString('es-MX')}</p>)}
+      <Button loading={process.isPending} disabled={!data.workerEnabled} onClick={() => process.mutate()}>Procesar correos pendientes</Button>
+      {process.isSuccess && <p className="text-sm">Procesamiento solicitado. El estado se actualizará automáticamente.</p>}
+      {process.error && <Alert tone="error">{process.error.message}</Alert>}
+    </>}
+  </Card>;
+}

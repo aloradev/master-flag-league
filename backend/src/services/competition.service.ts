@@ -1,4 +1,5 @@
 import { query } from '../config/database.js';
+import { query as defaultQuery } from '../config/database.js';
 import { newPrefixedId } from '../utils/id.js';
 import {
   pairKey,
@@ -72,7 +73,7 @@ const REGLAS_POR_OMISION: ReglasCompetencia = {
  * de omisión en lugar de fallar: una liga nueva debe poder jugar antes de
  * que alguien entre a configurarla.
  */
-export const cargarReglas = async (seasonId: string): Promise<ReglasCompetencia> => {
+export const cargarReglas = async (seasonId: string, query: typeof defaultQuery = defaultQuery): Promise<ReglasCompetencia> => {
   const r = await query(
     `SELECT value FROM settings WHERE season_id = $1 AND key = 'competition'`,
     [seasonId]
@@ -89,7 +90,7 @@ export const cargarReglas = async (seasonId: string): Promise<ReglasCompetencia>
  * caché: si alguna vez se desincroniza, esta función es la verdad y una
  * sola llamada lo corrige.
  */
-export const refrescarMarcador = async (gameId: string): Promise<{ home: number; away: number }> => {
+export const refrescarMarcador = async (gameId: string, query: typeof import('../config/database.js').query = defaultQuery): Promise<{ home: number; away: number }> => {
   const partido = await query(
     `SELECT home_team_id, away_team_id, status, walkover_team_id, season_id FROM games WHERE id = $1`,
     [gameId]
@@ -100,7 +101,7 @@ export const refrescarMarcador = async (gameId: string): Promise<{ home: number;
   // Un partido por incomparecencia no tiene eventos que sumar: el
   // marcador lo dicta el reglamento, no el campo.
   if (g.status === 'WALKOVER' && g.walkover_team_id) {
-    const reglas = await cargarReglas(g.season_id);
+    const reglas = await cargarReglas(g.season_id, query);
     const [ganador, perdedor] = reglas.walkover_score;
     const gana = g.walkover_team_id === g.home_team_id;
     const home = gana ? ganador : perdedor;

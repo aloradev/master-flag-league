@@ -66,6 +66,7 @@ export const errorHandler = (
     return res.status(502).json({ success: false, error: err.message });
   }
 
-  console.error('[error]', err);
+  console.error(JSON.stringify({ event: 'request_error', requestId: res.locals.requestId,
+    name: err.name, code: typeof pgCode === 'string' ? pgCode : 'INTERNAL_ERROR' }));
   res.status(500).json({ success: false, error: 'Error interno del servidor' });
 };

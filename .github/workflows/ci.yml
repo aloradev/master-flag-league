@@ -1,0 +1,81 @@
+name: Verificación
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: x
+          POSTGRES_DB: mfl
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mfl"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NODE_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_USER: postgres
+      DB_PASSWORD: x
+      DB_NAME: mfl
+      DATABASE_URL: ''
+      JWT_SECRET: isolated-ci-secret-not-used-outside-disposable-tests
+      FRONTEND_URL: http://localhost:5173
+      EMAIL_WORKER_ENABLED: 'false'
+      RESEND_API_KEY: ''
+      OPERATIONS_WEBHOOK_URL: ''
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Migración idempotente y usuario de los fixtures existentes
+        run: |
+          npm run migrate:prod
+          npm run migrate:prod
+      - name: Concurrencia real de la cola, sin envíos externos
+        run: node tests/email-queue-postgres.mjs
+      - name: Arrancar API de prueba
+        run: |
+          node dist/index.js > /tmp/mfl-ci-api.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent 'http://localhost:5000/health?db=1'; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - run: npm run test:all

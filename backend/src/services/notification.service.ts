@@ -1,240 +1,66 @@
 import { query } from '../config/database.js';
-
-/**
- * REQ. 31 — NOTIFICACIONES
- *
- * Arquitectura de canales lista para email, WhatsApp y push. Hoy el email
- * está implementado con Resend; los otros canales tienen su punto de
- * extensión marcado. Sin credenciales el sistema registra en consola en
- * lugar de fallar: el flujo del usuario nunca se rompe por una notificación.
- */
+import { enqueueEmail, drainEmailQueue } from './email-queue.service.js';
+import { operationalAlert } from './operations.service.js';
+import { escapeHtml as e, renderEmail, siteUrl } from './email-template.service.js';
 
 export type Channel = 'EMAIL' | 'WHATSAPP' | 'PUSH';
-
 export interface Notification {
-  to: string;
-  subject: string;
-  body: string;
-  channel?: Channel;
+  to: string; subject: string; body: string; channel?: Channel; dedupeKey?: string; expiresAt?: Date;
 }
 
-const remitente = (): string => {
-  const configurado = (process.env.EMAIL_FROM ?? '')
-    .trim()
-    .replace(/^['"]|['"]$/g, '')
-    .trim();
-  return configurado || 'Master Flag League <noreply@masterflagleague.mx>';
-};
-
-const remitenteValido = (value: string): boolean =>
-  /^(?:[^<>\r\n]+\s*<)?[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>?$/.test(value);
-
-const sendEmail = async (notification: Notification): Promise<boolean> => {
-  const apiKey = process.env.RESEND_API_KEY;
-
-  if (!apiKey) {
-    console.log(
-      `[notificación:pendiente] EMAIL a ${notification.to} — "${notification.subject}"`
-    );
-    return false;
-  }
-
-  const from = remitente();
-  if (!remitenteValido(from)) {
-    console.error(
-      `[notificación] EMAIL_FROM inválido: ${JSON.stringify(from)}. ` +
-        'Usa correo@dominio.com o Nombre <correo@dominio.com>.'
-    );
-    return false;
-  }
-
+/** Con executor, el correo forma parte de la transacción y sus fallos hacen rollback. */
+export async function send(notification: Notification, executor?: typeof query): Promise<boolean> {
   try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        to: [notification.to],
-        subject: notification.subject,
-        html: notification.body,
-      }),
-    });
-
-    if (!response.ok) {
-      const detail = await response.text().catch(() => 'sin detalle');
-      console.error(`[notificación] Resend respondió ${response.status}: ${detail}`);
-      return false;
-    }
+    if (notification.channel && notification.channel !== 'EMAIL') throw new Error('Canal no implementado');
+    const from = (process.env.EMAIL_FROM || 'Master Flag League <noreply@masterflagleague.mx>').trim().replace(/^['"]|['"]$/g, '').trim();
+    if (!/^(?:[^<>\r\n]+\s*<)?[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>?$/.test(from)) throw new Error('Remitente inválido');
+    await enqueueEmail({ from, to: [notification.to], subject: notification.subject,
+      html: renderEmail(notification.subject, notification.body) },
+      { dedupeKey: notification.dedupeKey, expiresAt: notification.expiresAt }, executor);
+    if (!executor) void drainEmailQueue();
     return true;
-  } catch (err) {
-    console.error('[notificación] Error de envío:', err instanceof Error ? err.message : err);
+  } catch (error) {
+    if (executor) throw error;
+    void operationalAlert('EMAIL_ENQUEUE_FAILED');
     return false;
   }
-};
-
-/** Punto de extensión: WhatsApp Business API o Twilio. */
-const sendWhatsApp = async (notification: Notification): Promise<boolean> => {
-  console.log(`[notificación:no-implementado] WHATSAPP a ${notification.to}`);
-  return false;
-};
-
-/** Punto de extensión: Firebase Cloud Messaging. */
-const sendPush = async (notification: Notification): Promise<boolean> => {
-  console.log(`[notificación:no-implementado] PUSH a ${notification.to}`);
-  return false;
-};
-
-export const send = async (notification: Notification): Promise<boolean> => {
-  const channel = notification.channel ?? 'EMAIL';
-  if (channel === 'WHATSAPP') return sendWhatsApp(notification);
-  if (channel === 'PUSH') return sendPush(notification);
-  return sendEmail(notification);
-};
-
-// ─────────────────────────── PLANTILLAS ───────────────────────────
-
-const layout = (title: string, content: string): string => `
-<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1f2937">
-  <div style="background:linear-gradient(135deg,#052f49,#0e7490 55%,#d9468c);border-radius:12px 12px 0 0;padding:20px;text-align:center">
-    <img src="${(process.env.FRONTEND_URL || '').replace(/\/$/, '')}/logo-96.webp" alt="Master Flag League" width="72" height="72" style="display:block;margin:0 auto 8px;border-radius:16px" />
-    <div style="color:#fff;font-size:18px;font-weight:700;margin-top:4px">Master Flag League</div>
-  </div>
-  <div style="background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;padding:24px">
-    <h2 style="margin:0 0 12px;font-size:18px">${title}</h2>
-    ${content}
-  </div>
-  <p style="text-align:center;color:#9ca3af;font-size:12px;margin-top:16px">
-    Liga de Flag Football Cancún · Este es un mensaje automático
-  </p>
-</div>`;
+}
 
 interface StatusChangePayload {
-  playerId: string;
-  playerName: string;
-  teamId: string;
-  action: string;
-  newStatus: string;
-  reason?: string;
+  playerId: string; playerName: string; teamId: string; action: string; newStatus: string; reason?: string;
+}
+export async function notifyPlayerStatusChange(payload: StatusChangePayload, executor: typeof query): Promise<void> {
+  const managers = await executor(`SELECT DISTINCT u.email FROM team_users tu JOIN users u ON u.id = tu.user_id
+    WHERE tu.team_id = $1 AND u.active = TRUE`, [payload.teamId]);
+  const titles: Record<string, string> = { APPROVE: 'Registro aprobado', REQUEST_CORRECTION: 'Tu registro necesita una corrección',
+    REJECT: 'Actualización de tu registro', BLOCK: 'Registro bloqueado' };
+  const title = titles[payload.action];
+  if (!title) return;
+  const body = `<p>Tenemos una actualización sobre <strong>${e(payload.playerName)}</strong>.</p>
+    <p>Estado: <strong>${e(payload.newStatus)}</strong>.</p>
+    ${payload.reason ? `<div style="padding:16px;background:#fff7ed;border-left:4px solid #eab308"><strong>Motivo:</strong><br>${e(payload.reason)}</div>` : ''}
+    <p>${payload.action === 'APPROVE' ? 'El registro fue aprobado. Ya puedes consultar su elegibilidad en la aplicación.' : 'Entra al registro del jugador para revisar los detalles. Si se solicitó corrección, carga el documento actualizado.'}</p>`;
+  for (const manager of managers.rows) await send({ to: manager.email, subject: title, body }, executor);
 }
 
-/**
- * Avisa a los encargados del equipo cuando cambia el estado de un jugador.
- * Se invoca sin await desde el controlador: no debe retrasar la respuesta.
- */
-export const notifyPlayerStatusChange = async (
-  payload: StatusChangePayload
-): Promise<void> => {
-  try {
-    const managers = await query<{ email: string; name: string }>(
-      `SELECT u.email, u.name FROM team_users tu
-       JOIN users u ON u.id = tu.user_id
-       WHERE tu.team_id = $1 AND u.active = TRUE`,
-      [payload.teamId]
-    );
+export async function notifyNewUser(params: { email: string; name: string; temporaryPassword?: string; roleLabel: string }, executor: typeof query): Promise<void> {
+  await send({ to: params.email, subject: 'Bienvenido a Master Flag League',
+    body: `<p>Hola <strong>${e(params.name)}</strong>, ¡ya eres parte de la liga!</p>
+      <p>Tu cuenta tiene el rol <strong>${e(params.roleLabel)}</strong>.</p>
+      <div style="padding:20px;background:#f1f5f9;border-radius:12px"><strong>Usuario:</strong> ${e(params.email)}
+      ${params.temporaryPassword ? `<p><strong>Contraseña temporal:</strong> <code>${e(params.temporaryPassword)}</code></p>` : ''}</div>
+      <p>${params.temporaryPassword ? 'Cambia tu contraseña al ingresar por primera vez. No compartas este correo.' : 'Ingresa con la contraseña que se configuró para tu cuenta.'}</p>` }, executor);
+}
 
-    if (managers.rows.length === 0) return;
-
-    const templates: Record<string, { subject: string; content: string }> = {
-      APPROVE: {
-        subject: `✅ ${payload.playerName} fue aprobado`,
-        content: `
-          <p><strong>${payload.playerName}</strong> completó su registro y ya está
-          <strong style="color:#16a34a">habilitado para jugar</strong>.</p>
-          <p>Aparecerá como 🟢 Elegible en la pantalla del árbitro.</p>`,
-      },
-      REQUEST_CORRECTION: {
-        subject: `⚠️ ${payload.playerName} requiere corrección`,
-        content: `
-          <p>El registro de <strong>${payload.playerName}</strong> necesita una corrección
-          antes de poder aprobarse.</p>
-          <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px;margin:12px 0">
-            <strong>Motivo:</strong><br>${payload.reason ?? 'Sin especificar'}
-          </div>
-          <p>Entra a tu portal, sube el documento corregido y el registro volverá
-          automáticamente a la cola de revisión.</p>`,
-      },
-      REJECT: {
-        subject: `❌ Registro rechazado: ${payload.playerName}`,
-        content: `
-          <p>El registro de <strong>${payload.playerName}</strong> fue rechazado.</p>
-          <div style="background:#fee2e2;border-left:4px solid #ef4444;padding:12px;margin:12px 0">
-            <strong>Motivo:</strong><br>${payload.reason ?? 'Sin especificar'}
-          </div>
-          <p>Puedes volver a cargar la documentación para una nueva revisión.</p>`,
-      },
-      BLOCK: {
-        subject: `⛔ ${payload.playerName} fue bloqueado`,
-        content: `
-          <p><strong>${payload.playerName}</strong> fue bloqueado por administración.</p>
-          ${payload.reason ? `<p><strong>Motivo:</strong> ${payload.reason}</p>` : ''}
-          <p>Contacta a la liga para más información.</p>`,
-      },
-    };
-
-    const template = templates[payload.action];
-    if (!template) return;
-
-    await Promise.all(
-      managers.rows.map((manager) =>
-        send({
-          to: manager.email,
-          subject: template.subject,
-          body: layout(template.subject, template.content),
-        })
-      )
-    );
-  } catch (err) {
-    console.error('[notificación] Fallo al notificar cambio de estado:', err);
-  }
-};
-
-/** Da la bienvenida a un usuario nuevo con su contraseña temporal. */
-export const notifyNewUser = async (params: {
-  email: string;
-  name: string;
-  temporaryPassword: string;
-  roleLabel: string;
-}): Promise<void> => {
-  await send({
-    to: params.email,
-    subject: 'Tu acceso a Master Flag League',
-    body: layout(
-      `Bienvenido, ${params.name}`,
-      `<p>Se creó tu cuenta con el rol <strong>${params.roleLabel}</strong>.</p>
-       <div style="background:#f3f4f6;border-radius:8px;padding:16px;margin:12px 0">
-         <div><strong>Usuario:</strong> ${params.email}</div>
-         <div><strong>Contraseña temporal:</strong>
-           <code style="font-size:16px">${params.temporaryPassword}</code></div>
-       </div>
-       <p>Se te pedirá cambiarla al ingresar por primera vez.</p>`
-    ),
-  });
-};
-
-/** Avisa a los managers cuando administración publica una jornada. */
-export const notifyRoundPublished = async (params: {
-  seasonId: string;
-  roundId: string;
-  roundName: string;
-  scheduledDate: string;
-}): Promise<void> => {
-  try {
-    const managers = await query<{ email: string; name: string }>(
-      `SELECT DISTINCT u.email, u.name
-       FROM team_users tu JOIN users u ON u.id = tu.user_id
-       JOIN teams t ON t.id = tu.team_id
-       WHERE t.season_id = $1 AND u.active = TRUE`,
-      [params.seasonId]
-    );
-    await Promise.all(managers.rows.map((manager) => send({
-      to: manager.email,
-      subject: `${params.roundName} ya está publicada`,
-      body: layout(`${params.roundName} publicada`, `<p>Hola ${manager.name},</p><p>Ya puedes consultar los partidos, horarios, campos y árbitros de la jornada del <strong>${params.scheduledDate}</strong>.</p><p><a href="${(process.env.FRONTEND_URL || '').replace(/\/$/, '')}/jornada">Ver jornada</a></p>`),
-    })));
-  } catch (err) {
-    console.error('[notificación] Fallo al notificar jornada:', err);
-  }
-};
+export async function notifyRoundPublished(params: { seasonId: string; roundId: string; roundName: string; scheduledDate: string }, executor: typeof query): Promise<void> {
+  const managers = await executor(`SELECT DISTINCT u.email, u.name FROM team_users tu
+    JOIN users u ON u.id = tu.user_id JOIN teams t ON t.id = tu.team_id
+    WHERE t.season_id = $1 AND u.active = TRUE`, [params.seasonId]);
+  for (const manager of managers.rows) await send({ to: manager.email,
+    dedupeKey: `round-published:${params.roundId}:${manager.email.toLowerCase()}`,
+    subject: `${params.roundName} ya está publicada`,
+    body: `<p>Hola ${e(manager.name)}, ¡es momento de preparar al equipo!</p>
+      <p>La jornada del <strong>${e(params.scheduledDate)}</strong> ya está disponible.</p>
+      <p>Revisa tu rival, campo, horario y árbitros antes de salir.</p>
+      <p><a href="${e(siteUrl())}/jornada" style="color:#087c91;font-weight:bold">Consultar los partidos de la jornada →</a></p>` }, executor);
+}

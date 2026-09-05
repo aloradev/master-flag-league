@@ -11,12 +11,12 @@ interface AuditEntry {
 }
 
 /**
- * Req. 42: registra toda acción crítica. Nunca lanza excepción —
- * un fallo de auditoría no debe tumbar la operación del usuario.
+ * Req. 42: registra toda acción crítica. Fuera de transacción registra
+ * errores sin interrumpir; con executor propaga el error para hacer rollback.
  */
-export const audit = async (req: AuthRequest, entry: AuditEntry): Promise<void> => {
+export const audit = async (req: AuthRequest, entry: AuditEntry, executor?: typeof query): Promise<void> => {
   try {
-    await query(
+    await (executor ?? query)(
       `INSERT INTO audit_logs
         (id, league_id, user_id, user_email, action, entity_type, entity_id,
          old_value, new_value, ip_address, user_agent)
@@ -36,6 +36,7 @@ export const audit = async (req: AuthRequest, entry: AuditEntry): Promise<void> 
       ]
     );
   } catch (err) {
+    if (executor) throw err;
     console.error('[audit] No se pudo registrar:', err instanceof Error ? err.message : err);
   }
 };

@@ -60,7 +60,7 @@ await test('rollback conserva asignaciones si falla inserción', async () => {
   assert.ok(!calls.some((c) => c.sql === 'COMMIT'));
 });
 await test('rechaza campo de otra temporada', async () => {
-  respond = (sql) => ({ rows: sql.includes('SELECT * FROM games') ? [game] : [] });
+  respond = (sql) => ({ rows: sql.includes('SELECT * FROM games') || sql.includes('SELECT id FROM games WHERE id = $1 FOR UPDATE') ? [game] : [] });
   assert.equal((await invoke(updateGame, { fieldId: 'other' })).error.statusCode, 400);
 });
 await test('rechaza horario inválido', async () => {

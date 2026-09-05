@@ -2198,3 +2198,17 @@ El siguiente paso es:
 **Documento preparado para:**  
 **Master Flag League - Cancún, QR, México**  
 **Temporada 2026**
+
+## Actualización técnica — septiembre 2026
+
+Implementado en código: cola de correos cifrada en PostgreSQL (`email_jobs`),
+reintentos con leases e idempotencia, logs HTTP con identificador de petición,
+alertas por webhook y panel operativo exclusivo de Super Administración.
+GitHub Actions compila frontend/backend y prueba con PostgreSQL desechable;
+la suite incluye playoffs, árbitros, transacciones, cola y monitoreo.
+
+Pendiente de activación externa: ejecutar la nueva migración y desplegar,
+configurar receptor de alertas y monitor de disponibilidad, ejecutar CI en GitHub
+y exigir sus checks antes del despliegue. No equivale a monitoreo externo ya activo.
+La cola requiere un proceso despierto; los temporizadores no corren mientras Render
+está dormido. Ver [operación técnica](OPERACION_TECNICA.md) para límites y configuración.

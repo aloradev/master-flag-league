@@ -1,6 +1,8 @@
 import type { Response } from 'express';
+import { withLockedGame } from '../services/game-transaction.service.js';
 import { query, withTransaction } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { audit as writeAudit } from '../services/audit.service.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
 import { ROLES, type AuthRequest } from '../middleware/auth.js';
@@ -237,33 +239,37 @@ export const getGameLive = asyncHandler(async (req: AuthRequest, res: Response) 
 export const startGame = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   await exigirPermisoDePartido(req, id);
+  const result = await withLockedGame(id, async (query) => {
+    const audit: typeof writeAudit = (request, entry) => writeAudit(request, entry, query);
 
-  const r = await query(`SELECT status, round_id FROM games WHERE id = $1`, [id]);
-  const game = r.rows[0];
-  if (!game) throw new AppError('Partido no encontrado', 404);
-  if (game.status === 'LIVE') {
-    // No es un error: el otro árbitro ya lo arrancó. Responder 409 haría
-    // que el segundo en abrir la app viera una pantalla de fallo.
+    const r = await query(`SELECT status, round_id FROM games WHERE id = $1`, [id]);
+    const game = r.rows[0];
+    if (!game) throw new AppError('Partido no encontrado', 404);
+    if (game.status === 'LIVE') {
+      // No es un error: el otro árbitro ya lo arrancó. Responder 409 haría
+      // que el segundo en abrir la app viera una pantalla de fallo.
+      const actual = await query(`SELECT ${GAME_COLUMNS} FROM games g WHERE g.id = $1`, [id]);
+      return ({ success: true, data: actual.rows[0], already_started: true });
+    }
+    if (game.status !== 'SCHEDULED') throw new AppError(`El partido está ${game.status}`, 409);
+
+    await query(
+      `UPDATE games SET status = 'LIVE', started_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+    // La jornada pasa a "en curso" con el primer partido que arranca.
+    await query(
+      `UPDATE rounds SET status = 'IN_PROGRESS', updated_at = NOW()
+       WHERE id = $1 AND status = 'PUBLISHED'`,
+      [game.round_id]
+    );
+
+    await audit(req, { action: 'START_GAME', entityType: 'game', entityId: id });
+
     const actual = await query(`SELECT ${GAME_COLUMNS} FROM games g WHERE g.id = $1`, [id]);
-    return res.json({ success: true, data: actual.rows[0], already_started: true });
-  }
-  if (game.status !== 'SCHEDULED') throw new AppError(`El partido está ${game.status}`, 409);
-
-  await query(
-    `UPDATE games SET status = 'LIVE', started_at = NOW(), updated_at = NOW() WHERE id = $1`,
-    [id]
-  );
-  // La jornada pasa a "en curso" con el primer partido que arranca.
-  await query(
-    `UPDATE rounds SET status = 'IN_PROGRESS', updated_at = NOW()
-     WHERE id = $1 AND status = 'PUBLISHED'`,
-    [game.round_id]
-  );
-
-  await audit(req, { action: 'START_GAME', entityType: 'game', entityId: id });
-
-  const actual = await query(`SELECT ${GAME_COLUMNS} FROM games g WHERE g.id = $1`, [id]);
-  res.json({ success: true, data: actual.rows[0] });
+    return ({ success: true, data: actual.rows[0] });
+  });
+  res.json(result);
 });
 
 /**
@@ -275,95 +281,99 @@ export const startGame = asyncHandler(async (req: AuthRequest, res: Response) =>
 export const addEvent = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   await exigirPermisoDePartido(req, id);
+  const result = await withLockedGame(id, async (query) => {
+    const audit: typeof writeAudit = (request, entry) => writeAudit(request, entry, query);
 
-  const { eventType, teamId, playerId, quarter, yards } = req.body ?? {};
+    const { eventType, teamId, playerId, quarter, yards } = req.body ?? {};
 
-  if (!esJugadaValida(eventType)) {
-    throw new AppError(
-      `Jugada desconocida: ${eventType}. Válidas: ${Object.keys(JUGADAS).join(', ')}`,
-      400
-    );
-  }
-  const jugada = JUGADAS[eventType];
-
-  const g = await query(
-    `SELECT g.id, g.status, g.season_id, g.home_team_id, g.away_team_id, s.require_approval_to_play
-     FROM games g JOIN seasons s ON s.id = g.season_id WHERE g.id = $1`,
-    [id]
-  );
-  const game = g.rows[0];
-  if (!game) throw new AppError('Partido no encontrado', 404);
-  if (!['LIVE', 'SCHEDULED'].includes(game.status)) {
-    throw new AppError(`No se puede registrar en un partido ${game.status}`, 409);
-  }
-  if (![game.home_team_id, game.away_team_id].includes(teamId)) {
-    throw new AppError('Ese equipo no juega este partido', 400);
-  }
-
-  if (jugada.needsPlayer && !playerId) {
-    throw new AppError(`"${jugada.label}" necesita señalar al jugador`, 400);
-  }
-
-  if (playerId) {
-    const p = await query(
-      `SELECT id, first_name, last_name_paternal, team_id, is_eligible, eligibility_reason
-       FROM players WHERE id = $1 AND removed_at IS NULL`,
-      [playerId]
-    );
-    const jugador = p.rows[0];
-    if (!jugador) throw new AppError('Jugador no encontrado', 404);
-    if (jugador.team_id !== teamId) {
-      throw new AppError('Ese jugador no pertenece al equipo señalado', 400);
-    }
-    /**
-     * Aquí es donde el concepto de "Jugador Elegible" deja de ser un
-     * adorno de la pantalla y se convierte en la regla: si la temporada
-     * exige aprobación, un jugador no elegible no puede registrar
-     * jugadas. El árbitro ya vio el semáforo rojo antes de elegirlo, así
-     * que el rechazo no lo sorprende, y el mensaje dice por qué.
-     */
-    if (game.require_approval_to_play && !jugador.is_eligible) {
+    if (!esJugadaValida(eventType)) {
       throw new AppError(
-        `${jugador.first_name} ${jugador.last_name_paternal} no es elegible: ` +
-          `${jugador.eligibility_reason ?? 'documentación incompleta'}`,
-        409
+        `Jugada desconocida: ${eventType}. Válidas: ${Object.keys(JUGADAS).join(', ')}`,
+        400
       );
     }
-  }
+    const jugada = JUGADAS[eventType];
 
-  const eventId = newPrefixedId('evt');
-  await query(
-    `INSERT INTO game_events (id, game_id, team_id, player_id, event_type, points,
-                              quarter, yards, recorded_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-    [
-      eventId,
-      id,
-      teamId,
-      playerId ?? null,
-      eventType,
-      jugada.points,
-      quarter ?? null,
-      yards ?? null,
-      req.user!.id,
-    ]
-  );
+    const g = await query(
+      `SELECT g.id, g.status, g.season_id, g.home_team_id, g.away_team_id, s.require_approval_to_play
+       FROM games g JOIN seasons s ON s.id = g.season_id WHERE g.id = $1`,
+      [id]
+    );
+    const game = g.rows[0];
+    if (!game) throw new AppError('Partido no encontrado', 404);
+    if (!['LIVE', 'SCHEDULED'].includes(game.status)) {
+      throw new AppError(`No se puede registrar en un partido ${game.status}`, 409);
+    }
+    if (![game.home_team_id, game.away_team_id].includes(teamId)) {
+      throw new AppError('Ese equipo no juega este partido', 400);
+    }
 
-  const marcador = await refrescarMarcador(id);
+    if (jugada.needsPlayer && !playerId) {
+      throw new AppError(`"${jugada.label}" necesita señalar al jugador`, 400);
+    }
+
+    if (playerId) {
+      const p = await query(
+        `SELECT id, first_name, last_name_paternal, team_id, is_eligible, eligibility_reason
+         FROM players WHERE id = $1 AND removed_at IS NULL`,
+        [playerId]
+      );
+      const jugador = p.rows[0];
+      if (!jugador) throw new AppError('Jugador no encontrado', 404);
+      if (jugador.team_id !== teamId) {
+        throw new AppError('Ese jugador no pertenece al equipo señalado', 400);
+      }
+      /**
+       * Aquí es donde el concepto de "Jugador Elegible" deja de ser un
+       * adorno de la pantalla y se convierte en la regla: si la temporada
+       * exige aprobación, un jugador no elegible no puede registrar
+       * jugadas. El árbitro ya vio el semáforo rojo antes de elegirlo, así
+       * que el rechazo no lo sorprende, y el mensaje dice por qué.
+       */
+      if (game.require_approval_to_play && !jugador.is_eligible) {
+        throw new AppError(
+          `${jugador.first_name} ${jugador.last_name_paternal} no es elegible: ` +
+            `${jugador.eligibility_reason ?? 'documentación incompleta'}`,
+          409
+        );
+      }
+    }
+
+    const eventId = newPrefixedId('evt');
+    await query(
+      `INSERT INTO game_events (id, game_id, team_id, player_id, event_type, points,
+                                quarter, yards, recorded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        eventId,
+        id,
+        teamId,
+        playerId ?? null,
+        eventType,
+        jugada.points,
+        quarter ?? null,
+        yards ?? null,
+        req.user!.id,
+      ]
+    );
+
+    const marcador = await refrescarMarcador(id, query);
 
 
-  res.status(201).json({
-    success: true,
-    data: {
-      id: eventId,
-      event_type: eventType,
-      label: jugada.label,
-      points: jugada.points,
-      team_id: teamId,
-      player_id: playerId ?? null,
-      score: marcador,
-    },
+    return ({
+      success: true,
+      data: {
+        id: eventId,
+        event_type: eventType,
+        label: jugada.label,
+        points: jugada.points,
+        team_id: teamId,
+        player_id: playerId ?? null,
+        score: marcador,
+      },
+    });
   });
+  res.status(201).json(result);
 });
 
 /**
@@ -376,33 +386,37 @@ export const addEvent = asyncHandler(async (req: AuthRequest, res: Response) => 
 export const voidEvent = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id, eventId } = req.params;
   await exigirPermisoDePartido(req, id);
+  const result = await withLockedGame(id, async (query) => {
+    const audit: typeof writeAudit = (request, entry) => writeAudit(request, entry, query);
 
-  const r = await query(
-    `SELECT * FROM game_events WHERE id = $1 AND game_id = $2`,
-    [eventId, id]
-  );
-  const evento = r.rows[0];
-  if (!evento) throw new AppError('Jugada no encontrada en este partido', 404);
-  if (evento.voided_at) {
-    return res.json({ success: true, data: { id: eventId, already_voided: true } });
-  }
-  const frozen = await query(`SELECT 1 FROM playoff_games pg JOIN playoffs p ON p.id = pg.playoff_id WHERE pg.game_id = $1 AND (p.stage > pg.stage OR p.champion_id IS NOT NULL)`, [id]);
-  if (frozen.rows.length) throw new AppError('La fase ya avanzó. No se pueden cambiar sus resultados.', 409);
+    const r = await query(
+      `SELECT * FROM game_events WHERE id = $1 AND game_id = $2`,
+      [eventId, id]
+    );
+    const evento = r.rows[0];
+    if (!evento) throw new AppError('Jugada no encontrada en este partido', 404);
+    if (evento.voided_at) {
+      return ({ success: true, data: { id: eventId, already_voided: true } });
+    }
+    const frozen = await query(`SELECT 1 FROM playoff_games pg JOIN playoffs p ON p.id = pg.playoff_id WHERE pg.game_id = $1 AND (p.stage > pg.stage OR p.champion_id IS NOT NULL)`, [id]);
+    if (frozen.rows.length) throw new AppError('La fase ya avanzó. No se pueden cambiar sus resultados.', 409);
 
-  await query(
-    `UPDATE game_events SET voided_at = NOW(), voided_by = $1 WHERE id = $2`,
-    [req.user!.id, eventId]
-  );
-  const marcador = await refrescarMarcador(id);
+    await query(
+      `UPDATE game_events SET voided_at = NOW(), voided_by = $1 WHERE id = $2`,
+      [req.user!.id, eventId]
+    );
+    const marcador = await refrescarMarcador(id, query);
 
-  await audit(req, {
-    action: 'VOID_GAME_EVENT',
-    entityType: 'game',
-    entityId: id,
-    oldValue: { event: evento.event_type, points: evento.points, player: evento.player_id },
+    await audit(req, {
+      action: 'VOID_GAME_EVENT',
+      entityType: 'game',
+      entityId: id,
+      oldValue: { event: evento.event_type, points: evento.points, player: evento.player_id },
+    });
+
+    return ({ success: true, data: { id: eventId, score: marcador } });
   });
-
-  res.json({ success: true, data: { id: eventId, score: marcador } });
+  res.json(result);
 });
 
 /**
@@ -415,162 +429,170 @@ export const voidEvent = asyncHandler(async (req: AuthRequest, res: Response) =>
 export const finishGame = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   await exigirPermisoDePartido(req, id);
+  const result = await withLockedGame(id, async (query) => {
+    const audit: typeof writeAudit = (request, entry) => writeAudit(request, entry, query);
 
-  const { mvpOffensivePlayerId, mvpDefensivePlayerId, notes } = req.body ?? {};
+    const { mvpOffensivePlayerId, mvpDefensivePlayerId, notes } = req.body ?? {};
 
-  const g = await query(
-    `SELECT id, status, home_team_id, away_team_id, round_id FROM games WHERE id = $1`,
-    [id]
-  );
-  const game = g.rows[0];
-  if (!game) throw new AppError('Partido no encontrado', 404);
-  if (game.status === 'FINISHED') {
-    const actual = await query(`SELECT ${GAME_COLUMNS} FROM games g WHERE g.id = $1`, [id]);
-    return res.json({ success: true, data: actual.rows[0], already_finished: true });
-  }
-  if (!['LIVE', 'SCHEDULED'].includes(game.status)) {
-    throw new AppError(`El partido está ${game.status}`, 409);
-  }
-
-  for (const [campo, valor] of [
-    ['mvpOffensivePlayerId', mvpOffensivePlayerId],
-    ['mvpDefensivePlayerId', mvpDefensivePlayerId],
-  ] as const) {
-    if (!valor) continue;
-    const p = await query(
-      `SELECT team_id FROM players WHERE id = $1 AND removed_at IS NULL`,
-      [valor]
+    const g = await query(
+      `SELECT id, status, home_team_id, away_team_id, round_id FROM games WHERE id = $1`,
+      [id]
     );
-    if (!p.rows[0]) throw new AppError(`El jugador de ${campo} no existe`, 404);
-    if (![game.home_team_id, game.away_team_id].includes(p.rows[0].team_id)) {
-      throw new AppError('El MVP debe ser de uno de los dos equipos', 400);
+    const game = g.rows[0];
+    if (!game) throw new AppError('Partido no encontrado', 404);
+    if (game.status === 'FINISHED') {
+      const actual = await query(`SELECT ${GAME_COLUMNS} FROM games g WHERE g.id = $1`, [id]);
+      return ({ success: true, data: actual.rows[0], already_finished: true });
     }
-  }
+    if (!['LIVE', 'SCHEDULED'].includes(game.status)) {
+      throw new AppError(`El partido está ${game.status}`, 409);
+    }
 
-  const marcador = await refrescarMarcador(id);
+    for (const [campo, valor] of [
+      ['mvpOffensivePlayerId', mvpOffensivePlayerId],
+      ['mvpDefensivePlayerId', mvpDefensivePlayerId],
+    ] as const) {
+      if (!valor) continue;
+      const p = await query(
+        `SELECT team_id FROM players WHERE id = $1 AND removed_at IS NULL`,
+        [valor]
+      );
+      if (!p.rows[0]) throw new AppError(`El jugador de ${campo} no existe`, 404);
+      if (![game.home_team_id, game.away_team_id].includes(p.rows[0].team_id)) {
+        throw new AppError('El MVP debe ser de uno de los dos equipos', 400);
+      }
+    }
 
-  if (marcador.home === marcador.away && (await query('SELECT game_id FROM playoff_games WHERE game_id = $1', [id])).rows.length) {
-    throw new AppError('En playoffs debe haber ganador. Registra el desempate antes de finalizar.', 409);
-  }
-  await query(
-    `UPDATE games SET status = 'FINISHED', ended_at = NOW(), closed_by = $1,
-            mvp_offensive_player_id = $2, mvp_defensive_player_id = $3,
-            notes = COALESCE($4, notes), updated_at = NOW()
-     WHERE id = $5`,
-    [req.user!.id, mvpOffensivePlayerId ?? null, mvpDefensivePlayerId ?? null, notes ?? null, id]
-  );
+    const marcador = await refrescarMarcador(id, query);
 
-  // La jornada termina sola cuando ya no queda partido pendiente: es un
-  // dato que el sistema puede calcular, así que nadie lo captura.
-  await query(
-    `UPDATE rounds SET status = 'FINISHED', updated_at = NOW()
-     WHERE id = $1
-       AND NOT EXISTS (
-         SELECT 1 FROM games WHERE round_id = $1 AND status IN ('SCHEDULED', 'LIVE')
-       )`,
-    [game.round_id]
-  );
+    if (marcador.home === marcador.away && (await query('SELECT game_id FROM playoff_games WHERE game_id = $1', [id])).rows.length) {
+      throw new AppError('En playoffs debe haber ganador. Registra el desempate antes de finalizar.', 409);
+    }
+    await query(
+      `UPDATE games SET status = 'FINISHED', ended_at = NOW(), closed_by = $1,
+              mvp_offensive_player_id = $2, mvp_defensive_player_id = $3,
+              notes = COALESCE($4, notes), updated_at = NOW()
+       WHERE id = $5`,
+      [req.user!.id, mvpOffensivePlayerId ?? null, mvpDefensivePlayerId ?? null, notes ?? null, id]
+    );
 
-  await audit(req, {
-    action: 'FINISH_GAME',
-    entityType: 'game',
-    entityId: id,
-    newValue: { score: marcador, mvp_off: mvpOffensivePlayerId, mvp_def: mvpDefensivePlayerId },
+    // La jornada termina sola cuando ya no queda partido pendiente: es un
+    // dato que el sistema puede calcular, así que nadie lo captura.
+    await query(
+      `UPDATE rounds SET status = 'FINISHED', updated_at = NOW()
+       WHERE id = $1
+         AND NOT EXISTS (
+           SELECT 1 FROM games WHERE round_id = $1 AND status IN ('SCHEDULED', 'LIVE')
+         )`,
+      [game.round_id]
+    );
+
+    await audit(req, {
+      action: 'FINISH_GAME',
+      entityType: 'game',
+      entityId: id,
+      newValue: { score: marcador, mvp_off: mvpOffensivePlayerId, mvp_def: mvpDefensivePlayerId },
+    });
+
+    const actual = await query(`SELECT ${GAME_COLUMNS} FROM games g WHERE g.id = $1`, [id]);
+    return ({ success: true, data: actual.rows[0] });
   });
-
-  const actual = await query(`SELECT ${GAME_COLUMNS} FROM games g WHERE g.id = $1`, [id]);
-  res.json({ success: true, data: actual.rows[0] });
+  res.json(result);
 });
 
 /** PUT /api/v1/admin/games/:id — ajuste manual de campo, hora o equipos */
 export const updateGame = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { fieldId, scheduledTime, homeTeamId, awayTeamId, notes, status } = req.body ?? {};
-  if ([homeTeamId, awayTeamId, status].some((value) => value !== undefined) &&
-      (await query('SELECT 1 FROM playoff_games WHERE game_id = $1', [id])).rows.length) {
-    throw new AppError('Los equipos y el estado de playoffs se gestionan desde la llave y el cierre del partido.', 409);
-  }
-
-  const r = await query(`SELECT * FROM games WHERE id = $1`, [id]);
-  const game = r.rows[0];
-  if (!game) throw new AppError('Partido no encontrado', 404);
-  if (['FINISHED', 'WALKOVER'].includes(game.status)) {
-    throw new AppError('El partido ya está cerrado. Corrige las jugadas, no el registro.', 409);
-  }
-
-  if (game.status === 'LIVE' && [fieldId, scheduledTime, homeTeamId, awayTeamId].some((v) => v !== undefined)) {
-    throw new AppError('No se puede reprogramar un partido en vivo', 409);
-  }
-  if (fieldId !== undefined) {
-    const field = await query('SELECT id FROM fields WHERE id = $1 AND season_id = $2', [fieldId, game.season_id]);
-    if (!field.rows.length) throw new AppError('El campo no pertenece a esta temporada', 400);
-  }
-  if (scheduledTime !== undefined) {
-    if (typeof scheduledTime !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(scheduledTime)) {
-      throw new AppError('Hora inválida', 400);
+  const result = await withLockedGame(id, async (query) => {
+    const audit: typeof writeAudit = (request, entry) => writeAudit(request, entry, query);
+    const { fieldId, scheduledTime, homeTeamId, awayTeamId, notes, status } = req.body ?? {};
+    if ([homeTeamId, awayTeamId, status].some((value) => value !== undefined) &&
+        (await query('SELECT 1 FROM playoff_games WHERE game_id = $1', [id])).rows.length) {
+      throw new AppError('Los equipos y el estado de playoffs se gestionan desde la llave y el cierre del partido.', 409);
     }
-    const conflict = await query(
-      `SELECT 1 FROM game_referees current_ref
-       JOIN game_referees other_ref ON other_ref.referee_id = current_ref.referee_id
-       JOIN games other_game ON other_game.id = other_ref.game_id
-       WHERE current_ref.game_id = $1 AND other_game.id <> $1
-         AND other_game.round_id = $2 AND other_game.scheduled_time = $3::time
-         AND other_game.status <> 'CANCELLED' LIMIT 1`, [id, game.round_id, scheduledTime]);
-    if (conflict.rows.length) throw new AppError('Un árbitro asignado ya tiene otro partido a esa hora. Cambia la asignación primero.', 409);
-  }
 
-  try {
-    await query(
-      `UPDATE games SET
-         field_id = COALESCE($1, field_id),
-         scheduled_time = COALESCE($2::time, scheduled_time),
-         home_team_id = COALESCE($3, home_team_id),
-         away_team_id = COALESCE($4, away_team_id),
-         notes = COALESCE($5, notes),
-         status = COALESCE($6, status),
-         updated_at = NOW()
-       WHERE id = $7`,
-      [
-        fieldId ?? null,
-        scheduledTime ?? null,
-        homeTeamId ?? null,
-        awayTeamId ?? null,
-        notes ?? null,
-        status ?? null,
-        id,
-      ]
-    );
-  } catch (e) {
-    /**
-     * La base rechaza el campo ocupado y el equipo repetido. Se traduce
-     * aquí para que el administrador lea una frase y no un error de
-     * Postgres: el mensaje es la única pista que va a tener.
-     */
-    const msg = (e as Error).message ?? '';
-    if (msg.includes('uq_games_campo_hora')) {
-      throw new AppError('Ese campo ya tiene un partido a esa hora en esta jornada', 409);
+    const r = await query(`SELECT * FROM games WHERE id = $1`, [id]);
+    const game = r.rows[0];
+    if (!game) throw new AppError('Partido no encontrado', 404);
+    if (['FINISHED', 'WALKOVER'].includes(game.status)) {
+      throw new AppError('El partido ya está cerrado. Corrige las jugadas, no el registro.', 409);
     }
-    if (msg.includes('ya tiene partido en esta jornada')) {
-      throw new AppError('Uno de los equipos ya juega en esta jornada', 409);
-    }
-    throw e;
-  }
 
-  await audit(req, {
-    action: 'UPDATE_GAME',
-    entityType: 'game',
-    entityId: id,
-    oldValue: {
-      field_id: game.field_id,
-      scheduled_time: game.scheduled_time,
-      home: game.home_team_id,
-      away: game.away_team_id,
-    },
-    newValue: { field_id: fieldId, scheduled_time: scheduledTime, home_team_id: homeTeamId, away_team_id: awayTeamId, status },
+    if (game.status === 'LIVE' && [fieldId, scheduledTime, homeTeamId, awayTeamId].some((v) => v !== undefined)) {
+      throw new AppError('No se puede reprogramar un partido en vivo', 409);
+    }
+    if (fieldId !== undefined) {
+      const field = await query('SELECT id FROM fields WHERE id = $1 AND season_id = $2', [fieldId, game.season_id]);
+      if (!field.rows.length) throw new AppError('El campo no pertenece a esta temporada', 400);
+    }
+    if (scheduledTime !== undefined) {
+      if (typeof scheduledTime !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(scheduledTime)) {
+        throw new AppError('Hora inválida', 400);
+      }
+      const conflict = await query(
+        `SELECT 1 FROM game_referees current_ref
+         JOIN game_referees other_ref ON other_ref.referee_id = current_ref.referee_id
+         JOIN games other_game ON other_game.id = other_ref.game_id
+         WHERE current_ref.game_id = $1 AND other_game.id <> $1
+           AND other_game.round_id = $2 AND other_game.scheduled_time = $3::time
+           AND other_game.status <> 'CANCELLED' LIMIT 1`, [id, game.round_id, scheduledTime]);
+      if (conflict.rows.length) throw new AppError('Un árbitro asignado ya tiene otro partido a esa hora. Cambia la asignación primero.', 409);
+    }
+
+    try {
+      await query(
+        `UPDATE games SET
+           field_id = COALESCE($1, field_id),
+           scheduled_time = COALESCE($2::time, scheduled_time),
+           home_team_id = COALESCE($3, home_team_id),
+           away_team_id = COALESCE($4, away_team_id),
+           notes = COALESCE($5, notes),
+           status = COALESCE($6, status),
+           updated_at = NOW()
+         WHERE id = $7`,
+        [
+          fieldId ?? null,
+          scheduledTime ?? null,
+          homeTeamId ?? null,
+          awayTeamId ?? null,
+          notes ?? null,
+          status ?? null,
+          id,
+        ]
+      );
+    } catch (e) {
+      /**
+       * La base rechaza el campo ocupado y el equipo repetido. Se traduce
+       * aquí para que el administrador lea una frase y no un error de
+       * Postgres: el mensaje es la única pista que va a tener.
+       */
+      const msg = (e as Error).message ?? '';
+      if (msg.includes('uq_games_campo_hora')) {
+        throw new AppError('Ese campo ya tiene un partido a esa hora en esta jornada', 409);
+      }
+      if (msg.includes('ya tiene partido en esta jornada')) {
+        throw new AppError('Uno de los equipos ya juega en esta jornada', 409);
+      }
+      throw e;
+    }
+
+    await audit(req, {
+      action: 'UPDATE_GAME',
+      entityType: 'game',
+      entityId: id,
+      oldValue: {
+        field_id: game.field_id,
+        scheduled_time: game.scheduled_time,
+        home: game.home_team_id,
+        away: game.away_team_id,
+      },
+      newValue: { field_id: fieldId, scheduled_time: scheduledTime, home_team_id: homeTeamId, away_team_id: awayTeamId, status },
+    });
+
+    const actual = await query(`SELECT ${GAME_COLUMNS} FROM games g WHERE g.id = $1`, [id]);
+    return ({ success: true, data: actual.rows[0] });
   });
-
-  const actual = await query(`SELECT ${GAME_COLUMNS} FROM games g WHERE g.id = $1`, [id]);
-  res.json({ success: true, data: actual.rows[0] });
+  res.json(result);
 });
 
 /**
@@ -658,49 +680,53 @@ export const assignReferees = asyncHandler(async (req: AuthRequest, res: Respons
  */
 export const declareWalkover = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { winnerTeamId, reason } = req.body ?? {};
-  if ((await query(`SELECT 1 FROM playoff_games pg JOIN playoffs p ON p.id = pg.playoff_id
-    WHERE pg.game_id = $1 AND (p.stage > pg.stage OR p.champion_id IS NOT NULL)`, [id])).rows.length) {
-    throw new AppError('La fase ya avanzó. No se puede cambiar el ganador.', 409);
-  }
+  const result = await withLockedGame(id, async (query) => {
+    const audit: typeof writeAudit = (request, entry) => writeAudit(request, entry, query);
+    const { winnerTeamId, reason } = req.body ?? {};
+    if ((await query(`SELECT 1 FROM playoff_games pg JOIN playoffs p ON p.id = pg.playoff_id
+      WHERE pg.game_id = $1 AND (p.stage > pg.stage OR p.champion_id IS NOT NULL)`, [id])).rows.length) {
+      throw new AppError('La fase ya avanzó. No se puede cambiar el ganador.', 409);
+    }
 
-  const g = await query(
-    `SELECT id, status, home_team_id, away_team_id, round_id FROM games WHERE id = $1`,
-    [id]
-  );
-  const game = g.rows[0];
-  if (!game) throw new AppError('Partido no encontrado', 404);
-  if (![game.home_team_id, game.away_team_id].includes(winnerTeamId)) {
-    throw new AppError('El ganador debe ser uno de los dos equipos', 400);
-  }
-  if (game.status === 'FINISHED') {
-    throw new AppError('El partido ya se jugó y tiene resultado', 409);
-  }
+    const g = await query(
+      `SELECT id, status, home_team_id, away_team_id, round_id FROM games WHERE id = $1`,
+      [id]
+    );
+    const game = g.rows[0];
+    if (!game) throw new AppError('Partido no encontrado', 404);
+    if (![game.home_team_id, game.away_team_id].includes(winnerTeamId)) {
+      throw new AppError('El ganador debe ser uno de los dos equipos', 400);
+    }
+    if (game.status === 'FINISHED') {
+      throw new AppError('El partido ya se jugó y tiene resultado', 409);
+    }
 
-  await query(
-    `UPDATE games SET status = 'WALKOVER', walkover_team_id = $1, ended_at = NOW(),
-            closed_by = $2, notes = COALESCE($3, notes), updated_at = NOW()
-     WHERE id = $4`,
-    [winnerTeamId, req.user!.id, reason ?? null, id]
-  );
-  const marcador = await refrescarMarcador(id);
+    await query(
+      `UPDATE games SET status = 'WALKOVER', walkover_team_id = $1, ended_at = NOW(),
+              closed_by = $2, notes = COALESCE($3, notes), updated_at = NOW()
+       WHERE id = $4`,
+      [winnerTeamId, req.user!.id, reason ?? null, id]
+    );
+    const marcador = await refrescarMarcador(id, query);
 
-  await query(
-    `UPDATE rounds SET status = 'FINISHED', updated_at = NOW()
-     WHERE id = $1
-       AND NOT EXISTS (SELECT 1 FROM games WHERE round_id = $1 AND status IN ('SCHEDULED','LIVE'))`,
-    [game.round_id]
-  );
+    await query(
+      `UPDATE rounds SET status = 'FINISHED', updated_at = NOW()
+       WHERE id = $1
+         AND NOT EXISTS (SELECT 1 FROM games WHERE round_id = $1 AND status IN ('SCHEDULED','LIVE'))`,
+      [game.round_id]
+    );
 
-  await audit(req, {
-    action: 'DECLARE_WALKOVER',
-    entityType: 'game',
-    entityId: id,
-    newValue: { winner: winnerTeamId, reason, score: marcador },
+    await audit(req, {
+      action: 'DECLARE_WALKOVER',
+      entityType: 'game',
+      entityId: id,
+      newValue: { winner: winnerTeamId, reason, score: marcador },
+    });
+
+    const actual = await query(`SELECT ${GAME_COLUMNS} FROM games g WHERE g.id = $1`, [id]);
+    return ({ success: true, data: actual.rows[0] });
   });
-
-  const actual = await query(`SELECT ${GAME_COLUMNS} FROM games g WHERE g.id = $1`, [id]);
-  res.json({ success: true, data: actual.rows[0] });
+  res.json(result);
 });
 
 /** GET /api/v1/plays — catálogo de jugadas para dibujar los botones */

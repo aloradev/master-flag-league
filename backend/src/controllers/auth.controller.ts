@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import { query } from '../config/database.js';
+import { query, withTransaction } from '../config/database.js';
 import { comparePassword, hashPassword, validatePassword } from '../utils/password.js';
 import { generateTokens, verifyToken } from '../utils/jwt.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
@@ -17,6 +17,9 @@ import {
   registrarFallo,
   limpiarFallos,
 } from '../services/freno.service.js';
+import { escapeHtml } from '../services/email-template.service.js';
+import { drainEmailQueue } from '../services/email-queue.service.js';
+import { operationalAlert } from '../services/operations.service.js';
 import { send as enviarNotificacion } from '../services/notification.service.js';
 
 interface UserRow {
@@ -285,32 +288,25 @@ export const forgotPassword = asyncHandler(async (req: AuthRequest, res: Respons
   const user = await findUserByEmail(correo);
   if (!user || !user.active) return res.json(respuesta);
 
-  const { token } = await crearToken(user.id, null);
+  try {
+  await withTransaction(async (query) => {
+  const { token } = await crearToken(user.id, null, query);
   const enlace = enlaceDeRestablecimiento(token);
 
-  const enviado = await enviarNotificacion({
+  await enviarNotificacion({
     to: user.email,
+    expiresAt: new Date(Date.now() + 45 * 60_000),
     subject: 'Restablece tu contraseña — Master Flag League',
     body:
-      `<p>Hola ${user.name},</p>` +
+      `<p>Hola ${escapeHtml(user.name)},</p>` +
       `<p>Para poner una contraseña nueva, abre este enlace:</p>` +
       `<p><a href="${enlace}">${enlace}</a></p>` +
       `<p>Vence en una hora y solo sirve una vez. ` +
       `Si no lo pediste, puedes ignorar este correo: tu contraseña no cambia.</p>`,
+  }, query);
   });
-
-  /**
-   * Si el correo no salió —sin RESEND_API_KEY, o sin dominio verificado—
-   * queda en el log del servidor, que es donde administración puede
-   * recuperarlo. El usuario no se enteraría de nada, y por eso existe el
-   * enlace que genera administración desde la pantalla de usuarios.
-   */
-  if (!enviado) {
-    console.warn(
-      `[reset] No se pudo enviar el correo a ${user.email}. ` +
-        `Enlace para entregar a mano: ${enlace}`
-    );
-  }
+  void drainEmailQueue();
+  } catch { void operationalAlert('PASSWORD_RESET_ENQUEUE_FAILED'); }
 
   res.json(respuesta);
 });

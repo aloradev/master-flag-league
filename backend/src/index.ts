@@ -17,6 +17,8 @@ import cors from 'cors';
 import routes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { healthCheck } from './config/database.js';
+import { startEmailWorker } from './services/email-queue.service.js';
+import { requestTelemetry, operationalAlert } from './services/operations.service.js';
 import { activeDriver, publicDir, PUBLIC_ROUTE } from './services/storage.service.js';
 
 // Antes de cualquier otra cosa: si falta configuración, mejor no arrancar.
@@ -24,6 +26,7 @@ validateEnvironment();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
+app.use(requestTelemetry);
 
 // Detrás del proxy de Render, para que req.ip sea la IP real del cliente.
 app.set('trust proxy', 1);
@@ -179,6 +182,7 @@ app.get('/health', async (req, res) => {
   }
 
   const dbOk = await healthCheck();
+  if (!dbOk) void operationalAlert('DATABASE_UNREACHABLE');
   res.status(dbOk ? 200 : 503).json({
     status: dbOk ? 'OK' : 'DEGRADED',
     database: dbOk ? 'connected' : 'unreachable',
@@ -234,6 +238,7 @@ const comprobarBase = async () => {
 };
 
 await comprobarBase();
+startEmailWorker();
 
 app.listen(PORT, () => {
   console.log(`\n🏆 Master Flag League API`);

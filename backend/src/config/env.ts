@@ -74,7 +74,7 @@ const WARNINGS: Check[] = [
     key: 'RESEND_API_KEY',
     required: false,
     message:
-      'Sin Resend las notificaciones se registran en consola en lugar de enviarse. ' +
+      'Sin Resend los correos quedan en cola y agotarán sus reintentos. ' +
       'Los managers no se enterarán de documentos rechazados.',
   },
   {

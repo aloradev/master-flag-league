@@ -1,6 +1,8 @@
 import type { Response } from 'express';
 import { query, withTransaction } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { audit as writeAudit } from '../services/audit.service.js';
+import { drainEmailQueue } from '../services/email-queue.service.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
 import type { AuthRequest } from '../middleware/auth.js';
@@ -108,6 +110,8 @@ export const getValidationQueue = asyncHandler(async (req: AuthRequest, res: Res
  */
 export const reviewPlayer = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
+  const result = await withTransaction(async (query) => {
+  const audit: typeof writeAudit = (request, entry) => writeAudit(request, entry, query);
   const action = String(req.body?.action ?? '').toUpperCase() as Action;
   const reason: string | undefined = req.body?.reason?.trim() || undefined;
 
@@ -134,7 +138,7 @@ export const reviewPlayer = asyncHandler(async (req: AuthRequest, res: Response)
     last_name_paternal: string;
   }>(
     `SELECT status, season_id, team_id, first_name, last_name_paternal
-     FROM players WHERE id = $1`,
+     FROM players WHERE id = $1 FOR UPDATE`,
     [id]
   );
 
@@ -146,7 +150,7 @@ export const reviewPlayer = asyncHandler(async (req: AuthRequest, res: Response)
   // No se aprueba un registro incompleto: la elegibilidad quedaría en falso
   // y el manager creería que su jugador ya puede jugar.
   if (action === 'APPROVE') {
-    const required = await getRequiredDocuments(player.season_id);
+    const required = await getRequiredDocuments(player.season_id, query);
     const docs = await query<{ document_type: string }>(
       `SELECT DISTINCT document_type FROM player_documents
        WHERE player_id = $1 AND is_current = TRUE`,
@@ -164,7 +168,7 @@ export const reviewPlayer = asyncHandler(async (req: AuthRequest, res: Response)
     }
   }
 
-  await withTransaction(async (q) => {
+  { const q = query;
     await q(
       `UPDATE players SET status = $1, reviewed_by_user_id = $2, reviewed_at = NOW(),
               updated_at = NOW() WHERE id = $3`,
@@ -195,9 +199,9 @@ export const reviewPlayer = asyncHandler(async (req: AuthRequest, res: Response)
         [id]
       );
     }
-  });
+  }
 
-  const eligibility = await refreshEligibility(id);
+  const eligibility = await refreshEligibility(id, query);
 
   await audit(req, {
     action: `REVIEW_PLAYER_${action}`,
@@ -208,16 +212,16 @@ export const reviewPlayer = asyncHandler(async (req: AuthRequest, res: Response)
   });
 
   // Notificación al manager (req. 31). No bloquea la respuesta.
-  void notifyPlayerStatusChange({
+  await notifyPlayerStatusChange({
     playerId: id,
     playerName: `${player.first_name} ${player.last_name_paternal}`,
     teamId: player.team_id,
     action,
     newStatus,
     reason,
-  });
+  }, query);
 
-  res.json({
+  return ({
     success: true,
     data: { status: newStatus, eligibility },
     message: {
@@ -227,6 +231,9 @@ export const reviewPlayer = asyncHandler(async (req: AuthRequest, res: Response)
       BLOCK: 'Jugador bloqueado',
     }[action],
   });
+  });
+  void drainEmailQueue();
+  res.json(result);
 });
 
 /** GET /api/v1/admin/validation/stats — tarjetas del dashboard */

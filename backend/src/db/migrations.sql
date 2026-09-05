@@ -609,3 +609,21 @@ CREATE TABLE IF NOT EXISTS playoff_games (
   slot INTEGER NOT NULL,
   PRIMARY KEY(playoff_id, stage, slot)
 );
+
+-- Payload cifrado (puede contener credenciales); se purga al terminar o vencer.
+CREATE TABLE IF NOT EXISTS email_jobs (
+  id VARCHAR(36) PRIMARY KEY,
+  dedupe_key VARCHAR(64) NOT NULL UNIQUE,
+  payload TEXT,
+  status VARCHAR(16) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','PROCESSING','SENT','FAILED')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  lease_token VARCHAR(36),
+  lease_until TIMESTAMPTZ,
+  last_error VARCHAR(80),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_email_jobs_pending ON email_jobs(next_attempt_at)
+  WHERE status IN ('PENDING','PROCESSING');

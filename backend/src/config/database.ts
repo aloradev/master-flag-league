@@ -43,7 +43,7 @@ export const getClient = () => pool.connect();
 
 /** Ejecuta varias sentencias dentro de una transacción. */
 export const withTransaction = async <T>(
-  fn: (q: (text: string, params?: any[]) => Promise<any>) => Promise<T>
+  fn: (q: typeof query) => Promise<T>
 ): Promise<T> => {
   const client = await pool.connect();
   try {

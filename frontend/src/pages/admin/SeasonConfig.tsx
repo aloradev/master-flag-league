@@ -5,6 +5,7 @@ import type { Season } from '../../lib/types';
 import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
 import { useAuth } from '../../store/auth';
 import { fechaTexto } from '../../lib/format';
+import { OperationsStatus } from '../../components/OperationsStatus';
 
 interface DocumentSettings {
   required: string[];
@@ -159,6 +160,7 @@ export default function SeasonConfig() {
       </div>
 
       {message && <Alert tone={message.tone}>{message.text}</Alert>}
+      {isSuperAdmin && <OperationsStatus />}
 
       {/* Fechas y reglas */}
       <Card className="space-y-3 p-4">

@@ -13,6 +13,7 @@ import * as rounds from '../controllers/rounds.controller.js';
 import * as games from '../controllers/games.controller.js';
 import * as finance from '../controllers/finance.controller.js';
 import * as diagnostics from '../controllers/diagnostics.controller.js';
+import * as operations from '../controllers/operations.controller.js';
 import * as playoffs from '../controllers/playoffs.controller.js';
 import * as statistics from '../controllers/statistics.controller.js';
 
@@ -207,6 +208,9 @@ router.post('/finance/expenses/:id/void', soloFinanzas, finance.voidExpense);
  * qué credenciales llegaron —enmascaradas— y si Cloudinary las acepta.
  */
 router.get('/admin/diagnostics/storage', requireAdmin, diagnostics.storageDiagnostics);
+router.get('/admin/operations', requireRole(ROLES.SUPER_ADMIN), operations.status);
+router.post('/admin/operations/process-emails', requireRole(ROLES.SUPER_ADMIN), operations.processPending);
+router.post('/admin/operations/process-birthdays', requireRole(ROLES.SUPER_ADMIN), operations.processBirthdays);
 
 // Auditoría: solo Super Admin (req. 42).
 router.get('/admin/audit', requireRole(ROLES.SUPER_ADMIN), audit.listAuditLogs);

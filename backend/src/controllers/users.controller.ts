@@ -1,7 +1,9 @@
 import type { Response } from 'express';
-import { query } from '../config/database.js';
+import { query, withTransaction } from '../config/database.js';
 import { hashPassword, validatePassword, generateTempPassword } from '../utils/password.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { audit as writeAudit } from '../services/audit.service.js';
+import { drainEmailQueue } from '../services/email-queue.service.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
 import { ROLES, type AuthRequest } from '../middleware/auth.js';
@@ -55,6 +57,8 @@ export const listUsers = asyncHandler(async (req: AuthRequest, res: Response) =>
 
 /** POST /api/v1/admin/users */
 export const createUser = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const result = await withTransaction(async (query) => {
+  const audit: typeof writeAudit = (request, entry) => writeAudit(request, entry, query);
   const { email, name, role, phone, password } = req.body ?? {};
 
   if (!email || !name || !role) {
@@ -108,7 +112,8 @@ export const createUser = asyncHandler(async (req: AuthRequest, res: Response) =
     newValue: { email, name, role },
   });
 
-  res.status(201).json({
+  await notifyNewUser({ email: email.toLowerCase(), name, temporaryPassword: isTemp ? finalPassword : undefined, roleLabel: role }, query);
+  return ({
     success: true,
     data: {
       id,
@@ -120,12 +125,9 @@ export const createUser = asyncHandler(async (req: AuthRequest, res: Response) =
     },
   });
 
-  void notifyNewUser({
-    email: email.toLowerCase(),
-    name,
-    temporaryPassword: finalPassword,
-    roleLabel: role,
   });
+  void drainEmailQueue();
+  res.status(201).json(result);
 });
 
 /** PUT /api/v1/admin/users/:id */
