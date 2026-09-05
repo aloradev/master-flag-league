@@ -250,7 +250,11 @@ export const getValidationStats = asyncHandler(async (req: AuthRequest, res: Res
        COUNT(*) FILTER (WHERE status = 'BLOCKED')::int                        AS blocked,
        COUNT(*) FILTER (WHERE is_eligible)::int                               AS eligible
      FROM players
-     WHERE ($1::text IS NULL OR season_id = $1) AND removed_at IS NULL`,
+     WHERE ($1::text IS NULL OR season_id = $1) AND removed_at IS NULL
+       AND EXISTS (
+         SELECT 1 FROM teams t
+         WHERE t.id = players.team_id AND t.team_type = 'OFFICIAL'
+       )`,
     [seasonId ?? null]
   );
 
@@ -262,6 +266,7 @@ export const getValidationStats = asyncHandler(async (req: AuthRequest, res: Res
      FROM teams t
      LEFT JOIN players p ON p.team_id = t.id AND p.removed_at IS NULL
      WHERE ($1::text IS NULL OR t.season_id = $1)
+       AND t.team_type = 'OFFICIAL'
      GROUP BY t.id, t.name, t.color_primary
      ORDER BY pending DESC, t.name`,
     [seasonId ?? null]

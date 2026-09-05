@@ -41,7 +41,7 @@ const teamsForUser = async (userId: string) => {
      FROM team_users tu
      JOIN teams t ON t.id = tu.team_id
      JOIN categories c ON c.id = t.category_id
-     WHERE tu.user_id = $1
+     WHERE tu.user_id = $1 AND t.team_type = 'OFFICIAL'
      ORDER BY c.name, t.name`,
     [userId]
   );

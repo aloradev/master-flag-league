@@ -55,6 +55,19 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
   next();
 };
 
+/** Un enlace temporal de scrimmage solo puede tocar su partido. */
+export const restrictScrimmageToken = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user?.scrimmageGameId) return next();
+  const path = req.path;
+  const allowed = path === '/auth/me' ||
+    /^\/games\/[^/]+(\/live)?$/.test(path) ||
+    /^\/games\/[^/]+\/start$/.test(path) ||
+    /^\/games\/[^/]+\/finish$/.test(path) ||
+    /^\/games\/[^/]+\/events(\/[^/]+\/void)?$/.test(path);
+  if (!allowed) return res.status(403).json({ success: false, error: 'El enlace temporal solo permite operar su scrimmage' });
+  next();
+};
+
 /** Restringe a una lista de roles. */
 export const requireRole =
   (...roles: string[]) =>

@@ -39,6 +39,7 @@ import RefereeGames from './pages/referee/MyGames';
 import RefereeGameMode from './pages/referee/GameMode';
 import PlayerRankings from './pages/PlayerRankings';
 import PublicPlayer from './pages/publico/Player';
+import PartidoPublico from './pages/publico/Partido';
 import PowerRanking from './pages/PowerRanking';
 import SeasonHistory from './pages/SeasonHistory';
 import Playoffs from './pages/Playoffs';
@@ -107,6 +108,7 @@ const App = () => {
         <Route path="/jornada/:id" element={<JornadaPublica />} />
         <Route path="/tabla" element={<TablaPublica />} />
         <Route path="/jugador/:id" element={<PublicPlayer />} />
+        <Route path="/partido/:id" element={<PartidoPublico />} />
         <Route path="/scrimmage/:id" element={<ScrimmageEntry />} />
         <Route
           path="/cambiar-contrasena"

@@ -48,6 +48,7 @@ const partidosDeJornada = async (roundId: string) => {
      JOIN teams aw ON aw.id = g.away_team_id
      LEFT JOIN fields f ON f.id = g.field_id
      WHERE g.round_id = $1
+       AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
      ORDER BY g.scheduled_time, f.name, c.sort_order`,
     [roundId]
   );

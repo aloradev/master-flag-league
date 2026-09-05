@@ -20,6 +20,7 @@ import * as scrimmages from '../controllers/scrimmages.controller.js';
 
 import {
   requireAuth,
+  restrictScrimmageToken,
   requireAdmin,
   requireRole,
   loadManagedTeams,
@@ -40,6 +41,7 @@ router.post('/auth/forgot-password', auth.forgotPassword);
 router.get('/auth/reset-password/:token', auth.checkResetToken);
 router.post('/auth/reset-password', auth.resetPassword);
 router.get('/public/players/:id', players.getPublicPlayerProfile);
+router.get('/public/games/:id', publico.getPublicGame);
 
 // ── Jornada y tabla sin sesión ──
 // Es lo que se pega en el grupo de WhatsApp que los encargados ya tienen,
@@ -54,6 +56,7 @@ router.get('/public/statistics/players', statistics.publicPlayerStats);
 
 // A partir de aquí, todo exige sesión.
 router.use(requireAuth);
+router.use(restrictScrimmageToken);
 
 // ════════════════════════════════ SESIÓN ══════════════════════════════════
 router.get('/auth/me', auth.me);

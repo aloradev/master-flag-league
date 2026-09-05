@@ -735,7 +735,8 @@ export const getTeamStatement = asyncHandler(async (req: AuthRequest, res: Respo
 
   const eq = await query(
     `SELECT t.id, t.name, t.short_name, t.logo_url, t.season_id, c.name AS category_name
-     FROM teams t JOIN categories c ON c.id = t.category_id WHERE t.id = $1`,
+     FROM teams t JOIN categories c ON c.id = t.category_id
+     WHERE t.id = $1 AND t.team_type = 'OFFICIAL'`,
     [teamId]
   );
   const equipo = eq.rows[0];

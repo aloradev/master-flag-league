@@ -99,7 +99,7 @@ export const getTeam = asyncHandler(async (req: AuthRequest, res: Response) => {
      FROM teams t
      JOIN categories c ON c.id = t.category_id
      JOIN seasons s    ON s.id = t.season_id
-     WHERE t.id = $1`,
+     WHERE t.id = $1 AND t.team_type = 'OFFICIAL'`,
     [id]
   );
 

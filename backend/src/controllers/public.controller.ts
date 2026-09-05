@@ -47,12 +47,43 @@ const partidos = async (roundId: string) => {
      JOIN teams hl ON hl.id = g.home_team_id
      JOIN teams aw ON aw.id = g.away_team_id
      LEFT JOIN fields f ON f.id = g.field_id
-     WHERE g.round_id = $1 AND g.status <> 'CANCELLED'
+     WHERE g.round_id = $1
+       AND g.status <> 'CANCELLED'
+       AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
      ORDER BY g.scheduled_time, f.name, c.sort_order`,
      [roundId]
   );
   return r.rows;
 };
+
+export const getPublicGame = asyncHandler(async (req: Request, res: Response) => {
+  const id = (req.params as Record<string, string>).id;
+  const r = await query(`
+    SELECT g.id, g.status, g.home_score, g.away_score,
+           to_char(g.scheduled_time, 'HH24:MI') AS scheduled_time,
+           g.home_team_id, g.away_team_id,
+           c.name AS category_name, c.color AS category_color,
+           f.name AS field_name,
+           h.name AS home_team_name, h.short_name AS home_short_name,
+           h.logo_url AS home_logo_url, h.color_primary AS home_color,
+           a.name AS away_team_name, a.short_name AS away_short_name,
+           a.logo_url AS away_logo_url, a.color_primary AS away_color,
+           r.scheduled_date, r.number AS round_number,
+           COALESCE((SELECT json_agg(json_build_object('team_id', e.team_id, 'points', e.points, 'quarter', e.quarter, 'created_at', e.created_at) ORDER BY e.created_at)
+                     FROM game_events e WHERE e.game_id = g.id AND e.voided_at IS NULL AND e.event_type = 'TOUCHDOWN'), '[]'::json) AS touchdowns
+    FROM games g
+    JOIN rounds r ON r.id = g.round_id
+    JOIN categories c ON c.id = g.category_id
+    JOIN teams h ON h.id = g.home_team_id
+    JOIN teams a ON a.id = g.away_team_id
+    LEFT JOIN fields f ON f.id = g.field_id
+    WHERE g.id = $1
+      AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
+      AND g.status <> 'CANCELLED'
+      AND r.status IN ('PUBLISHED','IN_PROGRESS','FINISHED')`, [id]);
+  if (!r.rows[0]) throw new AppError('Partido no encontrado o todavía no publicado', 404);
+  res.json({ success: true, data: r.rows[0] });
+});
 
 const descansos = async (roundId: string) => {
   const r = await query(
@@ -95,6 +126,12 @@ export const getPublicRound = asyncHandler(async (req: Request, res: Response) =
      FROM rounds ro
      WHERE ro.season_id = $1
        AND ro.status IN ('PUBLISHED', 'IN_PROGRESS', 'FINISHED')
+       AND EXISTS (
+         SELECT 1 FROM games official_game
+         WHERE official_game.round_id = ro.id
+           AND COALESCE(official_game.game_type, 'OFFICIAL') = 'OFFICIAL'
+           AND official_game.status <> 'CANCELLED'
+       )
        AND ($2::text IS NULL OR ro.id = $2)
      ORDER BY
        -- En curso primero; después la más próxima sin terminar; al final,
@@ -133,6 +170,12 @@ export const listPublicRounds = asyncHandler(async (_req: Request, res: Response
     `SELECT ro.id, ro.number, ro.name, ro.scheduled_date, ro.status
      FROM rounds ro
      WHERE ro.season_id = $1 AND ro.status IN ('PUBLISHED', 'IN_PROGRESS', 'FINISHED')
+       AND EXISTS (
+         SELECT 1 FROM games official_game
+         WHERE official_game.round_id = ro.id
+           AND COALESCE(official_game.game_type, 'OFFICIAL') = 'OFFICIAL'
+           AND official_game.status <> 'CANCELLED'
+       )
      ORDER BY ro.number ASC`,
     [temporada.id]
   );

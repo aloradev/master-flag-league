@@ -524,7 +524,8 @@ export const getPublicPlayerProfile = asyncHandler(async (req: AuthRequest, res:
      JOIN teams t      ON t.id = p.team_id
      JOIN categories c ON c.id = p.category_id
      JOIN seasons s    ON s.id = p.season_id
-     WHERE p.id = $1 AND p.status = 'APPROVED' AND p.removed_at IS NULL`,
+     WHERE p.id = $1 AND p.status = 'APPROVED' AND p.removed_at IS NULL
+       AND t.team_type = 'OFFICIAL'`,
     [req.params.id]
   );
 
@@ -653,7 +654,7 @@ export const removePlayer = asyncHandler(async (req: AuthRequest, res: Response)
 export const getTeamEligibility = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { teamId } = req.params;
 
-  const team = await query('SELECT id, name, color_primary FROM teams WHERE id = $1', [teamId]);
+  const team = await query("SELECT id, name, color_primary FROM teams WHERE id = $1 AND team_type = 'OFFICIAL'", [teamId]);
   if (!team.rows[0]) throw new AppError('Equipo no encontrado', 404);
 
   const result = await query(

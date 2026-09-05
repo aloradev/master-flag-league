@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { Alert, Card, EmptyState, Spinner } from '../../components/ui';
 import { IconFootball } from '../../components/icons';
@@ -133,6 +134,7 @@ const Partido = ({ p }: { p: PartidoPublico }) => {
           ))}
         </div>
       )}
+      <Link to={`/partido/${p.id}`} className="mt-3 block text-center text-xs font-semibold text-primary">Ver partido en vivo</Link>
     </Card>
   );
 };
