@@ -78,7 +78,7 @@ const ScrimmageEntry = () => {
     const token = new URLSearchParams(location.search).get('access');
     if (token) {
       tokenStore.set(token);
-      window.location.replace(`/arbitro/partido/${encodeURIComponent(location.pathname.split('/')[2] ?? '')}`);
+      window.location.href = `/arbitro/partido/${encodeURIComponent(location.pathname.split('/')[2] ?? '')}`;
     }
   }, [location.pathname, location.search]);
   return <Spinner label="Abriendo el modo árbitro…" />;

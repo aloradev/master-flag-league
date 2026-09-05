@@ -20,7 +20,16 @@ export const list = asyncHandler(async (req: AuthRequest, res: Response) => {
     JOIN categories c ON c.id = g.category_id
     WHERE g.game_type = 'SCRIMMAGE' AND ($1::text = '' OR g.season_id = $1)
     ORDER BY r.scheduled_date DESC, g.scheduled_time DESC`, [seasonId]);
-  res.json({ success: true, data: result.rows });
+  const base = process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'https://master-flag-league.vercel.app';
+  const data = result.rows.map((row) => {
+    const accessToken = generateAccessToken({
+      id: req.user!.id, email: req.user!.email, name: req.user!.name,
+      role: 'REFEREE', leagueId: req.user!.leagueId ?? null,
+      scope: 'SCRIMMAGE_REFEREE', scrimmageGameId: row.game_id,
+    });
+    return { ...row, access_url: `${base}/scrimmage/${row.game_id}?access=${encodeURIComponent(accessToken)}` };
+  });
+  res.json({ success: true, data });
 });
 
 export const remove = asyncHandler(async (req: AuthRequest, res: Response) => {
