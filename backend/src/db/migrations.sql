@@ -92,6 +92,13 @@ CREATE TABLE IF NOT EXISTS teams (
   UNIQUE (season_id, category_id, name)
 );
 
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS team_type VARCHAR(20) NOT NULL DEFAULT 'OFFICIAL';
+UPDATE teams SET team_type = 'SCRIMMAGE' WHERE team_type = 'OFFICIAL' AND name LIKE 'Scrimmage · %';
+DO $$ BEGIN
+  ALTER TABLE teams ADD CONSTRAINT teams_team_type_check CHECK (team_type IN ('OFFICIAL', 'SCRIMMAGE'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- ---------- MANAGERS DE EQUIPO (req. 4: 2 encargados) ----------
 CREATE TABLE IF NOT EXISTS team_users (
   id            VARCHAR(36) PRIMARY KEY,

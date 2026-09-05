@@ -123,6 +123,10 @@ export default function AdminTeams() {
 
   if (teams.isLoading || season.isLoading) return <Spinner />;
 
+  if (teams.isError) {
+    return <Alert tone="error">No se pudieron cargar los equipos. Actualiza la página y, si continúa, revisa la conexión con el servidor.</Alert>;
+  }
+
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['teams'] });
     void queryClient.invalidateQueries({ queryKey: ['validation-stats'] });

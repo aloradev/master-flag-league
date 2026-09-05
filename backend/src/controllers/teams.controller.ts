@@ -31,10 +31,12 @@ const MAX_MANAGERS_PER_TEAM = 2;
  * Admin ve todos los equipos; un manager solo los suyos (req. 45).
  */
 export const listTeams = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { seasonId, categoryId, status } = req.query as Record<string, string | undefined>;
+  const { seasonId, categoryId, status, includeScrimmages } = req.query as Record<string, string | undefined>;
 
   const conditions: string[] = [];
   const params: any[] = [];
+
+  if (includeScrimmages !== 'true') conditions.push(`t.team_type = 'OFFICIAL'`);
 
   if (seasonId) {
     params.push(seasonId);

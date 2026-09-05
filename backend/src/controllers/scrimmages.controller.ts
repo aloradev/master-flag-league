@@ -9,6 +9,7 @@ import { audit } from '../services/audit.service.js';
 export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { seasonId, categoryId, homeTeamId, awayTeamId, homeTeamName, awayTeamName, date, time, name } = req.body ?? {};
   if (![seasonId, categoryId, date, time].every((v) => typeof v === 'string' && v.trim())) throw new AppError('Faltan temporada, categoría, fecha y hora', 400);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new AppError('Indica una fecha y hora válidas. La hora se interpreta como hora local de Cancún.', 400);
   if ((!homeTeamId && !homeTeamName) || (!awayTeamId && !awayTeamName)) throw new AppError('Escribe los nombres de ambos equipos', 400);
   if (homeTeamId && awayTeamId && homeTeamId === awayTeamId) throw new AppError('Los equipos deben ser distintos', 400);
   const roundId = newPrefixedId('round'); const gameId = newPrefixedId('game');
@@ -23,8 +24,8 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
       const clean = String(label ?? '').trim();
       if (clean.length < 2 || clean.length > 80) throw new AppError('El nombre de cada equipo debe tener entre 2 y 80 caracteres', 400);
       const idNuevo = newPrefixedId('team');
-      await q(`INSERT INTO teams(id, season_id, category_id, name, short_name, status)
-               VALUES($1,$2,$3,$4,$5,'ACTIVE')`, [idNuevo, seasonId, categoryId, `Scrimmage · ${clean}`, clean.slice(0, 3).toUpperCase()]);
+      await q(`INSERT INTO teams(id, season_id, category_id, name, short_name, status, team_type)
+               VALUES($1,$2,$3,$4,$5,'ACTIVE','SCRIMMAGE')`, [idNuevo, seasonId, categoryId, `Scrimmage · ${clean}`, clean.slice(0, 3).toUpperCase()]);
       return idNuevo;
     };
     const home = await resolveTeam(homeTeamId, homeTeamName);
