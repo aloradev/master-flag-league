@@ -4,6 +4,7 @@ import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
 import type { AuthRequest } from '../middleware/auth.js';
+import { notifyRoundPublished } from '../services/notification.service.js';
 import {
   construirPropuesta,
   guardarPropuesta,
@@ -284,6 +285,12 @@ export const publishRound = asyncHandler(async (req: AuthRequest, res: Response)
   });
 
   const actualizada = await query(`SELECT * FROM rounds WHERE id = $1`, [id]);
+  void notifyRoundPublished({
+    seasonId: round.season_id,
+    roundId: id,
+    roundName: round.name || `Jornada ${round.number}`,
+    scheduledDate: String(round.scheduled_date).slice(0, 10),
+  });
   res.json({ success: true, data: actualizada.rows[0] });
 });
 

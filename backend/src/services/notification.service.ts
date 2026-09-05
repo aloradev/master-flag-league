@@ -98,9 +98,9 @@ export const send = async (notification: Notification): Promise<boolean> => {
 
 const layout = (title: string, content: string): string => `
 <div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1f2937">
-  <div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px 12px 0 0;padding:24px;text-align:center">
-    <div style="font-size:28px">🏆</div>
-    <div style="color:#fff;font-size:18px;font-weight:600;margin-top:4px">Master Flag League</div>
+  <div style="background:linear-gradient(135deg,#052f49,#0e7490 55%,#d9468c);border-radius:12px 12px 0 0;padding:20px;text-align:center">
+    <img src="${(process.env.FRONTEND_URL || '').replace(/\/$/, '')}/logo-96.webp" alt="Master Flag League" width="72" height="72" style="display:block;margin:0 auto 8px;border-radius:16px" />
+    <div style="color:#fff;font-size:18px;font-weight:700;margin-top:4px">Master Flag League</div>
   </div>
   <div style="background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;padding:24px">
     <h2 style="margin:0 0 12px;font-size:18px">${title}</h2>
@@ -212,4 +212,29 @@ export const notifyNewUser = async (params: {
        <p>Se te pedirá cambiarla al ingresar por primera vez.</p>`
     ),
   });
+};
+
+/** Avisa a los managers cuando administración publica una jornada. */
+export const notifyRoundPublished = async (params: {
+  seasonId: string;
+  roundId: string;
+  roundName: string;
+  scheduledDate: string;
+}): Promise<void> => {
+  try {
+    const managers = await query<{ email: string; name: string }>(
+      `SELECT DISTINCT u.email, u.name
+       FROM team_users tu JOIN users u ON u.id = tu.user_id
+       JOIN teams t ON t.id = tu.team_id
+       WHERE t.season_id = $1 AND u.active = TRUE`,
+      [params.seasonId]
+    );
+    await Promise.all(managers.rows.map((manager) => send({
+      to: manager.email,
+      subject: `${params.roundName} ya está publicada`,
+      body: layout(`${params.roundName} publicada`, `<p>Hola ${manager.name},</p><p>Ya puedes consultar los partidos, horarios, campos y árbitros de la jornada del <strong>${params.scheduledDate}</strong>.</p><p><a href="${(process.env.FRONTEND_URL || '').replace(/\/$/, '')}/jornada">Ver jornada</a></p>`),
+    })));
+  } catch (err) {
+    console.error('[notificación] Fallo al notificar jornada:', err);
+  }
 };

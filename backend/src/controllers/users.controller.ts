@@ -9,6 +9,7 @@ import {
   crearToken,
   enlaceDeRestablecimiento,
 } from '../services/password-reset.service.js';
+import { notifyNewUser } from '../services/notification.service.js';
 
 const ASSIGNABLE_ROLES = Object.values(ROLES);
 
@@ -117,6 +118,13 @@ export const createUser = asyncHandler(async (req: AuthRequest, res: Response) =
       // La contraseña temporal se devuelve una sola vez para entregarla al usuario.
       ...(isTemp ? { temporaryPassword: finalPassword } : {}),
     },
+  });
+
+  void notifyNewUser({
+    email: email.toLowerCase(),
+    name,
+    temporaryPassword: finalPassword,
+    roleLabel: role,
   });
 });
 
