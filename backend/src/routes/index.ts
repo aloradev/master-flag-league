@@ -122,6 +122,7 @@ router.put('/admin/seasons/:id', requireRole(ROLES.SUPER_ADMIN), seasons.updateS
 router.post('/admin/seasons/:seasonId/categories', requireAdmin, seasons.createCategory);
 router.post('/admin/seasons/:seasonId/fields', requireAdmin, seasons.createField);
 router.put('/admin/categories/:id', requireAdmin, seasons.updateCategory);
+router.delete('/admin/categories/:id', requireAdmin, seasons.deleteCategory);
 router.put('/admin/fields/:id', requireAdmin, seasons.updateField);
 router.put(
   '/admin/seasons/:seasonId/settings/:key',
@@ -130,6 +131,7 @@ router.put(
 );
 
 router.post('/admin/teams', requireAdmin, teams.createTeam);
+router.delete('/admin/teams/:id', requireAdmin, teams.deleteTeam);
 router.post('/admin/teams/:id/managers', requireAdmin, teams.assignManager);
 router.delete('/admin/teams/:id/managers/:userId', requireAdmin, teams.removeManager);
 

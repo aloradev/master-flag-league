@@ -110,7 +110,6 @@ const NewTeamForm = ({
 export default function AdminTeams() {
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
-
   const season = useQuery({
     queryKey: ['season-active'],
     queryFn: () => api.get<Season>('/seasons/active'),
@@ -129,6 +128,10 @@ export default function AdminTeams() {
     void queryClient.invalidateQueries({ queryKey: ['validation-stats'] });
     setCreating(false);
   };
+  const remove = useMutation({
+    mutationFn: (id: string) => api.del(`/admin/teams/${id}`),
+    onSuccess: refresh,
+  });
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -173,10 +176,8 @@ export default function AdminTeams() {
 
             return (
               <Card as="li" key={team.id}>
-                <Link
-                  to={`/admin/equipos/${team.id}`}
-                  className="flex items-center gap-3 p-3 transition-colors hover:bg-base-300/40"
-                >
+                <div className="flex items-center gap-3 p-3 transition-colors hover:bg-base-300/40">
+                  <Link to={`/admin/equipos/${team.id}`} aria-label={`Abrir equipo ${team.name}`} className="flex min-w-0 flex-1 items-center gap-3">
                   <TeamCrest
                     logoUrl={team.logo_url}
                     name={team.name}
@@ -213,7 +214,12 @@ export default function AdminTeams() {
                       <IconWarning size={20} />
                     </span>
                   )}
-                </Link>
+                  </Link>
+                  <Button size="xs" tone="error" outline loading={remove.isPending}
+                    onClick={(event) => { event.preventDefault(); if (window.confirm(`¿Eliminar ${team.name}? Solo se puede eliminar si no tiene jugadores ni partidos.`)) remove.mutate(team.id); }}>
+                    Eliminar
+                  </Button>
+                </div>
               </Card>
             );
           })}

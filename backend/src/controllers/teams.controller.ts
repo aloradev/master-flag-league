@@ -227,6 +227,22 @@ export const updateTeam = asyncHandler(async (req: AuthRequest, res: Response) =
   res.json({ success: true, message: 'Equipo actualizado' });
 });
 
+/** DELETE /api/v1/admin/teams/:id — solo equipos sin jugadores ni partidos. */
+export const deleteTeam = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const team = await query('SELECT * FROM teams WHERE id = $1', [id]);
+  if (!team.rows[0]) throw new AppError('Equipo no encontrado', 404);
+  const used = await query(`SELECT
+    (SELECT COUNT(*) FROM players WHERE team_id = $1)::int AS players,
+    (SELECT COUNT(*) FROM games WHERE home_team_id = $1 OR away_team_id = $1)::int AS games`, [id]);
+  if (used.rows[0].players > 0 || used.rows[0].games > 0) {
+    throw new AppError('No se puede eliminar: el equipo tiene jugadores o partidos. Suspéndelo para conservar el historial.', 409);
+  }
+  await query('DELETE FROM teams WHERE id = $1', [id]);
+  await audit(req, { action: 'DELETE_TEAM', entityType: 'team', entityId: id, oldValue: team.rows[0] });
+  res.json({ success: true, data: { id } });
+});
+
 /** POST /api/v1/admin/teams/:id/managers — asigna un encargado */
 export const assignManager = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;

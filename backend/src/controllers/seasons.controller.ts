@@ -219,6 +219,22 @@ export const updateCategory = asyncHandler(async (req: AuthRequest, res: Respons
   res.json({ success: true, message: 'Categoría actualizada' });
 });
 
+/** DELETE /api/v1/admin/categories/:id — solo categorías todavía vacías. */
+export const deleteCategory = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const category = await query('SELECT id, season_id, name FROM categories WHERE id = $1', [id]);
+  if (!category.rows[0]) throw new AppError('Categoría no encontrada', 404);
+  const used = await query(`SELECT
+    (SELECT COUNT(*) FROM teams WHERE category_id = $1)::int AS teams,
+    (SELECT COUNT(*) FROM games WHERE category_id = $1)::int AS games`, [id]);
+  if (used.rows[0].teams > 0 || used.rows[0].games > 0) {
+    throw new AppError('No se puede eliminar: la categoría tiene equipos o partidos. Suspéndela o elimina primero los datos dependientes.', 409);
+  }
+  await query('DELETE FROM categories WHERE id = $1', [id]);
+  await audit(req, { action: 'DELETE_CATEGORY', entityType: 'category', entityId: id, oldValue: category.rows[0] });
+  res.json({ success: true, data: { id } });
+});
+
 /** PUT /api/v1/admin/fields/:id */
 export const updateField = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;

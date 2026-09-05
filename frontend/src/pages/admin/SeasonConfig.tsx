@@ -139,6 +139,12 @@ export default function SeasonConfig() {
     onError: (err) => fail(err, 'No se pudo agregar el campo'),
   });
 
+  const deleteCategory = useMutation({
+    mutationFn: (id: string) => api.del(`/admin/categories/${id}`),
+    onSuccess: () => { setMessage({ tone: 'success', text: 'Categoría eliminada' }); refresh(); },
+    onError: (err) => fail(err, 'No se pudo eliminar la categoría'),
+  });
+
   if (season.isLoading) return <Spinner />;
   if (!season.data) {
     return <Alert tone="warning">No hay una temporada activa.</Alert>;
@@ -240,7 +246,11 @@ export default function SeasonConfig() {
                 style={{ backgroundColor: category.color }}
                 aria-hidden
               />
-              {category.name}
+              <span className="min-w-0 flex-1">{category.name}</span>
+              <Button size="xs" tone="error" outline loading={deleteCategory.isPending}
+                onClick={() => { if (window.confirm(`¿Eliminar la categoría ${category.name}? Solo se puede eliminar si está vacía.`)) deleteCategory.mutate(category.id); }}>
+                Eliminar
+              </Button>
             </li>
           ))}
         </ul>
