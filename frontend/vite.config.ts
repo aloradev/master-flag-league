@@ -13,5 +13,17 @@ export default defineConfig({
       '/media': { target: 'http://localhost:5000', changeOrigin: true },
     },
   },
-  build: { outDir: 'dist' },
+  build: {
+    outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) return 'react';
+          if (id.includes('node_modules/@tanstack')) return 'query';
+          if (id.includes('node_modules/daisyui')) return 'ui';
+          return undefined;
+        },
+      },
+    },
+  },
 });
