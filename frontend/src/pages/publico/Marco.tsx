@@ -36,8 +36,8 @@ export const Marco = ({
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <Link
-              to="/jornada"
-              aria-label="Ir al inicio público de Master Flag League"
+              to="/ingresar"
+              aria-label="Ir al acceso de Master Flag League"
               title="Ir al inicio"
               className="shrink-0 rounded-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >

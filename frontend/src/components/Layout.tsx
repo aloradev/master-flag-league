@@ -142,8 +142,8 @@ export const Layout = () => {
       <aside className="hidden w-60 shrink-0 border-r border-base-300 bg-base-200/50 md:flex md:flex-col">
         <div className="flex items-center gap-2.5 px-4 py-4">
           <Link
-            to="/jornada"
-            aria-label="Ir al inicio público de Master Flag League"
+            to="/ingresar"
+            aria-label="Ir al acceso de Master Flag League"
             title="Ir al inicio"
             className="shrink-0 rounded-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
@@ -193,8 +193,8 @@ export const Layout = () => {
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-base-300 bg-base-100/95 px-3 py-2 backdrop-blur md:hidden">
           <div className="flex min-w-0 items-center gap-2">
             <Link
-              to="/jornada"
-              aria-label="Ir al inicio público de Master Flag League"
+              to="/ingresar"
+              aria-label="Ir al acceso de Master Flag League"
               title="Ir al inicio"
               className="shrink-0 rounded-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
