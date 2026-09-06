@@ -10,6 +10,7 @@ export const list = asyncHandler(async (req: AuthRequest, res: Response) => {
   const seasonId = String(req.query.seasonId ?? '');
   const result = await query(`
     SELECT g.id AS game_id, g.scheduled_time, g.status, g.home_score, g.away_score,
+           g.scrimmage_access_revoked_at,
            r.id AS round_id, r.scheduled_date,
            h.name AS home_team_name, a.name AS away_team_name,
            c.name AS category_name
@@ -22,6 +23,9 @@ export const list = asyncHandler(async (req: AuthRequest, res: Response) => {
     ORDER BY r.scheduled_date DESC, g.scheduled_time DESC`, [seasonId]);
   const base = process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'https://master-flag-league.vercel.app';
   const data = result.rows.map((row) => {
+    if (row.scrimmage_access_revoked_at) {
+      return { ...row, access_url: null, access_expires_at: null, access_revoked: true };
+    }
     const accessToken = generateAccessToken({
       sessionVersion: req.user!.sessionVersion,
       id: req.user!.id, email: req.user!.email, name: req.user!.name,
