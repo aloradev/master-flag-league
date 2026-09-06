@@ -82,7 +82,7 @@ const Partido = ({ p }: { p: PartidoPublico }) => {
   const conMarcador = p.home_score != null && p.away_score != null;
 
   return (
-    <Card className="p-3">
+    <Card className={`p-3 transition-shadow ${p.status === 'LIVE' ? 'border-error/60 shadow-lg shadow-error/10' : ''}`}>
       <div className="mb-2 flex items-center justify-between gap-2 text-xs text-base-content/60">
         <span className="flex min-w-0 items-center gap-1.5">
           {p.category_color && (
@@ -98,7 +98,7 @@ const Partido = ({ p }: { p: PartidoPublico }) => {
         <span className="flex shrink-0 items-center gap-2">
           {p.scheduled_time && <span className="tabular font-medium">{p.scheduled_time}</span>}
           {p.field_name && <span className="truncate">{p.field_name}</span>}
-          <span className={`badge badge-sm ${etiqueta.tono}`}>{etiqueta.texto}</span>
+          <span className={`badge badge-sm ${etiqueta.tono} ${p.status === 'LIVE' ? 'animate-pulse' : ''}`}>{etiqueta.texto}</span>
         </span>
       </div>
 
@@ -194,6 +194,8 @@ export default function JornadaPublicaPage() {
     month: 'long',
   });
   const titulo = round.name || `Jornada ${round.number}`;
+  const enVivo = games.filter((p) => p.status === 'LIVE');
+  const touchdowns = games.reduce((total, p) => total + (p.touchdowns?.length ?? 0), 0);
 
   const mensaje =
     `${titulo} — ${fecha}\n\n` +
@@ -213,6 +215,11 @@ export default function JornadaPublicaPage() {
       acciones={<BotonCompartir texto={mensaje} />}
     >
       {consulta.isError && <Alert tone="warning">Reconectando… Se muestran los últimos resultados recibidos.</Alert>}
+      <Card className="grid grid-cols-3 gap-2 bg-primary/5 p-3 text-center">
+        <div><p className="text-lg font-black tabular">{games.length}</p><p className="text-[11px] text-base-content/60">Partidos</p></div>
+        <div><p className={`text-lg font-black tabular ${enVivo.length ? 'text-error' : ''}`}>{enVivo.length}</p><p className="text-[11px] text-base-content/60">En vivo</p></div>
+        <div><p className="text-lg font-black tabular">{touchdowns}</p><p className="text-[11px] text-base-content/60">Touchdowns</p></div>
+      </Card>
       {games.length === 0 ? (
         <Alert tone="info">Esta jornada todavía no tiene partidos.</Alert>
       ) : (

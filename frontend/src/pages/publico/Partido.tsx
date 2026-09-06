@@ -4,7 +4,7 @@ import { api } from '../../lib/api';
 import { Alert, Card, EmptyState, Spinner } from '../../components/ui';
 import { IconFootball } from '../../components/icons';
 import { TeamCrest } from '../../components/AuthImage';
-import { Marco } from './Marco';
+import { Marco, BotonCompartir } from './Marco';
 import { fechaTexto } from '../../lib/format';
 
 type PublicGame = {
@@ -25,7 +25,8 @@ export default function PartidoPublico() {
   if (consulta.isLoading) return <Marco titulo="Partido"><Spinner /></Marco>;
   if (!consulta.data) return <Marco titulo="Partido"><EmptyState icon={<IconFootball size={40} />} title="No se pudo cargar el partido" description={consulta.error?.message ?? 'El partido no está disponible.'} action={<button className="btn min-h-11" onClick={() => void consulta.refetch()}>Reintentar</button>} /></Marco>;
   const p = consulta.data;
-  return <Marco titulo={`${p.home_team_name} vs ${p.away_team_name}`} subtitulo={`${fechaTexto(p.scheduled_date)} · ${p.scheduled_time} Cancún${p.field_name ? ` · ${p.field_name}` : ''}`}>
+  const mensaje = `${p.home_team_name} ${p.home_score} - ${p.away_score} ${p.away_team_name}\n${etiqueta[p.status]} · ${fechaTexto(p.scheduled_date)}\n\nVer partido: ${window.location.origin}/partido/${p.id}`;
+  return <Marco titulo={`${p.home_team_name} vs ${p.away_team_name}`} subtitulo={`${fechaTexto(p.scheduled_date)} · ${p.scheduled_time} Cancún${p.field_name ? ` · ${p.field_name}` : ''}`} acciones={<BotonCompartir texto={mensaje} />}>
     {consulta.isError && <Alert tone="warning">Reconectando… Se muestra el último marcador recibido.</Alert>}
     <Card className="space-y-4 p-5">
       {p.game_type === 'SCRIMMAGE' && <Alert tone="info">Scrimmage de prueba. No cuenta para posiciones ni rankings oficiales.</Alert>}

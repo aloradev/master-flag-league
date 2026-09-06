@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -88,13 +88,23 @@ const ScrimmageEntry = () => {
 
 const App = () => {
   const { restore, user, status } = useAuth();
+  const [offline, setOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
     void restore();
   }, [restore]);
 
+  useEffect(() => {
+    const online = () => setOffline(false);
+    const offlineNow = () => setOffline(true);
+    window.addEventListener('online', online);
+    window.addEventListener('offline', offlineNow);
+    return () => { window.removeEventListener('online', online); window.removeEventListener('offline', offlineNow); };
+  }, []);
+
   return (
     <BrowserRouter>
+      {offline && <div role="status" className="fixed inset-x-0 top-0 z-50 bg-warning px-3 py-2 text-center text-xs font-medium text-warning-content">Sin conexión. Se muestran los últimos datos disponibles; las acciones requieren internet.</div>}
       <Routes>
         <Route path="/ingresar" element={<Login />} />
         {/* Sin sesión a propósito: quien no puede entrar tampoco puede

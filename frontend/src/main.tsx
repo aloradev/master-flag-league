@@ -5,6 +5,12 @@ import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles.css';
 
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

@@ -1,0 +1,15 @@
+{
+  "name": "Master Flag League Cancún",
+  "short_name": "Master Flag",
+  "description": "Calendario, resultados y operación de la Master Flag League Cancún.",
+  "start_url": "/jornada",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d1420",
+  "theme_color": "#0d1420",
+  "lang": "es-MX",
+  "icons": [
+    { "src": "/logo-96.webp", "sizes": "96x96", "type": "image/webp", "purpose": "any maskable" },
+    { "src": "/logo-256.webp", "sizes": "256x256", "type": "image/webp", "purpose": "any maskable" }
+  ]
+}
