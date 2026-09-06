@@ -35,7 +35,14 @@ export const Marco = ({
       <header className="sticky top-0 z-20 border-b border-base-300 bg-base-100/95 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-2.5">
-            <Logo size="sm" className="size-9 shrink-0" />
+            <Link
+              to="/jornada"
+              aria-label="Ir al inicio público de Master Flag League"
+              title="Ir al inicio"
+              className="shrink-0 rounded-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <Logo size="sm" className="size-9" />
+            </Link>
             <div className="min-w-0 leading-tight">
               <p className="truncate text-sm font-bold">Master Flag League</p>
               <p className="truncate text-xs text-base-content/50">Cancún</p>

@@ -108,7 +108,7 @@ const temporadaActiva = async () => {
   return r.rows[0] ?? null;
 };
 
-/** Seguimiento de pruebas del día en Cancún y de cualquier prueba todavía en vivo. */
+/** Seguimiento de pruebas únicamente durante la fecha actual de Cancún. */
 export const getPublicScrimmages = asyncHandler(async (_req: Request, res: Response) => {
   const season = await temporadaActiva();
   if (!season) return res.json({ success: true, data: [] });
@@ -117,7 +117,7 @@ export const getPublicScrimmages = asyncHandler(async (_req: Request, res: Respo
       AND ro.status IN ('PUBLISHED', 'IN_PROGRESS', 'FINISHED')
       AND EXISTS (SELECT 1 FROM games g WHERE g.round_id = ro.id
         AND g.game_type = 'SCRIMMAGE' AND g.status <> 'CANCELLED'
-        AND (ro.scheduled_date = (NOW() AT TIME ZONE 'America/Cancun')::date OR g.status = 'LIVE'))
+        AND ro.scheduled_date = (NOW() AT TIME ZONE 'America/Cancun')::date)
     ORDER BY ro.scheduled_date, ro.number`, [season.id]);
   const groups = await Promise.all(rounds.rows.map(async (round) =>
     (await partidos(round.id, 'SCRIMMAGE')).map((game) => ({ ...game, scheduled_date: round.scheduled_date }))));

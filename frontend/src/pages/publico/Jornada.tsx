@@ -165,8 +165,8 @@ export default function JornadaPublicaPage() {
   const pruebas = <section className="mt-5 space-y-2">
     {scrimmages.isError && <Alert tone="warning">No se pudieron actualizar los scrimmages. Se reintentará automáticamente.</Alert>}
     {!!scrimmages.data?.length && <>
-      <h2 className="font-bold">Scrimmages · Hoy y en vivo</h2>
-      <p className="text-sm text-base-content/60">Partidos de prueba. Sus resultados no cuentan para la tabla ni los rankings.</p>
+      <h2 className="font-bold">Scrimmages · Hoy</h2>
+      <p className="text-sm text-base-content/60">Partidos de prueba de la fecha actual. Sus resultados no cuentan para la tabla ni los rankings.</p>
       {scrimmages.data.map((p) => <Partido key={p.id} p={p} />)}
     </>}
   </section>;

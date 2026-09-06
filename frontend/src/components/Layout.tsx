@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, isAdmin } from '../store/auth';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
@@ -141,7 +141,14 @@ export const Layout = () => {
       {/* Navegación lateral — escritorio */}
       <aside className="hidden w-60 shrink-0 border-r border-base-300 bg-base-200/50 md:flex md:flex-col">
         <div className="flex items-center gap-2.5 px-4 py-4">
-          <Logo size="sm" className="size-10 shrink-0" />
+          <Link
+            to="/jornada"
+            aria-label="Ir al inicio público de Master Flag League"
+            title="Ir al inicio"
+            className="shrink-0 rounded-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <Logo size="sm" className="size-10" />
+          </Link>
           <div className="leading-tight">
             <div className="text-sm font-bold">Master Flag League</div>
             <div className="text-xs text-base-content/50">Cancún</div>
@@ -185,7 +192,14 @@ export const Layout = () => {
         {/* Encabezado — celular */}
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-base-300 bg-base-100/95 px-3 py-2 backdrop-blur md:hidden">
           <div className="flex min-w-0 items-center gap-2">
-            <Logo size="sm" className="size-8 shrink-0" />
+            <Link
+              to="/jornada"
+              aria-label="Ir al inicio público de Master Flag League"
+              title="Ir al inicio"
+              className="shrink-0 rounded-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <Logo size="sm" className="size-8" />
+            </Link>
             <span className="truncate text-sm font-bold">Master Flag League</span>
           </div>
           <div className="flex shrink-0 items-center gap-1">
