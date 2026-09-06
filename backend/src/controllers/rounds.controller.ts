@@ -90,7 +90,7 @@ export const listRounds = asyncHandler(async (req: AuthRequest, res: Response) =
                       FROM round_time_slots WHERE round_id = ro.id), '[]') AS slots
      FROM rounds ro
      WHERE ($1::text IS NULL OR ro.season_id = $1)
-       AND (ro.name IS NULL OR ro.name <> 'Scrimmage de prueba')
+       AND ro.round_type = 'OFFICIAL'
        AND ($2::boolean OR ro.status <> 'DRAFT')
      ORDER BY ro.number DESC`,
     [seasonId ?? null, esAdmin]

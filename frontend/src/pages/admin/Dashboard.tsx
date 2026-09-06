@@ -16,11 +16,13 @@ export default function AdminDashboard() {
   });
 
   const stats = useQuery({
-    queryKey: ['validation-stats'],
-    queryFn: () => api.get<ValidationStats>('/admin/validation/stats'),
+    queryKey: ['validation-stats', season.data?.id],
+    queryFn: () => api.get<ValidationStats>(`/admin/validation/stats?seasonId=${season.data!.id}`),
+    enabled: Boolean(season.data?.id),
   });
 
-  if (stats.isLoading) return <Spinner />;
+  if (season.isLoading || stats.isLoading) return <Spinner />;
+  if (season.isError || stats.isError) return <Alert tone="error">No se pudo cargar el panel. <button className="link" onClick={() => { void season.refetch(); void stats.refetch(); }}>Reintentar</button></Alert>;
 
   const data = stats.data;
   const pendingWork = (data?.pending ?? 0) + (data?.corrections ?? 0);

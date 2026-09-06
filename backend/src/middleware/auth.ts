@@ -9,6 +9,7 @@ export interface AuthUser {
   role: string;
   leagueId: string | null;
   scrimmageGameId?: string;
+  sessionVersion?: number;
 }
 
 // Request<Record<string,string>> fija los params como cadenas: en Express 5
@@ -31,7 +32,7 @@ export const ROLES = {
 export const ADMIN_ROLES = [ROLES.SUPER_ADMIN, ROLES.SPORTS_ADMIN];
 
 /** Exige un token válido. */
-export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const requireAuth = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const header = req.headers.authorization;
   const token = header?.startsWith('Bearer ') ? header.slice(7) : null;
 
@@ -40,11 +41,22 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
   }
 
   const payload = verifyToken(token);
-  if (!payload) {
+  if (!payload || payload.type !== 'access' || !payload.id ||
+      Boolean(payload.scrimmageGameId) !== (payload.scope === 'SCRIMMAGE_REFEREE')) {
     return res.status(401).json({ success: false, error: 'Token inválido o expirado' });
   }
 
+  try {
+    const result = await query(`SELECT u.active, u.session_version, r.name AS role
+      FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [payload.id]);
+    const account = result.rows[0];
+    if (!account?.active || payload.sessionVersion !== account.session_version ||
+        (!payload.scrimmageGameId && payload.role !== account.role)) {
+      return res.status(401).json({ success: false, error: 'Sesión revocada. Solicita un nuevo acceso.' });
+    }
+  } catch (error) { return next(error); }
   req.user = {
+    sessionVersion: payload.sessionVersion,
     id: payload.id,
     email: payload.email,
     name: payload.name,

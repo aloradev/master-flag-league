@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Alert, Button, Card, Spinner } from '../../components/ui';
 import { IconCheckCircle, IconCircleX, IconWarning } from '../../components/icons';
 import { TeamCrest } from '../../components/AuthImage';
+import { Dialog } from '../../components/Dialog';
 import { useContador } from '../../lib/motion';
 import {
   competition,
@@ -45,6 +46,8 @@ const GameMode = ({ client = competition, temporary = false }: { client?: typeof
   const [hoja, setHoja] = useState<Hoja>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [bitacora, setBitacora] = useState(false);
+  const [connectionLost, setConnectionLost] = useState(false);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
   const [mvpOfensivo, setMvpOfensivo] = useState('');
   const [mvpDefensivo, setMvpDefensivo] = useState('');
 
@@ -55,6 +58,8 @@ const GameMode = ({ client = competition, temporary = false }: { client?: typeof
   const cargar = useCallback(async () => {
     try {
       const d = await competition.game(id);
+      setConnectionLost(false);
+      setLastSync(new Date());
       setGame(d);
       setScore({ home: d.home_score, away: d.away_score });
       setEvents(d.events);
@@ -80,6 +85,8 @@ const GameMode = ({ client = competition, temporary = false }: { client?: typeof
       try {
         const live = await competition.live(id, desde.current ?? undefined);
         if (!vigente) return;
+        setConnectionLost(false);
+        setLastSync(new Date());
         desde.current = live.server_time;
         setScore({ home: live.home_score, away: live.away_score });
         if (live.changes.length > 0) {
@@ -91,6 +98,7 @@ const GameMode = ({ client = competition, temporary = false }: { client?: typeof
         }
         if (live.status !== 'LIVE') void cargar();
       } catch {
+        if (vigente) setConnectionLost(true);
         // Un sondeo perdido no es un error que valga interrumpir el
         // partido: en la cancha la señal se cae y vuelve. El siguiente
         // intento traerá lo que faltó, porque `desde` no avanzó.
@@ -212,6 +220,8 @@ const GameMode = ({ client = competition, temporary = false }: { client?: typeof
 
   return (
     <div className="space-y-4 pb-24">
+      {connectionLost && <Alert tone="warning">Reconectando… El marcador puede estar desactualizado. Verifica la bitácora antes de repetir una jugada.</Alert>}
+      {lastSync && <p className="text-xs text-base-content/60" role="status">Última actualización: {lastSync.toLocaleTimeString("es-MX", { timeZone: "America/Cancun" })} · Cancún</p>}
       {/* ─────────────── MARCADOR ─────────────── */}
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between border-b border-base-300/60 px-4 py-2 text-xs">
@@ -695,9 +705,9 @@ const HojaEstadisticas = ({
             key={tipo}
             tone="neutral"
             outline
-            disabled={!jugador || !elegido?.is_eligible}
+            disabled={Boolean(ocupado) || (game.game_type !== 'SCRIMMAGE' && (!jugador || !elegido?.is_eligible))}
             loading={ocupado === `${tipo}:${jugador}`}
-            onClick={() => onRegistrar(tipo, jugador)}
+            onClick={() => onRegistrar(tipo, jugador || undefined)}
           >
             {jugada.label}
           </Button>
@@ -808,34 +818,7 @@ const Hoja = ({
   children: React.ReactNode;
   onCerrar: () => void;
 }) => (
-  <div className="fixed inset-0 z-50 flex items-end justify-center">
-    {/* El fondo cierra al tocarlo, pero se oculta del árbol de
-        accesibilidad: si se anuncia como un botón "Cerrar", quien usa
-        lector de pantalla oye dos controles con el mismo nombre y el
-        primero es invisible. El botón visible de la cabecera ya cubre
-        teclado y lectores. */}
-    <div
-      aria-hidden="true"
-      onClick={onCerrar}
-      className="mfl-fondo absolute inset-0 bg-black/60"
-    />
-    <div
-      role="dialog"
-      aria-label={titulo}
-      className="mfl-hoja relative max-h-[85vh] w-full max-w-lg space-y-3
-                 overflow-y-auto rounded-t-box border-t border-base-300
-                 bg-base-200 p-4 shadow-2xl"
-    >
-      <div className="sticky -top-4 -mx-4 -mt-4 mb-1 flex items-center justify-between
-                      border-b border-base-300/60 bg-base-200 px-4 py-3">
-        <h2 className="text-sm font-bold">{titulo}</h2>
-        <Button size="sm" tone="ghost" className="min-h-11 px-3" onClick={onCerrar}>
-          Cerrar
-        </Button>
-      </div>
-      {children}
-    </div>
-  </div>
+  <Dialog title={titulo} onClose={onCerrar}>{children}</Dialog>
 );
 
 export default GameMode;

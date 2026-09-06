@@ -55,8 +55,8 @@ const exigirPermisoDePartido = async (req: AuthRequest, gameId: string) => {
   const r = await query(
     `SELECT 1 FROM games g LEFT JOIN game_referees gr ON gr.game_id = g.id
      LEFT JOIN referees rf ON rf.id = gr.referee_id
-     WHERE g.id = $1 AND (g.game_type = 'SCRIMMAGE' OR rf.user_id = $2)`,
-    [gameId, req.user.id]
+     WHERE g.id = $1 AND ((g.game_type = 'SCRIMMAGE' AND g.id = $3) OR rf.user_id = $2)`,
+    [gameId, req.user.id, req.user.scrimmageGameId ?? null]
   );
   if (r.rows.length === 0) {
     throw new AppError('No estás asignado a este partido', 403);

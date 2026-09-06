@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit",
     "db:dev": "tsx scripts/dev-db.ts",
     "test": "node tests/integration.mjs",
+    "test:audit": "node tests/audit-fixes.mjs",
     "test:transactions": "node tests/transactions.mjs",
     "test:cors": "node tests/cors.mjs",
     "test:fixture": "node tests/fixture.mjs",

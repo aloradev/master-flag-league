@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
-import { useAuth, homeFor } from '../store/auth';
+import { useAuth } from '../store/auth';
 import { Alert, Button, Field } from '../components/ui';
 import { Logo } from '../components/Logo';
 
 export default function ChangePassword() {
-  const { user, markPasswordChanged, logout } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   const [current, setCurrent] = useState('');
@@ -28,8 +28,8 @@ export default function ChangePassword() {
 
     try {
       await api.post('/auth/change-password', { currentPassword: current, newPassword: next });
-      markPasswordChanged();
-      navigate(homeFor(user?.role), { replace: true });
+      logout();
+      navigate('/ingresar', { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

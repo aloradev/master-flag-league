@@ -5,6 +5,7 @@ import { Alert, Card, EmptyState, Spinner } from '../../components/ui';
 import { IconFootball } from '../../components/icons';
 import { TeamCrest } from '../../components/AuthImage';
 import { Marco } from './Marco';
+import { fechaTexto } from '../../lib/format';
 
 type PublicGame = {
   game_type?: 'OFFICIAL' | 'SCRIMMAGE';
@@ -22,9 +23,10 @@ export default function PartidoPublico() {
   const { id = '' } = useParams();
   const consulta = useQuery({ queryKey: ['public-game', id], queryFn: () => api.get<PublicGame>(`/public/games/${id}`), retry: false, refetchInterval: 10000 });
   if (consulta.isLoading) return <Marco titulo="Partido"><Spinner /></Marco>;
-  if (consulta.isError || !consulta.data) return <Marco titulo="Partido"><EmptyState icon={<IconFootball size={40} />} title="Partido no disponible" description="El partido no existe o todavía no fue publicado." /></Marco>;
+  if (!consulta.data) return <Marco titulo="Partido"><EmptyState icon={<IconFootball size={40} />} title="No se pudo cargar el partido" description={consulta.error?.message ?? 'El partido no está disponible.'} action={<button className="btn min-h-11" onClick={() => void consulta.refetch()}>Reintentar</button>} /></Marco>;
   const p = consulta.data;
-  return <Marco titulo={`${p.home_team_name} vs ${p.away_team_name}`} subtitulo={`${p.scheduled_date} · ${p.scheduled_time}${p.field_name ? ` · ${p.field_name}` : ''}`}>
+  return <Marco titulo={`${p.home_team_name} vs ${p.away_team_name}`} subtitulo={`${fechaTexto(p.scheduled_date)} · ${p.scheduled_time} Cancún${p.field_name ? ` · ${p.field_name}` : ''}`}>
+    {consulta.isError && <Alert tone="warning">Reconectando… Se muestra el último marcador recibido.</Alert>}
     <Card className="space-y-4 p-5">
       {p.game_type === 'SCRIMMAGE' && <Alert tone="info">Scrimmage de prueba. No cuenta para posiciones ni rankings oficiales.</Alert>}
       <div className="flex items-center justify-between text-sm text-base-content/60"><span>{p.category_name}</span><span className={`badge ${p.status === 'LIVE' ? 'badge-error' : 'badge-ghost'}`}>{etiqueta[p.status] ?? p.status}</span></div>

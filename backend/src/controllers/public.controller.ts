@@ -78,6 +78,7 @@ export const getPublicGame = asyncHandler(async (req: Request, res: Response) =>
     JOIN teams a ON a.id = g.away_team_id
     LEFT JOIN fields f ON f.id = g.field_id
     WHERE g.id = $1
+      AND COALESCE(g.game_type, 'OFFICIAL') IN ('OFFICIAL', 'SCRIMMAGE')
       AND g.status <> 'CANCELLED'
       AND r.status IN ('PUBLISHED','IN_PROGRESS','FINISHED')`, [id]);
   if (!r.rows[0]) throw new AppError('Partido no encontrado o todavía no publicado', 404);

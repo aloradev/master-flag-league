@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { api } from '../../lib/api';
+import { api, ApiError } from '../../lib/api';
 import { Alert, Card, EmptyState, Spinner } from '../../components/ui';
 import { IconFootball } from '../../components/icons';
 import { TeamCrest } from '../../components/AuthImage';
@@ -173,13 +173,14 @@ export default function JornadaPublicaPage() {
 
   if (consulta.isLoading || scrimmages.isLoading) return <Marco titulo="Jornada"><Spinner /></Marco>;
 
-  if (consulta.isError || !consulta.data) {
+  if (!consulta.data) {
     return (
       <Marco titulo="Jornada">
         {!scrimmages.data?.length && <EmptyState
           icon={<IconFootball size={40} />}
-          title="Todavía no hay jornada publicada"
-          description="Cuando la administración publique la próxima jornada, aparecerá aquí."
+          title={consulta.error instanceof ApiError && consulta.error.status === 404 ? 'Todavía no hay jornada publicada' : 'No se pudo cargar la jornada'}
+          description={consulta.error?.message ?? 'Intenta nuevamente en un momento.'}
+          action={<button className="btn min-h-11" onClick={() => void consulta.refetch()}>Reintentar</button>}
         />}
         {pruebas}
       </Marco>
@@ -211,6 +212,7 @@ export default function JornadaPublicaPage() {
       subtitulo={fecha}
       acciones={<BotonCompartir texto={mensaje} />}
     >
+      {consulta.isError && <Alert tone="warning">Reconectando… Se muestran los últimos resultados recibidos.</Alert>}
       {games.length === 0 ? (
         <Alert tone="info">Esta jornada todavía no tiene partidos.</Alert>
       ) : (

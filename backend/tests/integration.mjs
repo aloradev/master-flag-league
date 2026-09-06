@@ -3,7 +3,7 @@
  * Recorre el camino real: admin crea equipo y manager → manager registra
  * jugador y sube documentos → admin valida → el jugador queda elegible.
  */
-const API = 'http://localhost:5000/api/v1';
+const API = process.env.QA_API_URL || 'http://localhost:5000/api/v1';
 
 let passed = 0;
 let failed = 0;
@@ -42,10 +42,7 @@ const call = async (method, path, { token, body, form } = {}) => {
 };
 
 // PNG de 1x1 px: sirve como fotografía e identificación de prueba.
-const PNG_1PX = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==',
-  'base64'
-);
+const PNG_1PX = await (await import('sharp')).default({ create: { width: 16, height: 16, channels: 4, background: '#00cccc' } }).png().toBuffer();
 
 const uploadDoc = async (token, playerId, documentType, buffer = PNG_1PX, mime = 'image/png') => {
   const form = new FormData();
@@ -199,7 +196,7 @@ const run = async () => {
     mgrLogin.body?.data?.user?.mustChangePassword === true);
   check('La sesión del manager incluye sus dos equipos',
     mgrLogin.body?.data?.user?.teams?.length === 2);
-  const mgrToken = mgrLogin.body?.data?.accessToken;
+  let mgrToken = mgrLogin.body?.data?.accessToken;
 
   const mgr2Login = await call('POST', '/auth/login', {
     body: { email: 'manager.eagles@test.mx', password: tempPassword2 },
@@ -213,7 +210,7 @@ const run = async () => {
     [sharksId, eaglesId].every((id) => mgrTeams.body?.data?.some((t) => t.id === id)));
 
   const adminTeams = await call('GET', '/teams', { token: adminToken });
-  check('El admin conserva acceso a todos los equipos', adminTeams.body?.data?.length === 3);
+  check('El admin conserva acceso a todos los equipos', [sharksId, eaglesId, tigersId].every(id => adminTeams.body?.data?.some(team => team.id === id)));
 
   const adminManagedTeams = await call('GET', '/teams?managed=true', { token: adminToken });
   check('La vista de encargado del admin se limita a su equipo asignado',
@@ -312,13 +309,13 @@ const run = async () => {
 
   const docId = photo.body?.data?.id;
   const idDocId = idFront.body?.data?.id;
-  const docPublic = await fetch(`http://localhost:5000/api/v1/documents/${docId}/file`);
+  const docPublic = await fetch(`${API}/documents/${docId}/file`);
   check('El documento NO se sirve sin sesión', docPublic.status === 401);
 
   const docCross = await call('GET', `/documents/${docId}/file`, { token: mgr2Token });
   check('Un manager ajeno NO puede ver el documento', docCross.status === 403);
 
-  const docOwn = await fetch(`http://localhost:5000/api/v1/documents/${docId}/file`, {
+  const docOwn = await fetch(`${API}/documents/${docId}/file`, {
     headers: { Authorization: `Bearer ${mgrToken}` },
   });
   check('El manager dueño sí lo ve', docOwn.status === 200);
@@ -326,7 +323,7 @@ const run = async () => {
     docOwn.headers.get('cache-control'));
 
   // Abrir una identificación (no una foto) debe quedar auditado.
-  await fetch(`http://localhost:5000/api/v1/documents/${idDocId}/file`, {
+  await fetch(`${API}/documents/${idDocId}/file`, {
     headers: { Authorization: `Bearer ${adminToken}` },
   });
 
@@ -560,6 +557,8 @@ const run = async () => {
     body: { email: 'manager.sharks@test.mx', password: 'Sharks2026' },
   });
   check('Entra con la contraseña nueva', reLogin.status === 200);
+  check('La sesión anterior queda revocada', (await call('GET','/auth/me',{token:mgrToken})).status === 401);
+  mgrToken = reLogin.body?.data?.accessToken;
   check('Ya no se le exige cambiarla',
     reLogin.body?.data?.user?.mustChangePassword === false);
 
@@ -741,7 +740,7 @@ const run = async () => {
   check('Devuelve la URL del avatar derivado', Boolean(avatarUrl), String(avatarUrl));
 
   // El avatar debe abrirse SIN sesión: es lo que permite el perfil público.
-  const avatarAnonimo = await fetch(`http://localhost:5000${avatarUrl}`);
+  const avatarAnonimo = await fetch(`${new URL(API).origin}${avatarUrl}`);
   check('El avatar se sirve sin token', avatarAnonimo.status === 200,
     `status ${avatarAnonimo.status}`);
   check('Se entrega como WebP',
@@ -766,7 +765,7 @@ const run = async () => {
 
   // El ORIGINAL sigue siendo privado.
   const originalDoc = fotoSubida.body?.data?.id;
-  const originalAnonimo = await fetch(`http://localhost:5000/api/v1/documents/${originalDoc}/file`);
+  const originalAnonimo = await fetch(`${API}/documents/${originalDoc}/file`);
   check('El original de la foto sigue exigiendo sesión', originalAnonimo.status === 401,
     `status ${originalAnonimo.status}`);
 
@@ -827,7 +826,7 @@ const run = async () => {
     logo.body?.data?.width === 512 && logo.body?.data?.height === 384,
     `${logo.body?.data?.width}x${logo.body?.data?.height}`);
 
-  const logoAnonimo = await fetch(`http://localhost:5000${logoUrl}`);
+  const logoAnonimo = await fetch(`${new URL(API).origin}${logoUrl}`);
   check('El logo se sirve sin token', logoAnonimo.status === 200);
 
   const logoMeta = await sharpFn(Buffer.from(await logoAnonimo.arrayBuffer())).metadata();

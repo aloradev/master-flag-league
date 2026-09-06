@@ -10,6 +10,8 @@ export interface JWTPayload {
   scope?: 'SCRIMMAGE_REFEREE';
   iat?: number;
   exp?: number;
+  type?: 'access' | 'refresh';
+  sessionVersion?: number;
 }
 
 type TokenInput = Omit<JWTPayload, 'iat' | 'exp'>;
@@ -26,7 +28,7 @@ const secret = (): string => {
 };
 
 export const generateAccessToken = (payload: TokenInput): string =>
-  jwt.sign(payload, secret(), {
+  jwt.sign({ ...payload, type: 'access' }, secret(), {
     expiresIn: (process.env.JWT_EXPIRATION || '8h') as any,
   });
 
@@ -37,7 +39,7 @@ export const generateRefreshToken = (payload: TokenInput): string =>
 
 export const verifyToken = (token: string): JWTPayload | null => {
   try {
-    return jwt.verify(token, secret()) as JWTPayload;
+    return jwt.verify(token, secret(), { algorithms: ['HS256'] }) as JWTPayload;
   } catch {
     return null;
   }

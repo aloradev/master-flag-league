@@ -638,3 +638,31 @@ CREATE TABLE IF NOT EXISTS email_jobs (
 );
 CREATE INDEX IF NOT EXISTS idx_email_jobs_pending ON email_jobs(next_attempt_at)
   WHERE status IN ('PENDING','PROCESSING');
+
+-- Revocación de sesiones y separación estructural de jornadas de prueba.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0;
+CREATE OR REPLACE FUNCTION revoke_changed_user_sessions() RETURNS trigger AS $$
+BEGIN
+  IF NEW.password_hash IS DISTINCT FROM OLD.password_hash
+    OR NEW.role_id IS DISTINCT FROM OLD.role_id
+    OR NEW.active IS DISTINCT FROM OLD.active
+    OR NEW.league_id IS DISTINCT FROM OLD.league_id THEN
+    NEW.session_version := OLD.session_version + 1;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS revoke_changed_user_sessions ON users;
+CREATE TRIGGER revoke_changed_user_sessions BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION revoke_changed_user_sessions();
+
+ALTER TABLE rounds ADD COLUMN IF NOT EXISTS round_type VARCHAR(20) NOT NULL DEFAULT 'OFFICIAL';
+UPDATE rounds ro SET round_type = 'SCRIMMAGE'
+ WHERE EXISTS (SELECT 1 FROM games g WHERE g.round_id = ro.id AND g.game_type = 'SCRIMMAGE')
+ AND NOT EXISTS (SELECT 1 FROM games g WHERE g.round_id = ro.id AND g.game_type = 'OFFICIAL');
+ALTER TABLE rounds DROP CONSTRAINT IF EXISTS rounds_season_id_number_key;
+CREATE UNIQUE INDEX IF NOT EXISTS rounds_number_by_type ON rounds(season_id, round_type, number);
+-- Cada prueba crea sus participantes; el nombre puede repetirse en otra prueba.
+ALTER TABLE teams DROP CONSTRAINT IF EXISTS teams_season_id_category_id_name_key;
+CREATE UNIQUE INDEX IF NOT EXISTS official_team_name_unique ON teams(season_id, category_id, name)
+ WHERE team_type = 'OFFICIAL';

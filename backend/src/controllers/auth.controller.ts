@@ -23,6 +23,7 @@ import { operationalAlert } from '../services/operations.service.js';
 import { send as enviarNotificacion } from '../services/notification.service.js';
 
 interface UserRow {
+  session_version: number;
   id: string;
   email: string;
   name: string;
@@ -50,7 +51,7 @@ const teamsForUser = async (userId: string) => {
 
 const findUserByEmail = async (email: string) => {
   const result = await query<UserRow>(
-    `SELECT u.id, u.email, u.name, u.password_hash, u.active, u.league_id,
+    `SELECT u.id, u.email, u.name, u.password_hash, u.active, u.league_id, u.session_version,
             u.must_change_password, r.name AS role_name, r.permissions
      FROM users u
      JOIN roles r ON r.id = u.role_id
@@ -135,6 +136,7 @@ export const login = asyncHandler(async (req: AuthRequest, res: Response) => {
   }
 
   const tokens = generateTokens({
+    sessionVersion: user.session_version,
     id: user.id,
     email: user.email,
     name: user.name,
@@ -192,20 +194,22 @@ export const refresh = asyncHandler(async (req: AuthRequest, res: Response) => {
   if (!refreshToken) throw new AppError('refreshToken es obligatorio', 400);
 
   const payload = verifyToken(refreshToken);
-  if (!payload) throw new AppError('Token de refresco inválido o expirado', 401);
+  if (!payload || payload.type !== 'refresh' || payload.scope || payload.scrimmageGameId) throw new AppError('Token de refresco inválido o expirado', 401);
 
-  const result = await query<{ active: boolean; role_name: string }>(
-    `SELECT u.active, r.name AS role_name FROM users u
+  const result = await query<{ active: boolean; role_name: string; session_version: number }>(
+    `SELECT u.active, u.session_version, r.name AS role_name FROM users u
      JOIN roles r ON r.id = u.role_id WHERE u.id = $1`,
     [payload.id]
   );
 
   const current = result.rows[0];
   if (!current?.active) throw new AppError('Cuenta desactivada', 403);
+  if (payload.sessionVersion !== current.session_version) throw new AppError('Sesión revocada. Vuelve a ingresar.', 401);
 
   res.json({
     success: true,
     data: generateTokens({
+      sessionVersion: current.session_version,
       id: payload.id,
       email: payload.email,
       name: payload.name,
@@ -256,11 +260,8 @@ export const changePassword = asyncHandler(async (req: AuthRequest, res: Respons
  * administración para que le generara una temporal. Con veinte encargados
  * y una jornada el sábado, eso es un cuello de botella.
  *
- * Límite conocido y aceptado: un token de sesión emitido ANTES del cambio
- * sigue siendo válido hasta que expire (8 h). Revocarlo exigiría
- * consultar la base en cada petición —`requireAuth` hoy no toca la base a
- * propósito, y el plan gratuito de Neon cobra un arranque en frío por
- * conexión—. Para una liga local, con ventana de 8 horas, no compensa.
+ * El cambio de contraseña incrementa session_version mediante un trigger.
+ * Los tokens anteriores se rechazan en cada petición y en la renovación.
  */
 
 /** POST /api/v1/auth/forgot-password */

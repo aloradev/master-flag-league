@@ -66,7 +66,7 @@ export const advance = asyncHandler(async (req: AuthRequest, res: Response) => {
     }
     await q('SELECT id FROM seasons WHERE id = $1 FOR UPDATE', [p.season_id]);
     const roundId = newPrefixedId('rnd');
-    const number = (await q('SELECT COALESCE(MAX(number),0)+1 AS n FROM rounds WHERE season_id = $1', [p.season_id])).rows[0].n;
+    const number = (await q("SELECT COALESCE(MAX(number),0)+1 AS n FROM rounds WHERE season_id = $1 AND round_type = 'OFFICIAL'", [p.season_id])).rows[0].n;
     const name = slots.length === 2 ? 'Final' : slots.length === 4 ? 'Semifinales' : `Playoffs - ronda de ${slots.length}`;
     await q(`INSERT INTO rounds(id, season_id, number, name, scheduled_date, generated_by, playoff_id) VALUES($1,$2,$3,$4,$5,$6,$7)`, [roundId, p.season_id, number, name, date, req.user!.id, p.id]);
     for (let i = 0; i < slots.length; i += 2) {

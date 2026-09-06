@@ -54,6 +54,7 @@ export const useContador = (valor: number, duracion = 380) => {
     if (valor === mostrado) return;
 
     if (reducido) {
+      setCambio(false);
       setMostrado(valor);
       desde.current = valor;
       return;
@@ -69,7 +70,8 @@ export const useContador = (valor: number, duracion = 380) => {
       // Desaceleración: el número llega y se asienta, en lugar de
       // frenar en seco.
       const suave = 1 - (1 - t) * (1 - t);
-      setMostrado(Math.round(origen + distancia * suave));
+      desde.current = Math.round(origen + distancia * suave);
+      setMostrado(desde.current);
       if (t < 1) cuadro.current = requestAnimationFrame(paso);
       else {
         desde.current = valor;

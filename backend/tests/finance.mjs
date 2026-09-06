@@ -10,7 +10,7 @@
  *
  * Uso:  node tests/finance.mjs
  */
-const API = 'http://localhost:5000/api/v1';
+const API = process.env.QA_API_URL || 'http://localhost:5000/api/v1';
 
 let passed = 0;
 let failed = 0;

@@ -4,7 +4,7 @@ import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import type { AuthRequest } from '../middleware/auth.js';
 import { newPrefixedId } from '../utils/id.js';
 import { audit } from '../services/audit.service.js';
-import { generateAccessToken } from '../utils/jwt.js';
+import { generateAccessToken, verifyToken } from '../utils/jwt.js';
 
 export const list = asyncHandler(async (req: AuthRequest, res: Response) => {
   const seasonId = String(req.query.seasonId ?? '');
@@ -23,11 +23,12 @@ export const list = asyncHandler(async (req: AuthRequest, res: Response) => {
   const base = process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'https://master-flag-league.vercel.app';
   const data = result.rows.map((row) => {
     const accessToken = generateAccessToken({
+      sessionVersion: req.user!.sessionVersion,
       id: req.user!.id, email: req.user!.email, name: req.user!.name,
       role: 'REFEREE', leagueId: req.user!.leagueId ?? null,
       scope: 'SCRIMMAGE_REFEREE', scrimmageGameId: row.game_id,
     });
-    return { ...row, access_url: `${base}/scrimmage/${row.game_id}?access=${encodeURIComponent(accessToken)}` };
+    return { ...row, access_expires_at: new Date(verifyToken(accessToken)!.exp! * 1000).toISOString(), access_url: `${base.replace(/\/$/, '')}/scrimmage/${row.game_id}?access=${encodeURIComponent(accessToken)}` };
   });
   res.json({ success: true, data });
 });
@@ -76,6 +77,10 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
                VALUES($1,$2,$3,$4,$5,'ACTIVE','SCRIMMAGE')`, [idNuevo, seasonId, categoryId, `Scrimmage · ${clean}`, clean.slice(0, 3).toUpperCase()]);
       return idNuevo;
     };
+    const season = await q('SELECT id FROM seasons WHERE id = $1 AND league_id = $2 FOR UPDATE', [seasonId, req.user!.leagueId]);
+    if (!season.rows.length) throw new AppError('Temporada no encontrada', 404);
+    const category = await q('SELECT id FROM categories WHERE id = $1 AND season_id = $2', [categoryId, seasonId]);
+    if (!category.rows.length) throw new AppError('La categoría no pertenece a la temporada', 400);
     const home = await resolveTeam(homeTeamId, homeTeamName);
     const away = await resolveTeam(awayTeamId, awayTeamName);
     if (home === away) throw new AppError('Los equipos deben ser distintos', 400);
@@ -83,17 +88,20 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
     const existingRound = await q(`SELECT r.id FROM rounds r
       JOIN games sg ON sg.round_id = r.id AND sg.game_type = 'SCRIMMAGE'
       WHERE r.season_id = $1 AND r.scheduled_date = $2
-        AND r.status IN ('PUBLISHED','IN_PROGRESS') ORDER BY r.number LIMIT 1`, [seasonId, date]);
+        AND r.round_type = 'SCRIMMAGE'
+        AND r.status IN ('PUBLISHED','IN_PROGRESS','FINISHED') ORDER BY r.number LIMIT 1`, [seasonId, date]);
     if (existingRound.rows[0]) {
       roundId = existingRound.rows[0].id;
+      await q("UPDATE rounds SET status = 'PUBLISHED' WHERE id = $1 AND status = 'FINISHED'", [roundId]);
     } else {
-      const number = (await q('SELECT COALESCE(MAX(number),0)+1 AS n FROM rounds WHERE season_id = $1', [seasonId])).rows[0].n;
-      await q(`INSERT INTO rounds(id,season_id,number,name,scheduled_date,status,generated_by) VALUES($1,$2,$3,$4,$5,'PUBLISHED',$6)`, [roundId, seasonId, number, name?.trim() || 'Scrimmage de prueba', date, req.user!.id]);
+      const number = (await q("SELECT COALESCE(MAX(number),0)+1 AS n FROM rounds WHERE season_id = $1 AND round_type = 'SCRIMMAGE'", [seasonId])).rows[0].n;
+      await q(`INSERT INTO rounds(id,season_id,number,name,scheduled_date,status,generated_by,round_type) VALUES($1,$2,$3,$4,$5,'PUBLISHED',$6,'SCRIMMAGE')`, [roundId, seasonId, number, name?.trim() || 'Scrimmage de prueba', date, req.user!.id]);
     }
     await q(`INSERT INTO games(id,season_id,round_id,category_id,home_team_id,away_team_id,scheduled_time,game_type) VALUES($1,$2,$3,$4,$5,$6,$7,'SCRIMMAGE')`, [gameId, seasonId, roundId, categoryId, home, away, time]);
   });
   await audit(req, { action: 'CREATE_SCRIMMAGE', entityType: 'game', entityId: gameId, newValue: { seasonId, categoryId, ...createdTeams, date, time } });
   const accessToken = generateAccessToken({
+    sessionVersion: req.user!.sessionVersion,
     id: req.user!.id, email: req.user!.email, name: req.user!.name,
     role: 'REFEREE', leagueId: req.user!.leagueId ?? null,
     scope: 'SCRIMMAGE_REFEREE', scrimmageGameId: gameId,
@@ -101,6 +109,7 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
   const base = process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'https://master-flag-league.vercel.app';
   res.status(201).json({ success: true, data: {
     roundId, gameId, ...createdTeams, accessToken,
+    accessExpiresAt: new Date(verifyToken(accessToken)!.exp! * 1000).toISOString(),
     accessUrl: `${base}/scrimmage/${gameId}?access=${encodeURIComponent(accessToken)}`,
   } });
 });

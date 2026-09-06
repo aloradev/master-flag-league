@@ -274,6 +274,16 @@ h1, h2, h3 {
   transform: scale(0.97);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .btn:active, .mfl-toque:active { transform: none !important; }
+}
+
 /**
  * Impresión: el roster se entrega en papel el día de partido.
  * Se fuerza tinta negra sobre blanco aunque el usuario esté en oscuro.

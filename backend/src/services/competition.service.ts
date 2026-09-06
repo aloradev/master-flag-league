@@ -267,7 +267,7 @@ export interface OpcionesPropuesta {
  */
 const siguienteFecha = async (seasonId: string): Promise<string> => {
   const ultima = await query(
-    `SELECT scheduled_date FROM rounds WHERE season_id = $1 ORDER BY number DESC LIMIT 1`,
+    `SELECT scheduled_date FROM rounds WHERE season_id = $1 AND round_type = 'OFFICIAL' AND status <> 'CANCELLED' ORDER BY number DESC LIMIT 1`,
     [seasonId]
   );
   if (ultima.rows[0]?.scheduled_date) {
@@ -289,7 +289,7 @@ export const construirPropuesta = async (
     cargarCategoriasConEquipos(seasonId),
     query(`SELECT id, name FROM fields WHERE season_id = $1 AND status = 'ACTIVE' ORDER BY name`, [seasonId]),
     cargarHistorial(seasonId),
-    query(`SELECT COALESCE(MAX(number), 0) + 1 AS n FROM rounds WHERE season_id = $1`, [seasonId]),
+    query(`SELECT COALESCE(MAX(number), 0) + 1 AS n FROM rounds WHERE season_id = $1 AND round_type = 'OFFICIAL'`, [seasonId]),
   ]);
 
   const slots = opciones.slots?.length
