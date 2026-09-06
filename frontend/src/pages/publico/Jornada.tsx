@@ -10,6 +10,7 @@ import { fechaTexto } from '../../lib/format';
 import { Marco, BotonCompartir } from './Marco';
 
 interface PartidoPublico {
+  game_type?: 'OFFICIAL' | 'SCRIMMAGE';
   id: string;
   category_name: string;
   category_color: string | null;
@@ -92,6 +93,7 @@ const Partido = ({ p }: { p: PartidoPublico }) => {
             />
           )}
           <span className="truncate">{p.category_name}</span>
+          {p.game_type === 'SCRIMMAGE' && <span className="badge badge-sm badge-info">Scrimmage</span>}
         </span>
         <span className="flex shrink-0 items-center gap-2">
           {p.scheduled_time && <span className="tabular font-medium">{p.scheduled_time}</span>}
@@ -155,16 +157,31 @@ export default function JornadaPublicaPage() {
     refetchInterval: 15000,
   });
 
-  if (consulta.isLoading) return <Marco titulo="Jornada"><Spinner /></Marco>;
+  const scrimmages = useQuery({
+    queryKey: ['publico-scrimmages'],
+    queryFn: () => api.get<PartidoPublico[]>('/public/scrimmages'),
+    refetchInterval: 10000,
+  });
+  const pruebas = <section className="mt-5 space-y-2">
+    {scrimmages.isError && <Alert tone="warning">No se pudieron actualizar los scrimmages. Se reintentará automáticamente.</Alert>}
+    {!!scrimmages.data?.length && <>
+      <h2 className="font-bold">Scrimmages · Hoy y en vivo</h2>
+      <p className="text-sm text-base-content/60">Partidos de prueba. Sus resultados no cuentan para la tabla ni los rankings.</p>
+      {scrimmages.data.map((p) => <Partido key={p.id} p={p} />)}
+    </>}
+  </section>;
+
+  if (consulta.isLoading || scrimmages.isLoading) return <Marco titulo="Jornada"><Spinner /></Marco>;
 
   if (consulta.isError || !consulta.data) {
     return (
       <Marco titulo="Jornada">
-        <EmptyState
+        {!scrimmages.data?.length && <EmptyState
           icon={<IconFootball size={40} />}
           title="Todavía no hay jornada publicada"
           description="Cuando la administración publique la próxima jornada, aparecerá aquí."
-        />
+        />}
+        {pruebas}
       </Marco>
     );
   }
@@ -223,6 +240,7 @@ export default function JornadaPublicaPage() {
           </Card>
         </section>
       )}
+      {pruebas}
     </Marco>
   );
 }

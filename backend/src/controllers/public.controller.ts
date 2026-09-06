@@ -27,11 +27,11 @@ import { calcularPosiciones } from '../services/competition.service.js';
 /** Solo lo que hace falta para leer un partido en la calle. */
 const COLUMNAS_PARTIDO = `
   g.id, g.category_id, to_char(g.scheduled_time, 'HH24:MI') AS scheduled_time,
-  g.status, g.home_score, g.away_score, g.walkover_team_id,
+  g.status, g.game_type, g.home_score, g.away_score, g.walkover_team_id,
   g.home_team_id, g.away_team_id
 `;
 
-const partidos = async (roundId: string) => {
+const partidos = async (roundId: string, gameType = 'OFFICIAL') => {
   const r = await query(
     `SELECT ${COLUMNAS_PARTIDO},
             c.name AS category_name, c.color AS category_color,
@@ -49,9 +49,9 @@ const partidos = async (roundId: string) => {
      LEFT JOIN fields f ON f.id = g.field_id
      WHERE g.round_id = $1
        AND g.status <> 'CANCELLED'
-       AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
+       AND COALESCE(g.game_type, 'OFFICIAL') = $2
      ORDER BY g.scheduled_time, f.name, c.sort_order`,
-     [roundId]
+     [roundId, gameType]
   );
   return r.rows;
 };
@@ -59,7 +59,7 @@ const partidos = async (roundId: string) => {
 export const getPublicGame = asyncHandler(async (req: Request, res: Response) => {
   const id = (req.params as Record<string, string>).id;
   const r = await query(`
-    SELECT g.id, g.status, g.home_score, g.away_score,
+    SELECT g.id, g.status, g.game_type, g.home_score, g.away_score,
            to_char(g.scheduled_time, 'HH24:MI') AS scheduled_time,
            g.home_team_id, g.away_team_id,
            c.name AS category_name, c.color AS category_color,
@@ -78,7 +78,6 @@ export const getPublicGame = asyncHandler(async (req: Request, res: Response) =>
     JOIN teams a ON a.id = g.away_team_id
     LEFT JOIN fields f ON f.id = g.field_id
     WHERE g.id = $1
-      AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
       AND g.status <> 'CANCELLED'
       AND r.status IN ('PUBLISHED','IN_PROGRESS','FINISHED')`, [id]);
   if (!r.rows[0]) throw new AppError('Partido no encontrado o todavía no publicado', 404);
@@ -107,6 +106,22 @@ const temporadaActiva = async () => {
   );
   return r.rows[0] ?? null;
 };
+
+/** Seguimiento de pruebas del día en Cancún y de cualquier prueba todavía en vivo. */
+export const getPublicScrimmages = asyncHandler(async (_req: Request, res: Response) => {
+  const season = await temporadaActiva();
+  if (!season) return res.json({ success: true, data: [] });
+  const rounds = await query(`SELECT ro.id, to_char(ro.scheduled_date, 'YYYY-MM-DD') AS scheduled_date
+    FROM rounds ro WHERE ro.season_id = $1
+      AND ro.status IN ('PUBLISHED', 'IN_PROGRESS', 'FINISHED')
+      AND EXISTS (SELECT 1 FROM games g WHERE g.round_id = ro.id
+        AND g.game_type = 'SCRIMMAGE' AND g.status <> 'CANCELLED'
+        AND (ro.scheduled_date = (NOW() AT TIME ZONE 'America/Cancun')::date OR g.status = 'LIVE'))
+    ORDER BY ro.scheduled_date, ro.number`, [season.id]);
+  const groups = await Promise.all(rounds.rows.map(async (round) =>
+    (await partidos(round.id, 'SCRIMMAGE')).map((game) => ({ ...game, scheduled_date: round.scheduled_date }))));
+  res.json({ success: true, data: groups.flat() });
+});
 
 /**
  * GET /api/v1/public/round        — la jornada vigente

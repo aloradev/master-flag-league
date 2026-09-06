@@ -7,6 +7,7 @@ import { TeamCrest } from '../../components/AuthImage';
 import { Marco } from './Marco';
 
 type PublicGame = {
+  game_type?: 'OFFICIAL' | 'SCRIMMAGE';
   id: string; status: string; home_score: number; away_score: number;
   scheduled_time: string; scheduled_date: string; field_name: string | null;
   category_name: string; home_team_id: string; away_team_id: string;
@@ -25,6 +26,7 @@ export default function PartidoPublico() {
   const p = consulta.data;
   return <Marco titulo={`${p.home_team_name} vs ${p.away_team_name}`} subtitulo={`${p.scheduled_date} · ${p.scheduled_time}${p.field_name ? ` · ${p.field_name}` : ''}`}>
     <Card className="space-y-4 p-5">
+      {p.game_type === 'SCRIMMAGE' && <Alert tone="info">Scrimmage de prueba. No cuenta para posiciones ni rankings oficiales.</Alert>}
       <div className="flex items-center justify-between text-sm text-base-content/60"><span>{p.category_name}</span><span className={`badge ${p.status === 'LIVE' ? 'badge-error' : 'badge-ghost'}`}>{etiqueta[p.status] ?? p.status}</span></div>
       <div className="flex items-center gap-3">
         <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center"><TeamCrest name={p.home_team_name} shortName={p.home_short_name} logoUrl={p.home_logo_url} color={p.home_color ?? undefined} className="size-16" /><span className="font-semibold">{p.home_team_name}</span></div>

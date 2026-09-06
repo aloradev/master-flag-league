@@ -51,6 +51,7 @@ router.get('/public/games/:id', publico.getPublicGame);
 router.get('/public/round', publico.getPublicRound);
 router.get('/public/round/:id', publico.getPublicRound);
 router.get('/public/rounds', publico.listPublicRounds);
+router.get('/public/scrimmages', publico.getPublicScrimmages);
 router.get('/public/standings', publico.getPublicStandings);
 router.get('/public/statistics/players', statistics.publicPlayerStats);
 
