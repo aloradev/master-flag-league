@@ -65,6 +65,13 @@ export const uploadDocument = asyncHandler(async (req: AuthRequest, res: Respons
 
   // Req. 6: validar formato y tamaño contra la configuración de la temporada.
   const settings = await loadDocumentSettings(player.season_id);
+  const requiredDocuments = settings.required?.filter((type) => VALID_TYPES.includes(type)) ?? VALID_TYPES;
+  if (!requiredDocuments.includes(documentType)) {
+    throw new AppError(
+      `${documentLabel(documentType)} no está habilitada para la temporada actual`,
+      400
+    );
+  }
   const allowedMime = settings.allowed_mime ?? ['image/jpeg', 'image/png', 'application/pdf'];
   const maxBytes = (settings.max_size_mb ?? DEFAULT_MAX_MB) * 1024 * 1024;
 

@@ -54,6 +54,18 @@ export const remove = asyncHandler(async (req: AuthRequest, res: Response) => {
   res.json({ success: true, data: { id } });
 });
 
+export const revokeAccess = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await query(
+    `UPDATE games SET scrimmage_access_revoked_at = NOW(), updated_at = NOW()
+     WHERE id = $1 AND game_type = 'SCRIMMAGE' AND status <> 'CANCELLED'
+     RETURNING id`, [id]
+  );
+  if (!result.rows[0]) throw new AppError('Scrimmage no encontrado o ya cancelado', 404);
+  await audit(req, { action: 'REVOKE_SCRIMMAGE_ACCESS', entityType: 'game', entityId: id });
+  res.json({ success: true, data: { id } });
+});
+
 /** Partido de prueba: crea equipos temporales desde nombres, sin roster ni árbitro asignado. */
 export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { seasonId, categoryId, homeTeamId, awayTeamId, homeTeamName, awayTeamName, date, time, name } = req.body ?? {};

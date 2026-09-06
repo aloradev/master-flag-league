@@ -388,7 +388,9 @@ export default function PlayerDetail() {
       {/* Documentación */}
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-base-content/70">Documentación</h2>
-        {DOC_ORDER.map((doc) => (
+        {DOC_ORDER.filter((doc) =>
+          data.documents_checklist.some((configured) => configured.type === doc.type)
+        ).map((doc) => (
           <DocumentSlot
             key={doc.type}
             playerId={data.id}

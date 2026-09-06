@@ -139,6 +139,7 @@ router.post('/admin/teams', requireAdmin, teams.createTeam);
 router.post('/admin/scrimmages', requireAdmin, scrimmages.create);
 router.get('/admin/scrimmages', requireAdmin, scrimmages.list);
 router.delete('/admin/scrimmages/:id', requireAdmin, scrimmages.remove);
+router.post('/admin/scrimmages/:id/revoke-access', requireAdmin, scrimmages.revokeAccess);
 router.delete('/admin/teams/:id', requireAdmin, teams.deleteTeam);
 router.post('/admin/teams/:id/managers', requireAdmin, teams.assignManager);
 router.delete('/admin/teams/:id/managers/:userId', requireAdmin, teams.removeManager);

@@ -231,12 +231,20 @@ export const getPlayer = asyncHandler(async (req: AuthRequest, res: Response) =>
     };
   });
 
+  // La configuración de temporada también gobierna lo que se presenta al
+  // manager. Se conservan versiones históricas en la base, pero un documento
+  // que dejó de ser requerido ya no aparece en la ficha operativa.
+  const documentosConfigurados = documents.rows.filter((doc: any) =>
+    required.includes(doc.document_type)
+  );
+
   res.json({
     success: true,
     data: {
       ...player,
       full_name: fullName(player),
-      documents: documents.rows,
+      documents: documentosConfigurados,
+      required_documents: required,
       documents_checklist: checklist,
       eligibility,
       approval_history: history.rows,

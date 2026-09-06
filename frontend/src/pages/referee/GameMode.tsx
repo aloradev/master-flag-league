@@ -58,6 +58,7 @@ const GameMode = ({ client = competition, temporary = false }: { client?: typeof
   const cargar = useCallback(async () => {
     try {
       const d = await competition.game(id);
+      setError(null);
       setConnectionLost(false);
       setLastSync(new Date());
       setGame(d);
@@ -75,6 +76,19 @@ const GameMode = ({ client = competition, temporary = false }: { client?: typeof
     void cargar();
   }, [cargar]);
 
+  // En celulares la señal suele volver después de cambiar de zona o
+  // desbloquear la pantalla. No esperamos al siguiente intervalo: al volver
+  // la conexión refrescamos de inmediato para evitar registrar sobre un
+  // marcador viejo.
+  useEffect(() => {
+    const alVolver = () => {
+      setConnectionLost(false);
+      void cargar();
+    };
+    window.addEventListener('online', alVolver);
+    return () => window.removeEventListener('online', alVolver);
+  }, [cargar]);
+
   // ── Sincronización con el otro árbitro ──
   const enVivo = game?.status === 'LIVE';
   useEffect(() => {
@@ -85,6 +99,7 @@ const GameMode = ({ client = competition, temporary = false }: { client?: typeof
       try {
         const live = await competition.live(id, desde.current ?? undefined);
         if (!vigente) return;
+        setError(null);
         setConnectionLost(false);
         setLastSync(new Date());
         desde.current = live.server_time;

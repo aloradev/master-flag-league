@@ -79,7 +79,9 @@ export const getValidationQueue = asyncHandler(async (req: AuthRequest, res: Res
   const enriched = await Promise.all(
     result.rows.map(async (player: any) => {
       const required = await getRequiredDocuments(player.season_id);
-      const present = (player.documents ?? []).map((d: any) => d.type);
+      // No mostrar documentos que la temporada ya no contempla.
+      player.documents = (player.documents ?? []).filter((d: any) => required.includes(d.type));
+      const present = player.documents.map((d: any) => d.type);
       const missing = required.filter((t: string) => !present.includes(t));
       return {
         ...player,

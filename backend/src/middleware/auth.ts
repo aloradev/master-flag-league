@@ -83,6 +83,13 @@ export const restrictScrimmageToken = async (req: AuthRequest, res: Response, ne
   try {
     const game = await query("SELECT id FROM games WHERE id = $1 AND game_type = 'SCRIMMAGE' AND status <> 'CANCELLED'", [req.user.scrimmageGameId]);
     if (!game.rows.length) return res.status(404).json({ success: false, error: 'El scrimmage ya no está disponible' });
+    const access = await query(
+      'SELECT scrimmage_access_revoked_at FROM games WHERE id = $1',
+      [req.user!.scrimmageGameId]
+    );
+    if (access.rows[0]?.scrimmage_access_revoked_at) {
+      return res.status(401).json({ success: false, error: 'Este enlace temporal fue revocado por administración' });
+    }
   } catch (error) {
     return next(error);
   }
