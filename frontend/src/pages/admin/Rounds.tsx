@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import RoundGames from './RoundGames';
+import ManualRound from './ManualRound';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import type { Season } from '../../lib/types';
+import type { Season, TeamSummary } from '../../lib/types';
 import { Alert, Button, Card, EmptyState, Spinner } from '../../components/ui';
 import { IconFootball, IconPlus, IconWarning } from '../../components/icons';
 import {
@@ -33,6 +34,9 @@ export default function AdminRounds() {
   const [error, setError] = useState<string | null>(null);
   const [fecha, setFecha] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [manual, setManual] = useState(false);
+  const [rests, setRests] = useState<string[]>([]);
+  const [earliest, setEarliest] = useState<Record<string, string>>({});
 
   const season = useQuery({
     queryKey: ['season-active'],
@@ -40,6 +44,8 @@ export default function AdminRounds() {
     retry: false,
   });
   const seasonId = season.data?.id;
+  const teams = useQuery({ queryKey: ['round-teams', seasonId],
+    queryFn: () => api.get<TeamSummary[]>(`/teams?seasonId=${seasonId}`), enabled: Boolean(seasonId) });
 
   const jornadas = useQuery({
     queryKey: ['rounds', seasonId],
@@ -48,7 +54,7 @@ export default function AdminRounds() {
   });
 
   const proponer = useMutation({
-    mutationFn: () => competition.propose(seasonId!, fecha || undefined),
+    mutationFn: () => competition.propose(seasonId!, fecha || undefined, undefined, rests, earliest),
     onSuccess: (p) => {
       setPropuesta(p);
       setFecha(p.scheduledDate);
@@ -102,15 +108,33 @@ export default function AdminRounds() {
         <Button
           tone="primary"
           loading={proponer.isPending}
-          disabled={!seasonId}
+          disabled={!seasonId || manual}
           onClick={() => proponer.mutate()}
         >
           <IconPlus size={16} />
           Generar próxima jornada
         </Button>
+        <Button disabled={!seasonId || manual || proponer.isPending || guardar.isPending} onClick={() => { setManual(true); setPropuesta(null); setError(null); }}>Crear jornada manual</Button>
       </header>
 
       {error && <Alert tone="error">{error}</Alert>}
+      {manual && season.data && <ManualRound season={season.data} onCancel={() => setManual(false)} onSaved={() => {
+        setManual(false); void qc.invalidateQueries({ queryKey: ['rounds', seasonId] });
+      }} />}
+      {!manual && <Card className="space-y-3 p-4">
+        <h2 className="font-semibold">Disponibilidad para esta jornada</h2>
+        <p className="text-sm text-base-content/70">Selecciona descansos por decisión administrativa y la hora más temprana de cada equipo. Después genera o recalcula. Los horarios finales se ajustan en “Programación y árbitros” al guardar el borrador.</p>
+        {teams.isError && <Alert tone="error">No se pudieron cargar los equipos.</Alert>}
+        {teams.data?.filter((t) => t.status === 'ACTIVE' && (season.data?.require_approval_to_play ? Number(t.players_eligible) > 0 : Number(t.players_total) > 0)).map((t) => <div key={t.id} className="flex flex-wrap items-center gap-3 border-b border-base-300 py-2">
+          <span className="min-w-0 flex-1 text-sm">{t.name} · {t.category_name}</span>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="checkbox checkbox-sm"
+            checked={rests.includes(t.id)} onChange={(e) => { setRests(e.target.checked ? [...rests, t.id] : rests.filter((id) => id !== t.id)); setPropuesta(null); }} />Descansa</label>
+          <label className="text-xs">Disponible desde
+            <input type="time" className="input input-sm ml-2" disabled={rests.includes(t.id)} value={earliest[t.id] ?? ''}
+              onChange={(e) => { const next = { ...earliest }; if (e.target.value) next[t.id] = e.target.value; else delete next[t.id]; setEarliest(next); setPropuesta(null); }} />
+          </label>
+        </div>)}
+      </Card>}
 
       {/* ─────────── PROPUESTA ─────────── */}
       {propuesta && (
@@ -150,7 +174,7 @@ export default function AdminRounds() {
 
           {porFecha.map((hora) => (
             <section key={hora} className="space-y-1.5">
-              <h3 className="tabular text-sm font-bold">{hora12(hora)}</h3>
+              <h3 className="tabular text-sm font-bold">{hora ? hora12(hora) : 'Sin horario compatible'}</h3>
               <ul className="space-y-1.5">
                 {propuesta.games
                   .filter((g) => g.time === hora)

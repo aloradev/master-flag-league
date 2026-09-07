@@ -191,7 +191,7 @@ export const cargarHistorial = async (seasonId: string): Promise<Historial> => {
 
 /** Categorías con sus equipos activos, tal como las quiere el generador. */
 export const cargarCategoriasConEquipos = async (
-  seasonId: string
+  seasonId: string, query: typeof defaultQuery = defaultQuery
 ): Promise<CategoriaEntrada[]> => {
   const r = await query(
     `SELECT c.id AS category_id, c.name AS category_name, c.sort_order,
@@ -254,6 +254,8 @@ export const cargarHorarios = async (
 // ─────────────────────────── PROPUESTA ────────────────────────────────────
 
 export interface OpcionesPropuesta {
+  restTeamIds?: string[];
+  earliestTimes?: Record<string, string>;
   seasonId: string;
   /** Fecha de la jornada. Si no se da, se calcula a partir de la anterior. */
   scheduledDate?: string;
@@ -299,16 +301,30 @@ export const construirPropuesta = async (
     ? opciones.slots.map((s) => s.slice(0, 5))
     : await cargarHorarios(seasonId);
 
+  const available = new Set(categorias.flatMap((c) => c.teams.map((t) => t.id)));
+  const rests = opciones.restTeamIds ?? [];
+  const earliest = opciones.earliestTimes ?? {};
+  if (!Array.isArray(rests) || rests.some((id) => !available.has(id)) ||
+      typeof earliest !== 'object' || earliest === null || Array.isArray(earliest) ||
+      Object.entries(earliest).some(([id, time]) => !available.has(id) || typeof time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) {
+    throw new AppError('Revisa los equipos y horarios seleccionados: deben ser equipos oficiales disponibles para generar.', 400);
+  }
+
   const propuesta = proponerJornada({
     roundNumber: siguienteNumero.rows[0].n,
     scheduledDate: opciones.scheduledDate ?? (await siguienteFecha(seasonId)),
-    categories: categorias,
+    categories: categorias.map((c) => ({ ...c, teams: c.teams.filter((t) => !rests.includes(t.id)) })),
+    earliestTimes: earliest,
     fields: campos.rows,
     slots,
     history: historial,
   });
 
   await validarFechaJornada(seasonId, propuesta.scheduledDate);
+  for (const cat of categorias) for (const team of cat.teams.filter((t) => rests.includes(t.id))) {
+    propuesta.byes.push({ teamId: team.id, teamName: team.name, categoryId: cat.id,
+      categoryName: cat.name, reason: 'MANUAL', totalAfter: (historial.descansos[team.id] ?? 0) + 1 });
+  }
 
   return { ...propuesta, seasonId };
 };
@@ -339,8 +355,36 @@ export const guardarPropuesta = async (
   userId: string
 ): Promise<string> => {
   const roundId = newPrefixedId('round');
+  if (propuesta.games.some((g) => !g.fieldId || !g.time)) {
+    throw new AppError('Hay partidos sin horario compatible. Ajusta la disponibilidad y recalcula.', 400);
+  }
 
   return withTransaction(async (query) => {
+    const season = await query(`SELECT s.id FROM seasons s JOIN users u ON u.league_id=s.league_id
+      WHERE s.id=$1 AND u.id=$2 FOR UPDATE OF s`, [propuesta.seasonId, userId]);
+    if (!season.rows.length) throw new AppError('Temporada no encontrada', 404);
+    if (!Array.isArray(propuesta.byes)) throw new AppError('Descansos inválidos', 400);
+    const categories = await cargarCategoriasConEquipos(propuesta.seasonId, query);
+    const teams = new Map(categories.flatMap((c) => c.teams.map((t) => [t.id, c.id] as const)));
+    const fields = await query("SELECT id FROM fields WHERE season_id=$1 AND status='ACTIVE'", [propuesta.seasonId]);
+    const used = new Set<string>();
+    const occupied = new Set<string>();
+    const reserve = (id: string, category: string) => {
+      if (!teams.has(id) || teams.get(id) !== category || used.has(id)) throw new AppError('Revisa los equipos: deben ser oficiales, elegibles, de la misma categoría y aparecer una sola vez.', 400);
+      used.add(id);
+    };
+    for (const g of propuesta.games) {
+      reserve(g.homeTeamId, g.categoryId); reserve(g.awayTeamId, g.categoryId);
+      const slot = `${g.fieldId}:${g.time}`;
+      if (!fields.rows.some((f) => f.id === g.fieldId) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(g.time ?? '') || occupied.has(slot)) throw new AppError('Campo u horario inválido u ocupado por otro partido.', 400);
+      occupied.add(slot);
+    }
+    for (const b of propuesta.byes) {
+      reserve(b.teamId, b.categoryId);
+      if (!['MANUAL','CAPACITY','ODD_TEAMS'].includes(b.reason)) throw new AppError('Motivo de descanso inválido', 400);
+    }
+    const next = await query("SELECT COALESCE(MAX(number),0)+1 AS n FROM rounds WHERE season_id=$1 AND round_type='OFFICIAL'", [propuesta.seasonId]);
+    propuesta.roundNumber = next.rows[0].n;
     await validarFechaJornada(propuesta.seasonId, propuesta.scheduledDate, query);
     await query(
       `INSERT INTO rounds (id, season_id, number, name, scheduled_date, status, generated_by)

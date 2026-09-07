@@ -38,6 +38,7 @@ export interface Historial {
 }
 
 export interface EntradaPropuesta {
+  earliestTimes?: Record<string, string>;
   roundNumber: number;
   scheduledDate: string;
   categories: CategoriaEntrada[];
@@ -257,7 +258,8 @@ const repartirHuecos = (
   partidos: { home: string; away: string }[],
   fields: EquipoRef[],
   slots: string[],
-  h: Historial
+  h: Historial,
+  earliestTimes: Record<string, string> = {}
 ): ({ fieldId: string; fieldName: string; time: string } | null)[] => {
   const huecos: { fieldId: string; fieldName: string; time: string }[] = [];
   for (const time of slots) {
@@ -275,6 +277,7 @@ const repartirHuecos = (
     let mejorCoste = Infinity;
     for (const idx of libres) {
       const hueco = huecos[idx];
+      if (hueco.time < (earliestTimes[p.home] ?? '') || hueco.time < (earliestTimes[p.away] ?? '')) continue;
       const coste =
         veces(h.porHorario, p.home, hueco.time) +
         veces(h.porHorario, p.away, hueco.time) +
@@ -423,7 +426,8 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     candidatos.map((c) => ({ home: c.home, away: c.away })),
     fields,
     slots,
-    h
+    h,
+    entrada.earliestTimes
   );
 
   const games: PartidoPropuesto[] = candidatos.map((c, i) => ({
@@ -438,6 +442,9 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     time: huecos[i]?.time ?? null,
     meeting: c.meeting,
   }));
+  for (const game of games.filter((g) => !g.time)) {
+    warnings.push(`Sin horario compatible: ${game.homeTeamName} vs ${game.awayTeamName}. Ajusta la disponibilidad antes de guardar.`);
+  }
 
   // Se ordena como se vive la noche: por hora y luego por campo.
   games.sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99') ||

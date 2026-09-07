@@ -12,6 +12,7 @@ import {
   guardarPropuesta,
   calcularPosiciones,
   cargarHorarios,
+  cargarCategoriasConEquipos,
   validarFechaJornada,
 } from '../services/competition.service.js';
 
@@ -146,10 +147,19 @@ export const proposeRound = asyncHandler(async (req: AuthRequest, res: Response)
   const propuesta = await construirPropuesta({
     seasonId,
     scheduledDate: body.scheduledDate,
+    restTeamIds: body.restTeamIds,
+    earliestTimes: body.earliestTimes,
     slots: Array.isArray(body.slots) ? body.slots : undefined,
   });
 
   res.json({ success: true, data: propuesta });
+});
+
+export const manualOptions = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const seasonId = String(req.query.seasonId ?? '');
+  const season = await query('SELECT id FROM seasons WHERE id=$1 AND league_id=$2', [seasonId, req.user!.leagueId]);
+  if (!season.rows.length) throw new AppError('Temporada no encontrada', 404);
+  res.json({ success: true, data: await cargarCategoriasConEquipos(seasonId) });
 });
 
 /**

@@ -172,6 +172,7 @@ router.post('/games/:id/finish', games.finishGame);
 
 // ─── Administración de la competencia
 router.post('/admin/rounds/propose', requireAdmin, rounds.proposeRound);
+router.get('/admin/rounds/options', requireAdmin, rounds.manualOptions);
 router.post('/admin/rounds', requireAdmin, rounds.createRound);
 router.put('/admin/rounds/:id', requireAdmin, rounds.updateRound);
 router.post('/admin/rounds/:id/publish', requireAdmin, rounds.publishRound);

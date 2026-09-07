@@ -226,8 +226,8 @@ export const createCompetition = (apiClient = api) => {
   rounds: (seasonId?: string) =>
     api.get<RoundSummary[]>(`/rounds${seasonId ? `?seasonId=${seasonId}` : ''}`),
   round: (id: string) => api.get<RoundDetail>(`/rounds/${id}`),
-  propose: (seasonId: string, scheduledDate?: string, slots?: string[]) =>
-    api.post<Proposal>('/admin/rounds/propose', { seasonId, scheduledDate, slots }),
+  propose: (seasonId: string, scheduledDate?: string, slots?: string[], restTeamIds?: string[], earliestTimes?: Record<string, string>) =>
+    api.post<Proposal>('/admin/rounds/propose', { seasonId, scheduledDate, slots, restTeamIds, earliestTimes }),
   createRound: (seasonId: string, proposal?: Proposal) =>
     api.post<RoundDetail>('/admin/rounds', { seasonId, proposal }),
   updateRound: (id: string, cambios: Record<string, unknown>) =>
