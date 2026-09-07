@@ -6,7 +6,7 @@ import { newPrefixedId } from '../utils/id.js';
 import { slugify } from '../utils/slug.js';
 import type { AuthRequest } from '../middleware/auth.js';
 import { refreshSeasonEligibility } from '../services/eligibility.service.js';
-import { regularSeasonEnd } from '../services/calendar.service.js';
+import { seasonFinalEstimate } from '../services/calendar.service.js';
 
 
 // ─────────────────────────────── TEMPORADAS ───────────────────────────────
@@ -46,12 +46,14 @@ export const getActiveSeason = asyncHandler(async (req: AuthRequest, res: Respon
   const registrationOpen =
     !season.registration_deadline ||
     new Date(season.registration_deadline) >= new Date(new Date().toDateString());
+  const calendar = await seasonFinalEstimate(season.id);
 
   res.json({
     success: true,
     data: {
       ...season,
-      estimated_regular_end_date: await regularSeasonEnd(season.id),
+      estimated_regular_end_date: calendar.regular_end,
+      calendar_estimate: calendar,
       registration_open: registrationOpen,
       categories: categories.rows,
       fields: fields.rows,

@@ -210,6 +210,12 @@ export default function SeasonConfig() {
         </Field>
         <p className="text-sm">Fin estimado de fase regular: {data.estimated_regular_end_date
           ? fechaTexto(data.estimated_regular_end_date) : 'Configura las jornadas previstas'}</p>
+        <p className="text-sm">Final estimada con playoffs: {data.calendar_estimate?.final_date
+          ? fechaTexto(data.calendar_estimate.final_date) : 'Disponible al definir los playoffs de las categorías'}</p>
+        {data.calendar_estimate?.categories.map((c) => <p key={c.category} className="text-sm">
+          {c.category}: {c.phases} fases · {c.final_date ? fechaTexto(c.final_date) : 'Sin fecha estimada'}
+        </p>)}
+        <p className="text-xs text-base-content/60">{data.calendar_estimate?.assumption}</p>
         <Button size="sm" onClick={() => saveCalendar.mutate()} loading={saveCalendar.isPending}
           disabled={!isSuperAdmin || !settings.data || !Number.isInteger(plannedRounds) || plannedRounds < 1 || plannedRounds > 104}>
           Guardar calendario

@@ -8,7 +8,7 @@ import { requireAuth, restrictScrimmageToken } from '../dist/middleware/auth.js'
 import { create } from '../dist/controllers/scrimmages.controller.js';
 import { startGame } from '../dist/controllers/games.controller.js';
 import { validarFechaJornada, cargarCategoriasConEquipos } from '../dist/services/competition.service.js';
-import { regularSeasonEnd } from '../dist/services/calendar.service.js';
+import { regularSeasonEnd, seasonFinalEstimate } from '../dist/services/calendar.service.js';
 
 // PostgreSQL aislado en memoria. Nunca conecta a Neon ni escribe datos reales.
 const db = new PGlite();
@@ -83,6 +83,12 @@ await db.query("UPDATE rounds SET scheduled_date='2040-01-15' WHERE id='official
 assert.equal(await regularSeasonEnd('s'), '2040-03-18');
 await db.query("UPDATE rounds SET status='CANCELLED' WHERE id='official'");
 assert.equal(await regularSeasonEnd('s'), '2040-03-04');
+assert.equal((await seasonFinalEstimate('s')).final_date, null);
+await db.query(`INSERT INTO playoffs(id,season_id,category_id,seeds,slots)
+ VALUES('po','s','c','[1,2,3,4,5,6]','[]')`);
+assert.equal((await seasonFinalEstimate('s')).final_date, '2040-03-25');
+await db.query("UPDATE playoffs SET seeds='[1,2,3,4]' WHERE id='po'");
+assert.equal((await seasonFinalEstimate('s')).final_date, '2040-03-18');
 await db.close();
 await pool.end();
 console.log('✓ Migración idempotente, tipos de token, revocación, alcance y jornadas independientes.');
