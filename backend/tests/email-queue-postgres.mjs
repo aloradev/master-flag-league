@@ -35,5 +35,14 @@ try {
   await pool.query("UPDATE email_jobs SET status='PROCESSING', lease_until=NOW()-INTERVAL '1 minute', lease_token='dead-worker' WHERE status='PENDING'");
   await processEmailBatch();
   assert.equal(accepted.length, 5, 'Recuperar lease de un proceso caído');
-  console.log('OK PostgreSQL: deduplicación, dos workers, purga, vencimiento y recuperación de lease.');
+  for (const [httpStatus, expected] of [[429, 'PENDING'], [422, 'FAILED']]) {
+    globalThis.fetch = async () => new Response('{}', {status:httpStatus});
+    await enqueueEmail(payload, {dedupeKey:`ci-status-${httpStatus}`});
+    assert.equal(await processEmailBatch(1), 1);
+    const result = await pool.query('SELECT status,payload,last_error FROM email_jobs WHERE last_error=$1', [`RESEND_${httpStatus}`]);
+    assert.equal(result.rows.length, 1);
+    assert.equal(result.rows[0].status, expected);
+    assert.equal(result.rows[0].payload !== null, expected === 'PENDING');
+  }
+  console.log('OK PostgreSQL: deduplicación, dos workers, purga, vencimiento, recuperación de lease y estados SENT/PENDING/FAILED.');
 } finally { await pool.end(); }

@@ -69,9 +69,11 @@ export async function processEmailBatch(limit = 10): Promise<number> {
     try { outcome = await deliverEmail(decryptEmail(job.payload), job.id); }
     catch { outcome = { ok: false, retryable: false, code: 'PAYLOAD_UNREADABLE' }; }
     const status = outcome.ok ? 'SENT' : outcome.retryable && job.attempts < 6 ? 'PENDING' : 'FAILED';
-    await query(`UPDATE email_jobs SET status = $3, last_error = $4,
+    // El mismo parámetro participa en una asignación varchar y una comparación;
+    // fijar su tipo evita la inferencia incompatible (42P08) de PostgreSQL.
+    await query(`UPDATE email_jobs SET status = $3::varchar, last_error = $4,
       next_attempt_at = NOW() + ($5 * INTERVAL '1 second'), lease_until = NULL, lease_token = NULL,
-      payload = CASE WHEN $3 = 'PENDING' THEN payload ELSE NULL END, updated_at = NOW()
+      payload = CASE WHEN $3::varchar = 'PENDING' THEN payload ELSE NULL END, updated_at = NOW()
       WHERE id = $1 AND lease_token = $2`, [job.id, lease, status, outcome.ok ? null : outcome.code, retryDelay(job.attempts)]);
     if (!outcome.ok) void operationalAlert(status === 'FAILED' ? 'EMAIL_FAILED' : 'EMAIL_RETRY');
     processed++;

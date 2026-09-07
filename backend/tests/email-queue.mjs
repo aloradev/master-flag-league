@@ -43,7 +43,7 @@ for (const [httpStatus, attempts, expected] of [[200,1,'SENT'],[429,1,'PENDING']
   assert.ok(calls.some((c) => c.sql.includes('FOR UPDATE SKIP LOCKED')));
   const settled = calls.find((c) => c.sql.includes('WHERE id = $1 AND lease_token = $2'));
   assert.equal(settled.params[2], expected);
-  assert.ok(settled.sql.includes("CASE WHEN $3 = 'PENDING' THEN payload ELSE NULL END"));
+  assert.ok(settled.sql.includes("CASE WHEN $3::varchar = 'PENDING' THEN payload ELSE NULL END"));
 }
 console.log('OK: cifrado, vencimiento, deduplicación, idempotencia, clasificación de errores, leases y reintentos.');
 await pool.end();
