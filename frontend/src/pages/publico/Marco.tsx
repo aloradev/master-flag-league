@@ -73,6 +73,19 @@ export const Marco = ({
       </main>
 
       <footer className="mx-auto max-w-3xl px-4 pb-8 pt-2 text-center">
+        <div className="mb-3 border-t border-base-300 pt-4">
+          <p className="text-sm text-base-content/70">Sigue a la liga en Instagram</p>
+          <a href="https://www.instagram.com/mflcancun/" target="_blank" rel="noopener noreferrer"
+            aria-label="Instagram de Master Flag League: @mflcancun (abre en otra pestaña)"
+            className="inline-flex min-h-11 items-center gap-2 rounded-field px-3 font-semibold text-primary hover:underline">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <rect x="3" y="3" width="18" height="18" rx="5" />
+              <circle cx="12" cy="12" r="4" />
+              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+            </svg>
+            @mflcancun
+          </a>
+        </div>
         <Link to="/ingresar" className="text-xs text-base-content/40 hover:text-base-content/70">
           Acceso para encargados y árbitros
         </Link>
