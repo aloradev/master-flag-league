@@ -12,6 +12,7 @@ import {
   guardarPropuesta,
   calcularPosiciones,
   cargarHorarios,
+  validarFechaJornada,
 } from '../services/competition.service.js';
 
 /**
@@ -206,6 +207,7 @@ export const updateRound = asyncHandler(async (req: AuthRequest, res: Response) 
   if (round.status === 'FINISHED') throw new AppError('La jornada ya terminó', 409);
 
   const { name, scheduledDate, notes, slots } = req.body ?? {};
+  if (scheduledDate !== undefined) await validarFechaJornada(round.season_id, scheduledDate);
 
   await query(
     `UPDATE rounds SET

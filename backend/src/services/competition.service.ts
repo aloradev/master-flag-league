@@ -1,4 +1,5 @@
-import { query } from '../config/database.js';
+import { query, withTransaction } from '../config/database.js';
+import { AppError } from '../middleware/errorHandler.js';
 import { query as defaultQuery } from '../config/database.js';
 import { newPrefixedId } from '../utils/id.js';
 import {
@@ -204,8 +205,9 @@ export const cargarCategoriasConEquipos = async (
          SELECT 1 FROM players p
          WHERE p.team_id = t.id
            AND p.removed_at IS NULL
-           AND p.status = 'APPROVED'
-           AND p.is_eligible = TRUE
+           AND ((p.status = 'APPROVED' AND p.is_eligible = TRUE) OR EXISTS (
+             SELECT 1 FROM seasons s WHERE s.id = c.season_id AND s.require_approval_to_play = FALSE
+           ))
        )
      WHERE c.season_id = $1
      ORDER BY c.sort_order, c.name, t.name`,
@@ -284,6 +286,7 @@ export const construirPropuesta = async (
   opciones: OpcionesPropuesta
 ): Promise<Propuesta & { seasonId: string }> => {
   const { seasonId } = opciones;
+  if (opciones.scheduledDate) await validarFechaJornada(seasonId, opciones.scheduledDate);
 
   const [categorias, campos, historial, siguienteNumero] = await Promise.all([
     cargarCategoriasConEquipos(seasonId),
@@ -305,7 +308,23 @@ export const construirPropuesta = async (
     history: historial,
   });
 
+  await validarFechaJornada(seasonId, propuesta.scheduledDate);
+
   return { ...propuesta, seasonId };
+};
+
+export const validarFechaJornada = async (seasonId: string, date: string, q = query): Promise<void> => {
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+      !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) {
+    throw new AppError('Indica una fecha válida para la jornada', 400);
+  }
+  const result = await q(`SELECT to_char(start_date, 'YYYY-MM-DD') AS start,
+    to_char(end_date, 'YYYY-MM-DD') AS finish FROM seasons WHERE id = $1`, [seasonId]);
+  const season = result.rows[0];
+  if (!season) throw new AppError('Temporada no encontrada', 404);
+  if (date < season.start || (season.finish && date > season.finish)) {
+    throw new AppError('La fecha de jornada debe estar dentro del periodo de la temporada', 400);
+  }
 };
 
 /**
@@ -321,8 +340,8 @@ export const guardarPropuesta = async (
 ): Promise<string> => {
   const roundId = newPrefixedId('round');
 
-  await query('BEGIN');
-  try {
+  return withTransaction(async (query) => {
+    await validarFechaJornada(propuesta.seasonId, propuesta.scheduledDate, query);
     await query(
       `INSERT INTO rounds (id, season_id, number, name, scheduled_date, status, generated_by)
        VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6)`,
@@ -369,13 +388,8 @@ export const guardarPropuesta = async (
       );
     }
 
-    await query('COMMIT');
-  } catch (e) {
-    await query('ROLLBACK');
-    throw e;
-  }
-
-  return roundId;
+    return roundId;
+  });
 };
 
 // ───────────────────────── TABLA DE POSICIONES ────────────────────────────

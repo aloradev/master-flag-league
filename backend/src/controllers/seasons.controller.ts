@@ -6,6 +6,7 @@ import { newPrefixedId } from '../utils/id.js';
 import { slugify } from '../utils/slug.js';
 import type { AuthRequest } from '../middleware/auth.js';
 import { refreshSeasonEligibility } from '../services/eligibility.service.js';
+import { regularSeasonEnd } from '../services/calendar.service.js';
 
 
 // ─────────────────────────────── TEMPORADAS ───────────────────────────────
@@ -50,6 +51,7 @@ export const getActiveSeason = asyncHandler(async (req: AuthRequest, res: Respon
     success: true,
     data: {
       ...season,
+      estimated_regular_end_date: await regularSeasonEnd(season.id),
       registration_open: registrationOpen,
       categories: categories.rows,
       fields: fields.rows,
@@ -108,7 +110,7 @@ export const updateSeason = asyncHandler(async (req: AuthRequest, res: Response)
   await query(
     `UPDATE seasons SET
        name = COALESCE($1, name),
-       end_date = COALESCE($2, end_date),
+       end_date = CASE WHEN $8::boolean THEN $2::date ELSE end_date END,
        registration_deadline = COALESCE($3, registration_deadline),
        default_start_time = COALESCE($4, default_start_time),
        require_approval_to_play = COALESCE($5, require_approval_to_play),
@@ -122,6 +124,7 @@ export const updateSeason = asyncHandler(async (req: AuthRequest, res: Response)
       requireApprovalToPlay ?? null,
       status ?? null,
       id,
+      Object.prototype.hasOwnProperty.call(req.body ?? {}, 'endDate'),
     ]
   );
 
@@ -286,6 +289,9 @@ export const updateSetting = asyncHandler(async (req: AuthRequest, res: Response
   const value = req.body?.value;
 
   if (value === undefined) throw new AppError('El cuerpo debe incluir "value"', 400);
+  if (key === 'competition' && (!Number.isInteger(value?.rounds_planned) || value.rounds_planned < 1 || value.rounds_planned > 104)) {
+    throw new AppError('Indica entre 1 y 104 jornadas previstas', 400);
+  }
 
   // Un cambio mal hecho aquí puede volver inelegible a toda la liga,
   // así que se valida la forma de la configuración de documentos.

@@ -139,6 +139,7 @@ export interface Season {
   year: number;
   start_date: string;
   end_date: string | null;
+  estimated_regular_end_date?: string | null;
   registration_deadline: string | null;
   registration_open: boolean;
   require_approval_to_play: boolean;

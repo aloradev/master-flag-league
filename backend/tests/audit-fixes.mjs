@@ -7,6 +7,8 @@ import { refresh } from '../dist/controllers/auth.controller.js';
 import { requireAuth, restrictScrimmageToken } from '../dist/middleware/auth.js';
 import { create } from '../dist/controllers/scrimmages.controller.js';
 import { startGame } from '../dist/controllers/games.controller.js';
+import { validarFechaJornada, cargarCategoriasConEquipos } from '../dist/services/competition.service.js';
+import { regularSeasonEnd } from '../dist/services/calendar.service.js';
 
 // PostgreSQL aislado en memoria. Nunca conecta a Neon ni escribe datos reales.
 const db = new PGlite();
@@ -61,6 +63,26 @@ assert.equal((await invoke(restrictScrimmageToken,{user:scoped,path:`/games/${ga
 assert.equal((await invoke(restrictScrimmageToken,{user:scoped,path:'/games/official/start'})).code,403);
 assert.equal((await invoke(restrictScrimmageToken,{user:scoped,path:'/admin/users'})).code,403);
 assert.equal(verifyToken(first.data.data.accessToken).sessionVersion,version);
+await db.query("UPDATE seasons SET end_date='2040-03-01' WHERE id='s'");
+await validarFechaJornada('s', '2040-01-01');
+await validarFechaJornada('s', '2040-03-01');
+for (const date of ['2039-12-31', '2040-03-02', '2040-02-30', 'invalid']) {
+  await assert.rejects(() => validarFechaJornada('s', date));
+}
+await db.exec(`INSERT INTO teams(id,season_id,category_id,name,status) VALUES('eligible-team','s','c','Equipo oficial','ACTIVE');
+INSERT INTO players(id,team_id,season_id,category_id,first_name,last_name_paternal,date_of_birth,status,is_eligible)
+VALUES('p','eligible-team','s','c','Jugador','Prueba','2000-01-01','PENDING',false);`);
+assert.equal((await cargarCategoriasConEquipos('s'))[0].teams.length, 0);
+await db.query("UPDATE seasons SET require_approval_to_play=false WHERE id='s'");
+assert.equal((await cargarCategoriasConEquipos('s'))[0].teams.length, 1);
+assert.equal(await regularSeasonEnd('s'), null);
+await db.query(`INSERT INTO settings(id,league_id,season_id,key,value)
+ VALUES('calendar','l','s','competition','{"rounds_planned":10}')`);
+assert.equal(await regularSeasonEnd('s'), '2040-03-11');
+await db.query("UPDATE rounds SET scheduled_date='2040-01-15' WHERE id='official'");
+assert.equal(await regularSeasonEnd('s'), '2040-03-18');
+await db.query("UPDATE rounds SET status='CANCELLED' WHERE id='official'");
+assert.equal(await regularSeasonEnd('s'), '2040-03-04');
 await db.close();
 await pool.end();
 console.log('✓ Migración idempotente, tipos de token, revocación, alcance y jornadas independientes.');

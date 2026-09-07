@@ -52,6 +52,18 @@ export default function SeasonConfig() {
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [newCategory, setNewCategory] = useState('');
   const [newField, setNewField] = useState('');
+  const [plannedRounds, setPlannedRounds] = useState(10);
+  useEffect(() => {
+    const competition = settings.data?.competition as { rounds_planned?: number } | undefined;
+    if (competition?.rounds_planned) setPlannedRounds(competition.rounds_planned);
+  }, [settings.data]);
+  const saveCalendar = useMutation({
+    mutationFn: () => api.put(`/admin/seasons/${seasonId}/settings/competition`, {
+      value: { ...(settings.data?.competition as Record<string, unknown> ?? {}), rounds_planned: plannedRounds },
+    }),
+    onSuccess: () => { setMessage({ tone: 'success', text: 'Calendario actualizado' }); refresh(); },
+    onError: (err) => fail(err, 'No se pudo actualizar el calendario'),
+  });
 
   // Los formularios arrancan con lo que ya está guardado.
   useEffect(() => {
@@ -83,7 +95,7 @@ export default function SeasonConfig() {
   const saveSeason = useMutation({
     mutationFn: () =>
       api.put(`/admin/seasons/${seasonId}`, {
-        endDate: dates.endDate || undefined,
+        endDate: dates.endDate || null,
         registrationDeadline: dates.registrationDeadline || undefined,
         defaultStartTime: dates.defaultStartTime || undefined,
         requireApprovalToPlay: requireApproval,
@@ -182,7 +194,7 @@ export default function SeasonConfig() {
             />
           </Field>
 
-          <Field label="Fin de temporada">
+          <Field label="Límite de temporada (opcional)" hint="Solo si existe una fecha máxima obligatoria; el cierre estimado se calcula abajo.">
             <input
               type="date"
               className="input input-bordered w-full"
@@ -191,6 +203,17 @@ export default function SeasonConfig() {
             />
           </Field>
         </div>
+
+        <Field label="Jornadas de fase regular" hint="Una jornada semanal. No incluye playoffs; una reprogramación posterior actualiza la estimación.">
+          <input type="number" min={1} max={104} className="input w-full" value={plannedRounds}
+            onChange={(e) => setPlannedRounds(Number(e.target.value))} disabled={!isSuperAdmin} />
+        </Field>
+        <p className="text-sm">Fin estimado de fase regular: {data.estimated_regular_end_date
+          ? fechaTexto(data.estimated_regular_end_date) : 'Configura las jornadas previstas'}</p>
+        <Button size="sm" onClick={() => saveCalendar.mutate()} loading={saveCalendar.isPending}
+          disabled={!isSuperAdmin || !settings.data || !Number.isInteger(plannedRounds) || plannedRounds < 1 || plannedRounds > 104}>
+          Guardar calendario
+        </Button>
 
         <Field label="Horario base de jornada" hint="Los horarios pueden variar por jornada">
           <input
