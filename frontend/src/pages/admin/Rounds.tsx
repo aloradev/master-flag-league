@@ -125,8 +125,10 @@ export default function AdminRounds() {
         <h2 className="font-semibold">Disponibilidad para esta jornada</h2>
         <p className="text-sm text-base-content/70">Selecciona descansos por decisión administrativa y la hora más temprana de cada equipo. Después genera o recalcula. Los horarios finales se ajustan en “Programación y árbitros” al guardar el borrador.</p>
         {teams.isError && <Alert tone="error">No se pudieron cargar los equipos.</Alert>}
-        {teams.data?.filter((t) => t.status === 'ACTIVE' && (season.data?.require_approval_to_play ? Number(t.players_eligible) > 0 : Number(t.players_total) > 0)).map((t) => <div key={t.id} className="flex flex-wrap items-center gap-3 border-b border-base-300 py-2">
+        {teams.data?.filter((t) => t.status === 'ACTIVE').map((t) => <div key={t.id} className="flex flex-wrap items-center gap-3 border-b border-base-300 py-2">
           <span className="min-w-0 flex-1 text-sm">{t.name} · {t.category_name}</span>
+          {Number(t.players_total) === 0 && <span className="text-xs text-warning">Plantilla pendiente</span>}
+          {Number(t.players_total) > 0 && season.data?.require_approval_to_play && Number(t.players_eligible) === 0 && <span className="text-xs text-warning">Sin jugadores elegibles aún</span>}
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="checkbox checkbox-sm"
             checked={rests.includes(t.id)} onChange={(e) => { setRests(e.target.checked ? [...rests, t.id] : rests.filter((id) => id !== t.id)); setPropuesta(null); }} />Descansa</label>
           <label className="text-xs">Disponible desde

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import pool from '../dist/config/database.js';
-import { guardarPropuesta } from '../dist/services/competition.service.js';
+import { guardarPropuesta, construirPropuesta } from '../dist/services/competition.service.js';
 
 // Base aislada en memoria: no conecta ni modifica Neon.
 const db = new PGlite();
@@ -17,9 +17,10 @@ INSERT INTO categories(id,season_id,name,slug) VALUES('c','s','Mixto','mixto');
 INSERT INTO fields(id,season_id,name) VALUES('f','s','Campo');`);
 for (const id of ['a','b','c','d']) {
   await db.query("INSERT INTO teams(id,season_id,category_id,name,status) VALUES($1,'s','c',$1,'ACTIVE')", [id]);
-  await db.query(`INSERT INTO players(id,team_id,season_id,category_id,first_name,last_name_paternal,date_of_birth)
-    VALUES($1,$1,'s','c','Test','Test','2000-01-01')`, [id]);
 }
+await db.query("UPDATE seasons SET require_approval_to_play=true WHERE id='s'");
+const automatic = await construirPropuesta({seasonId:'s', scheduledDate:'2040-01-08', slots:['19:00','20:00']});
+assert.equal(automatic.games.length, 2, 'Programar equipos sin plantilla incluso con aprobación obligatoria');
 const game = { categoryId:'c',homeTeamId:'a',awayTeamId:'b',fieldId:'f',time:'19:00' };
 const proposal = { seasonId:'s',scheduledDate:'2040-01-08',roundNumber:99,games:[game],byes:[{teamId:'c',categoryId:'c',reason:'MANUAL'}] };
 const round = await guardarPropuesta(structuredClone(proposal),'u');

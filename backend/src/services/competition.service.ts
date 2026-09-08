@@ -201,14 +201,6 @@ export const cargarCategoriasConEquipos = async (
        AND t.season_id = c.season_id
        AND t.status = 'ACTIVE'
        AND t.team_type = 'OFFICIAL'
-       AND EXISTS (
-         SELECT 1 FROM players p
-         WHERE p.team_id = t.id
-           AND p.removed_at IS NULL
-           AND ((p.status = 'APPROVED' AND p.is_eligible = TRUE) OR EXISTS (
-             SELECT 1 FROM seasons s WHERE s.id = c.season_id AND s.require_approval_to_play = FALSE
-           ))
-       )
      WHERE c.season_id = $1
      ORDER BY c.sort_order, c.name, t.name`,
     [seasonId]
@@ -381,7 +373,7 @@ export const guardarPropuesta = async (
     const used = new Set<string>();
     const occupied = new Set<string>();
     const reserve = (id: string, category: string) => {
-      if (!teams.has(id) || teams.get(id) !== category || used.has(id)) throw new AppError('Revisa los equipos: deben ser oficiales, elegibles, de la misma categoría y aparecer una sola vez.', 400);
+      if (!teams.has(id) || teams.get(id) !== category || used.has(id)) throw new AppError('Revisa los equipos: deben ser oficiales, activos, de la misma categoría y aparecer una sola vez.', 400);
       used.add(id);
     };
     for (const g of propuesta.games) {

@@ -41,7 +41,7 @@ export default function ManualRound({ season, onSaved, onCancel }: {
 
   return <Card className="space-y-4 p-4">
     <h2 className="text-lg font-bold">Crear jornada manual</h2>
-    <p className="text-sm text-base-content/70">Elige enfrentamientos entre equipos oficiales elegibles. Los horarios son de Cancún. Se guardará como borrador; después podrás asignar árbitros y publicar.</p>
+    <p className="text-sm text-base-content/70">Elige enfrentamientos entre equipos oficiales activos, incluso con plantilla pendiente. Los horarios son de Cancún. Se guardará como borrador; después podrás asignar árbitros y publicar. Para capturar estadísticas individuales se requieren jugadores registrados y la elegibilidad configurada.</p>
     {options.isLoading && <Spinner />}
     {options.isError && <Alert tone="error">No se pudieron cargar los equipos. <button onClick={() => void options.refetch()}>Reintentar</button></Alert>}
     {save.error && <Alert tone="error">{save.error.message}</Alert>}
@@ -66,7 +66,7 @@ export default function ManualRound({ season, onSaved, onCancel }: {
       <Button disabled={!categories.some(c => c.teams.length >= 2) || !season.fields.length} onClick={() => {
         setMatches(rows => [...rows, { key: nextKey, category: '', home: '', away: '', field: season.fields[0]?.id ?? '', time: season.default_start_time.slice(0, 5) }]); setNextKey(nextKey + 1);
       }}>Agregar partido</Button>
-      {options.isSuccess && !categories.some(c => c.teams.length >= 2) && <Alert>No hay una categoría con al menos dos equipos elegibles.</Alert>}
+      {options.isSuccess && !categories.some(c => c.teams.length >= 2) && <Alert>No hay una categoría con al menos dos equipos oficiales activos.</Alert>}
       <section className="space-y-2"><h3 className="font-semibold">Descansos administrativos</h3>
         <p className="text-xs text-base-content/70">Marca los equipos que descansan. Los equipos sin partido ni descanso seleccionado quedan fuera de esta jornada, sin sumar descanso.</p>
         {teams.filter(t => !playing.includes(t.id)).map(t => <label key={t.id} className="flex items-center gap-2 text-sm">

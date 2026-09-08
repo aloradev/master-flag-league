@@ -72,7 +72,7 @@ for (const date of ['2039-12-31', '2040-03-02', '2040-02-30', 'invalid']) {
 await db.exec(`INSERT INTO teams(id,season_id,category_id,name,status) VALUES('eligible-team','s','c','Equipo oficial','ACTIVE');
 INSERT INTO players(id,team_id,season_id,category_id,first_name,last_name_paternal,date_of_birth,status,is_eligible)
 VALUES('p','eligible-team','s','c','Jugador','Prueba','2000-01-01','PENDING',false);`);
-assert.equal((await cargarCategoriasConEquipos('s'))[0].teams.length, 0);
+assert.equal((await cargarCategoriasConEquipos('s'))[0].teams.length, 1);
 await db.query("UPDATE seasons SET require_approval_to_play=false WHERE id='s'");
 assert.equal((await cargarCategoriasConEquipos('s'))[0].teams.length, 1);
 assert.equal(await regularSeasonEnd('s'), null);
