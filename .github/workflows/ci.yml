@@ -66,8 +66,9 @@ jobs:
       - run: npm run build
       - name: Migración idempotente y usuario de los fixtures existentes
         run: |
-          npm run migrate:prod
-          npm run migrate:prod
+          # Credenciales de los fixtures, solo para el PostgreSQL desechable de CI.
+          npm run migrate:prod -- --admin=ananias.lora@go1.mx --password=Cancun2026
+          npm run migrate:prod -- --admin=ananias.lora@go1.mx --password=Cancun2026
       - name: Concurrencia real de la cola, sin envíos externos
         run: node tests/email-queue-postgres.mjs
       - name: Arrancar API de prueba
