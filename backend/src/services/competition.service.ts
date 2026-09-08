@@ -290,6 +290,8 @@ export const construirPropuesta = async (
     query(`SELECT COALESCE(MAX(number), 0) + 1 AS n FROM rounds WHERE season_id = $1 AND round_type = 'OFFICIAL'`, [seasonId]),
   ]);
 
+  const availability = await query("SELECT value FROM settings WHERE season_id=$1 AND key='game_times'", [seasonId]);
+  const fieldSlots = availability.rows[0]?.value?.field_slots ?? {};
   const slots = opciones.slots?.length
     ? opciones.slots.map((s) => s.slice(0, 5))
     : await cargarHorarios(seasonId);
@@ -309,6 +311,7 @@ export const construirPropuesta = async (
     categories: categorias.map((c) => ({ ...c, teams: c.teams.filter((t) => !rests.includes(t.id)) })),
     earliestTimes: earliest,
     fields: campos.rows,
+    fieldSlots,
     slots,
     history: historial,
   });

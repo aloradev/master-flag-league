@@ -18,6 +18,7 @@ export default function ManualRound({ season, onSaved, onCancel }: {
   const options = useQuery({ queryKey: ['manual-round-options', season.id],
     queryFn: () => api.get<Category[]>(`/admin/rounds/options?seasonId=${season.id}`) });
   const categories = options.data ?? [];
+  const settings = useQuery({ queryKey: ['season-settings', season.id], queryFn: () => api.get<{ game_times?: { slots?: string[]; field_slots?: Record<string, string[]> } }>(`/seasons/${season.id}/settings`) });
   const teams = categories.flatMap(c => c.teams.map(t => ({ ...t, category: c })));
   const playing = matches.flatMap(m => [m.home, m.away]).filter(Boolean);
   const complete = matches.length > 0 && matches.every(m => m.category && m.home && m.away && m.field && m.time);
@@ -43,6 +44,7 @@ export default function ManualRound({ season, onSaved, onCancel }: {
     <h2 className="text-lg font-bold">Crear jornada manual</h2>
     <p className="text-sm text-base-content/70">Elige enfrentamientos entre equipos oficiales activos, incluso con plantilla pendiente. Los horarios son de Cancún. Se guardará como borrador; después podrás asignar árbitros y publicar. Para capturar estadísticas individuales se requieren jugadores registrados y la elegibilidad configurada.</p>
     {options.isLoading && <Spinner />}
+    <Button size="sm" disabled={options.isFetching} onClick={() => void options.refetch()}>Actualizar equipos activos</Button>
     {options.isError && <Alert tone="error">No se pudieron cargar los equipos. <button onClick={() => void options.refetch()}>Reintentar</button></Alert>}
     {save.error && <Alert tone="error">{save.error.message}</Alert>}
     <fieldset disabled={save.isPending} className="space-y-4">
@@ -60,7 +62,7 @@ export default function ManualRound({ season, onSaved, onCancel }: {
           <Field label="Campo"><select className="select select-bordered w-full" value={m.field} onChange={e => update(m.key, { field: e.target.value })}>
             <option value="">Selecciona campo</option>{season.fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select></Field>
-          <Field label="Hora (Cancún)"><input className="input input-bordered w-full" type="time" value={m.time} onChange={e => update(m.key, { time: e.target.value })} /></Field>
+          <Field label="Hora (Cancún)" hint={`Horarios del campo: ${(settings.data?.game_times?.field_slots?.[m.field] ?? settings.data?.game_times?.slots ?? [season.default_start_time.slice(0, 5)]).join(', ') || 'Sin disponibilidad configurada'}. En modo manual puedes indicar una excepción.`}><input className="input input-bordered w-full" type="time" value={m.time} onChange={e => update(m.key, { time: e.target.value })} /></Field>
         </div>
       </section>)}
       <Button disabled={!categories.some(c => c.teams.length >= 2) || !season.fields.length} onClick={() => {

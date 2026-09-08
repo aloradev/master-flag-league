@@ -299,6 +299,14 @@ export const updateSetting = asyncHandler(async (req: AuthRequest, res: Response
   const value = req.body?.value;
 
   if (value === undefined) throw new AppError('El cuerpo debe incluir "value"', 400);
+  if (key === 'game_times') {
+    const validSlots = (slots: unknown) => Array.isArray(slots) && slots.length <= 48 && slots.every(t => typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t)) && new Set(slots).size === slots.length;
+    if (!validSlots(value?.slots) || !value.slots.length || !value.field_slots || typeof value.field_slots !== 'object' || Array.isArray(value.field_slots)) throw new AppError('Indica horarios válidos y distintos por campo', 400);
+    const fields = await query('SELECT id FROM fields WHERE season_id=$1', [seasonId]);
+    for (const [id, slots] of Object.entries(value.field_slots)) {
+      if (!fields.rows.some(f => f.id === id) || !validSlots(slots) || !(slots as string[]).every(t => value.slots.includes(t))) throw new AppError('Campo u horarios inválidos para esta temporada', 400);
+    }
+  }
   if (key === 'competition' && value?.playoff_count !== undefined && ![3,4,6,8,10,12].includes(value.playoff_count)) throw new AppError('Cantidad de clasificados inválida', 400);
   if (key === 'competition' && (!Number.isInteger(value?.rounds_planned) || value.rounds_planned < 1 || value.rounds_planned > 104)) {
     throw new AppError('Indica entre 1 y 104 jornadas previstas', 400);

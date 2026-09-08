@@ -6,6 +6,7 @@ import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
 import { useAuth } from '../../store/auth';
 import { fechaTexto } from '../../lib/format';
 import { OperationsStatus } from '../../components/OperationsStatus';
+import FieldTimes from './FieldTimes';
 
 interface DocumentSettings {
   required: string[];
@@ -185,6 +186,7 @@ export default function SeasonConfig() {
       {isSuperAdmin && <OperationsStatus />}
 
       {/* Fechas y reglas */}
+      <FieldTimes season={data} disabled={!isSuperAdmin} />
       <Card className="space-y-3 p-4">
         <h2 className="font-semibold">Fechas y reglas</h2>
 

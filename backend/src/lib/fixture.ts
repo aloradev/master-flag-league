@@ -45,6 +45,7 @@ export interface EntradaPropuesta {
   fields: EquipoRef[];
   /** Horarios de ESTA jornada, en formato "HH:MM". Varían entre jornadas. */
   slots: string[];
+  fieldSlots?: Record<string, string[]>;
   history: Historial;
 }
 
@@ -259,11 +260,12 @@ const repartirHuecos = (
   fields: EquipoRef[],
   slots: string[],
   h: Historial,
-  earliestTimes: Record<string, string> = {}
+  earliestTimes: Record<string, string> = {},
+  fieldSlots: Record<string, string[]> = {}
 ): ({ fieldId: string; fieldName: string; time: string } | null)[] => {
   const huecos: { fieldId: string; fieldName: string; time: string }[] = [];
   for (const time of slots) {
-    for (const f of fields) huecos.push({ fieldId: f.id, fieldName: f.name, time });
+    for (const f of fields) if (!fieldSlots[f.id] || fieldSlots[f.id].includes(time)) huecos.push({ fieldId: f.id, fieldName: f.name, time });
   }
 
   const libres = new Set(huecos.map((_, i) => i));
@@ -303,7 +305,7 @@ const repartirHuecos = (
 
 export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
   const { categories, fields, slots, history: h } = entrada;
-  const capacidad = fields.length * slots.length;
+  const capacidad = fields.reduce((n, f) => n + slots.filter(t => !entrada.fieldSlots?.[f.id] || entrada.fieldSlots[f.id].includes(t)).length, 0);
   const warnings: string[] = [];
 
   const nombre = new Map<string, string>();
@@ -403,11 +405,11 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
       }
     }
     warnings.push(
-      `Caben ${capacidad} partidos (${fields.length} campos × ${slots.length} horarios) y ` +
+      `Caben ${capacidad} partidos según la disponibilidad de los campos y ` +
         `se pueden jugar ${candidatos.length}. ${sobran} ` +
         `${sobran === 1 ? 'partido queda' : 'partidos quedan'} fuera y ` +
         `${sobran * 2} equipos descansan por falta de espacio. ` +
-        `Agregar un horario libera ${fields.length} ${fields.length === 1 ? 'partido' : 'partidos'}.`
+        `Agrega espacios disponibles en la configuración de campos para ampliar la capacidad.`
     );
 
     for (const c of fuera) candidatos.splice(candidatos.indexOf(c), 1);
@@ -427,7 +429,8 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     fields,
     slots,
     h,
-    entrada.earliestTimes
+    entrada.earliestTimes,
+    entrada.fieldSlots
   );
 
   const games: PartidoPropuesto[] = candidatos.map((c, i) => ({

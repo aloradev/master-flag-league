@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import pool from '../dist/config/database.js';
 import { guardarPropuesta, construirPropuesta } from '../dist/services/competition.service.js';
+import { manualOptions } from '../dist/controllers/rounds.controller.js';
 
 // Base aislada en memoria: no conecta ni modifica Neon.
 const db = new PGlite();
@@ -21,6 +22,13 @@ for (const id of ['a','b','c','d']) {
 await db.query("UPDATE seasons SET require_approval_to_play=true WHERE id='s'");
 const automatic = await construirPropuesta({seasonId:'s', scheduledDate:'2040-01-08', slots:['19:00','20:00']});
 assert.equal(automatic.games.length, 2, 'Programar equipos sin plantilla incluso con aprobación obligatoria');
+const options = await new Promise((resolve, reject) => manualOptions({query:{seasonId:'s'},user:{leagueId:'l'}}, {json:resolve}, reject));
+assert.equal(options.data[0].teams.length, 4, 'Endpoint manual incluye todos los oficiales activos sin jugadores');
+await db.query(`INSERT INTO settings(id,league_id,season_id,key,value) VALUES('times','l','s','game_times','{"slots":["19:00","20:00"],"field_slots":{"f":["20:00"]}}')`);
+const limited = await construirPropuesta({seasonId:'s',scheduledDate:'2040-01-08'});
+assert.equal(limited.capacity, 1);
+assert.equal(limited.games.length, 1);
+assert.equal(limited.games[0].time, '20:00');
 const game = { categoryId:'c',homeTeamId:'a',awayTeamId:'b',fieldId:'f',time:'19:00' };
 const proposal = { seasonId:'s',scheduledDate:'2040-01-08',roundNumber:99,games:[game],byes:[{teamId:'c',categoryId:'c',reason:'MANUAL'}] };
 const round = await guardarPropuesta(structuredClone(proposal),'u');
