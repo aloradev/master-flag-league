@@ -46,20 +46,22 @@ export default function SeasonConfig() {
     enabled: Boolean(seasonId),
   });
 
-  const [dates, setDates] = useState({ endDate: '', registrationDeadline: '', defaultStartTime: '' });
+  const [dates, setDates] = useState({ startDate: '', endDate: '', registrationDeadline: '', defaultStartTime: '' });
   const [requireApproval, setRequireApproval] = useState(true);
   const [docs, setDocs] = useState<DocumentSettings | null>(null);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [newCategory, setNewCategory] = useState('');
   const [newField, setNewField] = useState('');
   const [plannedRounds, setPlannedRounds] = useState(10);
+  const [playoffCount, setPlayoffCount] = useState(4);
   useEffect(() => {
-    const competition = settings.data?.competition as { rounds_planned?: number } | undefined;
+    const competition = settings.data?.competition as { rounds_planned?: number; playoff_count?: number } | undefined;
+    setPlayoffCount(competition?.playoff_count ?? 4);
     if (competition?.rounds_planned) setPlannedRounds(competition.rounds_planned);
   }, [settings.data]);
   const saveCalendar = useMutation({
     mutationFn: () => api.put(`/admin/seasons/${seasonId}/settings/competition`, {
-      value: { ...(settings.data?.competition as Record<string, unknown> ?? {}), rounds_planned: plannedRounds },
+      value: { ...(settings.data?.competition as Record<string, unknown> ?? {}), rounds_planned: plannedRounds, playoff_count: playoffCount },
     }),
     onSuccess: () => { setMessage({ tone: 'success', text: 'Calendario actualizado' }); refresh(); },
     onError: (err) => fail(err, 'No se pudo actualizar el calendario'),
@@ -69,6 +71,7 @@ export default function SeasonConfig() {
   useEffect(() => {
     if (season.data) {
       setDates({
+        startDate: season.data.start_date.slice(0, 10),
         endDate: season.data.end_date?.slice(0, 10) ?? '',
         registrationDeadline: season.data.registration_deadline?.slice(0, 10) ?? '',
         defaultStartTime: season.data.default_start_time?.slice(0, 5) ?? '19:00',
@@ -96,6 +99,7 @@ export default function SeasonConfig() {
     mutationFn: () =>
       api.put(`/admin/seasons/${seasonId}`, {
         endDate: dates.endDate || null,
+        startDate: dates.startDate,
         registrationDeadline: dates.registrationDeadline || undefined,
         defaultStartTime: dates.defaultStartTime || undefined,
         requireApprovalToPlay: requireApproval,
@@ -185,6 +189,9 @@ export default function SeasonConfig() {
         <h2 className="font-semibold">Fechas y reglas</h2>
 
         <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Inicio de temporada" hint="Actualiza la proyección; no cambia las fechas de partidos ya programados.">
+            <input type="date" className="input input-bordered w-full" value={dates.startDate} onChange={e => setDates({ ...dates, startDate: e.target.value })} />
+          </Field>
           <Field label="Cierre de registro" hint="Después de esta fecha el manager ya no da de alta">
             <input
               type="date"
@@ -207,6 +214,11 @@ export default function SeasonConfig() {
         <Field label="Jornadas de fase regular" hint="Una jornada semanal. No incluye playoffs; una reprogramación posterior actualiza la estimación.">
           <input type="number" min={1} max={104} className="input w-full" value={plannedRounds}
             onChange={(e) => setPlannedRounds(Number(e.target.value))} disabled={!isSuperAdmin} />
+        </Field>
+        <Field label="Clasificados a playoffs por categoría" hint="Con 3: el primer lugar pasa a la final; segundo y tercero juegan la semifinal. No modifica playoffs ya creados.">
+          <select className="select w-full" value={playoffCount} disabled={!isSuperAdmin} onChange={e => setPlayoffCount(Number(e.target.value))}>
+            {[3,4,6,8,10,12].map(n => <option key={n} value={n}>{n} equipos</option>)}
+          </select>
         </Field>
         <p className="text-sm">Fin estimado de fase regular: {data.estimated_regular_end_date
           ? fechaTexto(data.estimated_regular_end_date) : 'Configura las jornadas previstas'}</p>

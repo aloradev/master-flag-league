@@ -1,6 +1,6 @@
 /** Orden de siembra estándar, con pases directos para las mejores semillas. */
 export function seedSlots(ids: string[]): (string | null)[] {
-  if (![4, 6, 8, 10, 12].includes(ids.length) || new Set(ids).size !== ids.length) throw new Error('Selecciona 4, 6, 8, 10 o 12 equipos distintos');
+  if (![3, 4, 6, 8, 10, 12].includes(ids.length) || new Set(ids).size !== ids.length) throw new Error('Selecciona 3, 4, 6, 8, 10 o 12 equipos distintos');
   const size = 2 ** Math.ceil(Math.log2(ids.length));
   let order = [1, 2];
   while (order.length < size) order = order.flatMap((n) => [n, order.length * 2 + 1 - n]);

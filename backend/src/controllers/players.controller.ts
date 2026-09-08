@@ -1,4 +1,5 @@
 import type { Response } from 'express';
+import { registrationOpen } from '../utils/registration.js';
 import { query } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { audit } from '../services/audit.service.js';
@@ -310,9 +311,7 @@ export const createPlayer = asyncHandler(async (req: AuthRequest, res: Response)
 
   // Req. 10: después de la fecha límite solo administración puede dar de alta.
   if (team.registration_deadline && !isAdmin(req)) {
-    const deadline = new Date(team.registration_deadline);
-    const today = new Date(new Date().toDateString());
-    if (today > deadline) {
+    if (!registrationOpen(team.registration_deadline)) {
       throw new AppError(
         'El periodo de registro está cerrado. Solicita autorización a administración.',
         403

@@ -38,5 +38,11 @@ for(const p of bad) await assert.rejects(() => guardarPropuesta(structuredClone(
 await db.query("UPDATE teams SET team_type='SCRIMMAGE' WHERE id='a'");
 await assert.rejects(() => guardarPropuesta(structuredClone(proposal),'u'));
 assert.equal((await db.query('SELECT count(*)::int n FROM rounds')).rows[0].n,1);
+await db.query("UPDATE teams SET team_type='OFFICIAL' WHERE id='a'");
+await db.query(`INSERT INTO settings(id,league_id,season_id,key,value) VALUES('limit','l','s','competition','{"rounds_planned":1}')`);
+await assert.rejects(() => guardarPropuesta(structuredClone(proposal),'u'), /jornadas configuradas/);
+await db.query(`UPDATE settings SET value='{"rounds_planned":6}' WHERE id='limit'`);
+await guardarPropuesta(structuredClone(proposal),'u');
+assert.equal((await db.query('SELECT count(*)::int n FROM rounds')).rows[0].n,2);
 await db.close();
 console.log('OK: jornada manual en borrador, descansos, numeración y rechazo de equipos, campos, horarios y fechas inválidos; rollback sin residuos.');

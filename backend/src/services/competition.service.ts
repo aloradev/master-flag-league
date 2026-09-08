@@ -288,6 +288,7 @@ export const construirPropuesta = async (
   opciones: OpcionesPropuesta
 ): Promise<Propuesta & { seasonId: string }> => {
   const { seasonId } = opciones;
+  await validarCupoJornadas(seasonId);
   if (opciones.scheduledDate) await validarFechaJornada(seasonId, opciones.scheduledDate);
 
   const [categorias, campos, historial, siguienteNumero] = await Promise.all([
@@ -350,6 +351,15 @@ export const validarFechaJornada = async (seasonId: string, date: string, q = qu
  * partidos pero sin descansos— haría que el siguiente generador contara
  * mal el historial y arrastrara el error a toda la temporada.
  */
+async function validarCupoJornadas(seasonId: string, executor: typeof defaultQuery = defaultQuery) {
+  const result = await executor(`SELECT st.value->>'rounds_planned' AS planned,
+    (SELECT count(*) FROM rounds r WHERE r.season_id=$1 AND r.round_type='OFFICIAL'
+      AND r.playoff_id IS NULL AND r.status <> 'CANCELLED') AS total
+    FROM settings st WHERE st.season_id=$1 AND st.key='competition'`, [seasonId]);
+  const row = result.rows[0];
+  if (Number(row?.planned) > 0 && Number(row.total) >= Number(row.planned)) throw new AppError('Ya se alcanzaron las jornadas configuradas. Ajusta el calendario de temporada si necesitas más.', 409);
+}
+
 export const guardarPropuesta = async (
   propuesta: Propuesta & { seasonId: string },
   userId: string
@@ -363,6 +373,7 @@ export const guardarPropuesta = async (
     const season = await query(`SELECT s.id FROM seasons s JOIN users u ON u.league_id=s.league_id
       WHERE s.id=$1 AND u.id=$2 FOR UPDATE OF s`, [propuesta.seasonId, userId]);
     if (!season.rows.length) throw new AppError('Temporada no encontrada', 404);
+    await validarCupoJornadas(propuesta.seasonId, query);
     if (!Array.isArray(propuesta.byes)) throw new AppError('Descansos inválidos', 400);
     const categories = await cargarCategoriasConEquipos(propuesta.seasonId, query);
     const teams = new Map(categories.flatMap((c) => c.teams.map((t) => [t.id, c.id] as const)));

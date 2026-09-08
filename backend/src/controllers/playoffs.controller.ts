@@ -27,7 +27,7 @@ export const list = asyncHandler(async (req: AuthRequest, res: Response) => {
 export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { seasonId, categoryId, count } = req.body ?? {};
   if (typeof seasonId !== 'string' || typeof categoryId !== 'string' || !seasonId || !categoryId) throw new AppError('Selecciona temporada y categoría', 400);
-  if (![4, 6, 8, 10, 12].includes(count)) throw new AppError('Formato inválido', 400);
+  if (![3, 4, 6, 8, 10, 12].includes(count)) throw new AppError('Formato inválido', 400);
   const standings = await calcularPosiciones(seasonId, categoryId);
   const seeds = standings.filter((t) => t.played > 0).slice(0, count).map((t) => ({ id: t.team_id, name: t.team_name }));
   if (seeds.length !== count) throw new AppError('No hay suficientes equipos con resultados en esta categoría', 400);

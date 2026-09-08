@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { seedSlots, advanceSlots } from '../dist/lib/playoffs.js';
-for (const n of [4, 6, 8, 10, 12]) {
+assert.deepEqual(seedSlots(['first','second','third']), ['first',null,'second','third']);
+for (const n of [3, 4, 6, 8, 10, 12]) {
   const ids = Array.from({length:n}, (_,i) => `team-${i+1}`);
   let slots = seedSlots(ids);
   assert.deepEqual([...slots.filter(Boolean)].sort(), [...ids].sort());

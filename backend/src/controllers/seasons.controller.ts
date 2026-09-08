@@ -7,6 +7,7 @@ import { slugify } from '../utils/slug.js';
 import type { AuthRequest } from '../middleware/auth.js';
 import { refreshSeasonEligibility } from '../services/eligibility.service.js';
 import { seasonFinalEstimate } from '../services/calendar.service.js';
+import { registrationOpen as isRegistrationOpen } from '../utils/registration.js';
 
 
 // ─────────────────────────────── TEMPORADAS ───────────────────────────────
@@ -43,9 +44,7 @@ export const getActiveSeason = asyncHandler(async (req: AuthRequest, res: Respon
     query('SELECT * FROM fields WHERE season_id = $1 ORDER BY name', [season.id]),
   ]);
 
-  const registrationOpen =
-    !season.registration_deadline ||
-    new Date(season.registration_deadline) >= new Date(new Date().toDateString());
+  const registrationOpen = isRegistrationOpen(season.registration_deadline);
   const calendar = await seasonFinalEstimate(season.id);
 
   res.json({
@@ -103,15 +102,23 @@ export const createSeason = asyncHandler(async (req: AuthRequest, res: Response)
 /** PUT /api/v1/admin/seasons/:id */
 export const updateSeason = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const before = await query('SELECT * FROM seasons WHERE id = $1', [id]);
+  const before = await query('SELECT * FROM seasons WHERE id = $1 AND league_id = $2', [id, req.user!.leagueId]);
   if (!before.rows[0]) throw new AppError('Temporada no encontrada', 404);
 
-  const { name, endDate, registrationDeadline, defaultStartTime, requireApprovalToPlay, status } =
+  const { name, startDate, endDate, registrationDeadline, defaultStartTime, requireApprovalToPlay, status } =
     req.body ?? {};
+
+  for (const date of [startDate, endDate, registrationDeadline]) {
+    if (date != null && (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date)) throw new AppError('Fecha inválida', 400);
+  }
+  const effectiveStart = startDate ?? new Date(before.rows[0].start_date).toISOString().slice(0, 10);
+  const effectiveEnd = Object.prototype.hasOwnProperty.call(req.body, 'endDate') ? endDate : before.rows[0].end_date;
+  if (effectiveEnd && new Date(effectiveEnd) < new Date(effectiveStart)) throw new AppError('El límite de temporada no puede ser anterior al inicio', 400);
 
   await query(
     `UPDATE seasons SET
        name = COALESCE($1, name),
+       start_date = COALESCE($9::date, start_date),
        end_date = CASE WHEN $8::boolean THEN $2::date ELSE end_date END,
        registration_deadline = COALESCE($3, registration_deadline),
        default_start_time = COALESCE($4, default_start_time),
@@ -127,6 +134,7 @@ export const updateSeason = asyncHandler(async (req: AuthRequest, res: Response)
       status ?? null,
       id,
       Object.prototype.hasOwnProperty.call(req.body ?? {}, 'endDate'),
+      startDate ?? null,
     ]
   );
 
@@ -291,6 +299,7 @@ export const updateSetting = asyncHandler(async (req: AuthRequest, res: Response
   const value = req.body?.value;
 
   if (value === undefined) throw new AppError('El cuerpo debe incluir "value"', 400);
+  if (key === 'competition' && value?.playoff_count !== undefined && ![3,4,6,8,10,12].includes(value.playoff_count)) throw new AppError('Cantidad de clasificados inválida', 400);
   if (key === 'competition' && (!Number.isInteger(value?.rounds_planned) || value.rounds_planned < 1 || value.rounds_planned > 104)) {
     throw new AppError('Indica entre 1 y 104 jornadas previstas', 400);
   }

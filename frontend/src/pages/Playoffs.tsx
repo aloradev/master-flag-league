@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -42,11 +42,13 @@ export default function Playoffs() {
   const [categoryId, setCategoryId] = useState('');
   const [count, setCount] = useState(4);
   const season = useQuery({ queryKey: ['season-active'], queryFn: () => api.get<Season>('/seasons/active') });
+  const settings = useQuery({ queryKey: ['season-settings', season.data?.id], queryFn: () => api.get<{ competition?: { playoff_count?: number } }>(`/seasons/${season.data!.id}/settings`), enabled: Boolean(season.data?.id) && isAdmin(user?.role) });
+  useEffect(() => { if (settings.data?.competition?.playoff_count) setCount(settings.data.competition.playoff_count); }, [settings.data]);
   const create = useMutation({ mutationFn: () => api.post('/admin/playoffs', { seasonId: season.data!.id, categoryId, count }), onSuccess: () => { void qc.invalidateQueries({ queryKey: ['playoffs'] }); } });
   if (season.isLoading) return <Spinner />;
   if (!season.data) return <Alert tone="error">No hay temporada activa. Consulta los campeones en Historial.</Alert>;
   return <div className="mx-auto max-w-4xl space-y-5"><h1 className="text-xl font-bold">Playoffs · {season.data.name}</h1>
-    {isAdmin(user?.role) && <Card className="space-y-3 p-4"><h2 className="font-semibold">Crear clasificación</h2><p className="text-sm">Clasifican los primeros equipos de la tabla regular con partidos jugados. La siembra queda fija; los ganadores conservan su llave.</p><Field label="Categoría"><select className="select w-full" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}><option value="">Selecciona</option>{season.data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field><Field label="Equipos clasificados"><select className="select" value={count} onChange={(e) => setCount(Number(e.target.value))}>{[4, 6, 8, 10, 12].map((n) => <option key={n}>{n}</option>)}</select></Field>{create.error && <Alert tone="error">{create.error.message}</Alert>}<Button loading={create.isPending} disabled={!categoryId} onClick={() => create.mutate()}>Crear playoffs</Button><Link className="link block" to="/admin/jornadas">Programar campos y árbitros en Jornadas</Link></Card>}
+    {isAdmin(user?.role) && <Card className="space-y-3 p-4"><h2 className="font-semibold">Crear clasificación</h2><p className="text-sm">Clasifican los primeros equipos de la tabla regular con partidos jugados. La siembra queda fija; los ganadores conservan su llave.</p><Field label="Categoría"><select className="select w-full" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}><option value="">Selecciona</option>{season.data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field><Field label="Equipos clasificados"><select className="select" value={count} onChange={(e) => setCount(Number(e.target.value))}>{[3, 4, 6, 8, 10, 12].map((n) => <option key={n}>{n}</option>)}</select></Field>{create.error && <Alert tone="error">{create.error.message}</Alert>}<Button loading={create.isPending} disabled={!categoryId} onClick={() => create.mutate()}>Crear playoffs</Button><Link className="link block" to="/admin/jornadas">Programar campos y árbitros en Jornadas</Link></Card>}
     <PlayoffList seasonId={season.data.id} manage={isAdmin(user?.role)} />
   </div>;
 }
