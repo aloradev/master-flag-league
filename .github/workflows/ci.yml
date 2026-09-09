@@ -66,6 +66,7 @@ jobs:
       - run: npm run build
       - name: Migración idempotente y usuario de los fixtures existentes
         run: |
+          echo "Commit bajo prueba: $GITHUB_SHA"
           # Credenciales de los fixtures, solo para el PostgreSQL desechable de CI.
           npm run migrate:prod -- --admin=ananias.lora@go1.mx --password=Cancun2026
           npm run migrate:prod -- --admin=ananias.lora@go1.mx --password=Cancun2026
@@ -80,3 +81,7 @@ jobs:
           done
           exit 1
       - run: npm run test:all
+      - name: Diagnóstico de la API si falla el job
+        if: failure()
+        run: |
+          if [ -f /tmp/mfl-ci-api.log ]; then cat /tmp/mfl-ci-api.log; fi

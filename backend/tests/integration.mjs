@@ -77,6 +77,12 @@ const run = async () => {
   check('Devuelve access token', Boolean(adminToken));
   check('Devuelve el rol', login.body?.data?.user?.role === 'SUPER_ADMIN');
   check('Devuelve permisos del rol', Boolean(login.body?.data?.user?.permissions?.players));
+  if (login.status !== 200 || !adminToken) {
+    throw new Error(
+      `No se pudo iniciar sesión con el administrador de prueba (HTTP ${login.status}). ` +
+      'Verifica que la migración creó el usuario de los fixtures en la misma base de datos que usa la API.'
+    );
+  }
 
   const noAuth = await call('GET', '/players');
   check('Bloquea acceso sin token', noAuth.status === 401);
@@ -738,6 +744,9 @@ const run = async () => {
 
   const avatarUrl = fotoSubida.body?.data?.avatarUrl;
   check('Devuelve la URL del avatar derivado', Boolean(avatarUrl), String(avatarUrl));
+  if (typeof avatarUrl !== 'string' || !avatarUrl) {
+    throw new Error(`La subida de fotografía no devolvió avatarUrl (HTTP ${fotoSubida.status}): ${JSON.stringify(fotoSubida.body)}`);
+  }
 
   // El avatar debe abrirse SIN sesión: es lo que permite el perfil público.
   const avatarAnonimo = await fetch(`${new URL(API).origin}${avatarUrl}`);
