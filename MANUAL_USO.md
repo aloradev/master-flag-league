@@ -132,3 +132,62 @@ Mientras estén pendientes se excluyen los datos de ese partido de los rankings;
 el resultado sigue contando en posiciones. Al terminar vuelve a marcar completas.
 Solo Super Administrador y Administrador Deportivo pueden operar este flujo, que
 aplica a resultados históricos oficiales de temporada regular.
+
+### Inscripciones mientras la temporada está en curso
+
+El panel de administración incluye **Inscripciones y pendientes por equipo**:
+- Estado de las altas de jugadores para managers y fecha de cierre.
+- Equipos sin jugadores o sin encargado con cuenta activa.
+- Jugadores no elegibles y el motivo pendiente de cada registro.
+- Filtros para concentrarse en pendientes y enlaces a fichas y plantillas.
+
+El resumen solo incluye equipos oficiales ya registrados de la temporada activa;
+no puede contar equipos que aún no se han dado de alta. Una plantilla marcada como
+elegible tiene al menos un jugador registrado y todos son elegibles; esto no acredita
+un mínimo de participantes ni otros requisitos deportivos.
+
+En **Temporada → Cierre de registro**, el Super Administrador puede ampliar la fecha
+o dejarla vacía y guardar para mantener abiertas las altas de managers. El inicio
+de la temporada no cierra las inscripciones. Con fecha definida, el cierre incluye
+todo ese día en Cancún. Administración conserva los permisos de alta posteriores.
+
+### Partidos pendientes, descansos e incorporaciones
+
+En **Jornadas → Partidos pendientes, descansos e incorporaciones**, consulta el
+seguimiento por equipo y categoría. Los filtros distinguen partidos pendientes de
+resultado, pospuestos, jornadas pasadas sin asignación e incorporaciones tardías.
+El detalle muestra rival, fecha, estado y motivo de descanso, con acceso a la jornada.
+
+Un partido programado en una fecha anterior a hoy figura como **Pendiente de resultado**;
+no se presupone que se haya jugado. Un partido pospuesto mantiene su propia categoría.
+Los encuentros terminados y los resueltos por incomparecencia aparecen por separado.
+Solo se cuentan descansos expresamente registrados. Las jornadas sin asignación no
+suman derrotas, descansos ni una obligación automática de reponer partidos.
+
+Administración puede confirmar la **Fecha de incorporación** con una fuente o motivo.
+Se registra en auditoría y es distinta de la fecha de alta en la app. Vacía significa
+sin confirmar. No se permite colocarla después de un partido o descanso ya publicado
+para ese equipo. Las jornadas anteriores sin participación se identifican como anteriores
+a la incorporación. Cambiar este dato no altera resultados ni fechas programadas.
+
+El seguimiento incluye exclusivamente jornadas publicadas de temporada regular;
+excluye borradores, jornadas canceladas, playoffs y scrimmages. Usa **Actualizar
+seguimiento** después de dar de alta equipos en otra pantalla.
+
+## Quinta entrega
+
+El generador considera la fecha de incorporación deportiva y excluye equipos que
+comienzan después de la fecha propuesta. Respeta partidos y descansos ya guardados,
+incluidos borradores, cancela reservas de jornadas canceladas y propone rivales
+nuevos para equipos incorporados sin alterar partidos existentes. Al cambiar una
+fecha en la pantalla de jornadas se exige recalcular antes de guardar.
+La publicación vuelve a validar que ningún equipo esté programado antes de su
+incorporación. Prueba: `npm run test:generator-entry --prefix backend`.
+
+### Captura rápida desde el acta
+
+En la sección de estadísticas históricas puedes pegar varias filas en una sola
+operación. Cada fila usa `teamId`, `eventType`, `playerId` y `count`; las jugadas
+con yardas aceptan también `yards`. El sistema valida jugadores, equipos, elegibilidad,
+cantidades y que los puntos no superen el marcador. Se generan eventos individuales
+para que los rankings conserven sus cálculos y la operación queda auditada.

@@ -3,10 +3,10 @@
 1. [x] Captura de resultados históricos sin roster completo, con fuente, corrección auditada y posiciones automáticas.
 2. [x] Flujo independiente de resultado y estadísticas para partidos históricos, con publicación al completar.
 3. [x] Captura y corrección de estadísticas históricas después del cierre, con permisos e historial.
-4. [ ] Visibilidad de inscripciones abiertas, equipos y jugadores pendientes durante la temporada.
-5. [ ] Control de partidos pendientes, descansos e incorporaciones tardías por equipo.
-6. [ ] Propuestas de calendario que incorporen equipos nuevos respetando lo ya programado y jugado.
-7. [ ] Captura rápida de totales por jugador desde el acta, sin duplicar eventos ni puntos.
+4. [x] Visibilidad de inscripciones abiertas, equipos y jugadores pendientes durante la temporada.
+5. [x] Control de partidos pendientes, descansos e incorporaciones tardías por equipo.
+6. [x] Propuestas de calendario que incorporen equipos nuevos respetando lo ya programado y jugado.
+7. [x] Captura rápida de totales por jugador desde el acta, sin duplicar eventos ni puntos.
 8. [ ] Panel de pendientes administrativos.
 
 ## Primera entrega
@@ -28,3 +28,39 @@ excluyen de rankings; las posiciones y el marcador histórico se conservan.
 La ruta de anulación del modo árbitro no puede saltarse este flujo.
 La prueba histórica incluye estos escenarios y rollback ante fallo de auditoría.
 La captura por totales por jugador permanece como mejora posterior.
+
+## Tercera entrega
+
+Panel de inscripciones con filtros, equipos sin plantilla o encargado activo,
+motivos por jugador y enlaces a los registros. Consultas limitadas a la liga del
+administrador. La lista de equipos se limita a la temporada activa.
+Se puede quitar explícitamente la fecha de cierre; omitirla en una actualización
+conserva su valor. Prueba: `npm run test:registration-progress --prefix backend`.
+No requiere otra migración además de la incorporada en la primera entrega.
+
+## Cuarta entrega
+
+Seguimiento por equipo dentro de Jornadas, con estados por encuentro y jornada,
+filtros por categoría, pendientes e incorporaciones. Fecha deportiva explícita,
+editable por administración con motivo y auditoría transaccional. No se infiere
+la incorporación a partir de `created_at` ni se modifican posiciones.
+Incluye nueva columna idempotente `teams.competition_start_date`; aplicar migraciones
+al desplegar. Prueba: `npm run test:team-progress --prefix backend`.
+La fecha es informativa en esta entrega; su integración al generador es el paso 6.
+
+## Quinta entrega
+
+El generador filtra equipos por fecha de incorporación, toma como reservas los
+partidos y descansos ya guardados (incluidos borradores), evita colisiones de equipo,
+campo y hora, y vuelve a validar al guardar/publicar. Los equipos nuevos reciben
+rivales no enfrentados cuando hay capacidad. La fecha cambiada en la propuesta
+requiere recalcular. Prueba: `npm run test:generator-entry --prefix backend`.
+Migración adicional: `teams.competition_start_date` ya incluida en entregas previas.
+
+## Sexta entrega
+
+La captura administrativa de estadísticas históricas admite un lote JSON de hasta
+200 filas. Cada cantidad se expande a eventos individuales; valida equipo, jugador,
+elegibilidad, yardas y puntos contra el marcador antes de guardar. La operación es
+transaccional y auditada. La interfaz incluye un formulario de pegado rápido en la
+sección de estadísticas del partido. Pruebas de compilación backend/frontend aprobadas.

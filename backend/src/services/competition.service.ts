@@ -138,9 +138,8 @@ export const refrescarMarcador = async (gameId: string, query: typeof import('..
 /**
  * Arma el historial que necesita el generador.
  *
- * Solo cuenta jornadas ya publicadas: una propuesta en borrador todavía
- * puede cambiar, y si contara, generar dos veces seguidas daría
- * resultados distintos sin que nadie hubiera jugado nada.
+ * Incluye borradores guardados como compromisos; una propuesta sin guardar
+ * no altera el historial. Excluye cancelaciones y playoffs.
  */
 export const cargarHistorial = async (seasonId: string): Promise<Historial> => {
   const h = historialVacio();
@@ -150,7 +149,7 @@ export const cargarHistorial = async (seasonId: string): Promise<Historial> => {
      FROM games g
      JOIN rounds r ON r.id = g.round_id
      WHERE g.season_id = $1
-       AND r.status <> 'DRAFT'
+       AND r.status <> 'CANCELLED' AND r.round_type = 'OFFICIAL' AND r.playoff_id IS NULL
        AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
        AND g.status <> 'CANCELLED'`,
     [seasonId]
@@ -185,7 +184,7 @@ export const cargarHistorial = async (seasonId: string): Promise<Historial> => {
     `SELECT rb.team_id
      FROM round_byes rb
      JOIN rounds r ON r.id = rb.round_id
-     WHERE r.season_id = $1 AND r.status <> 'DRAFT'`,
+     WHERE r.season_id = $1 AND r.status <> 'CANCELLED' AND r.round_type = 'OFFICIAL' AND r.playoff_id IS NULL`,
     [seasonId]
   );
   for (const d of descansos.rows) sube(h.descansos, d.team_id);
@@ -195,7 +194,7 @@ export const cargarHistorial = async (seasonId: string): Promise<Historial> => {
 
 /** Categorías con sus equipos activos, tal como las quiere el generador. */
 export const cargarCategoriasConEquipos = async (
-  seasonId: string, query: typeof defaultQuery = defaultQuery
+  seasonId: string, query: typeof defaultQuery = defaultQuery, date?: string
 ): Promise<CategoriaEntrada[]> => {
   const r = await query(
     `SELECT c.id AS category_id, c.name AS category_name, c.sort_order,
@@ -205,9 +204,10 @@ export const cargarCategoriasConEquipos = async (
        AND t.season_id = c.season_id
        AND t.status = 'ACTIVE'
        AND t.team_type = 'OFFICIAL'
+       AND ($2::date IS NULL OR t.competition_start_date IS NULL OR t.competition_start_date <= $2::date)
      WHERE c.season_id = $1
      ORDER BY c.sort_order, c.name, t.name`,
-    [seasonId]
+    [seasonId, date ?? null]
   );
 
   const mapa = new Map<string, CategoriaEntrada>();
@@ -249,6 +249,26 @@ export const cargarHorarios = async (
 
 // ─────────────────────────── PROPUESTA ────────────────────────────────────
 
+/** Compromisos de campo y equipo en la fecha, incluso de borradores guardados. */
+async function reservasDeFecha(seasonId: string, date: string, q = query) {
+  return (await q(`SELECT g.home_team_id,g.away_team_id,NULL::text AS bye_team_id,g.field_id,
+    to_char(g.scheduled_time,'HH24:MI') AS time
+    FROM games g JOIN rounds r ON r.id=g.round_id
+    WHERE g.season_id=$1 AND r.scheduled_date=$2::date AND r.status<>'CANCELLED'
+      AND g.status<>'CANCELLED' AND g.game_type='OFFICIAL'
+    UNION ALL SELECT NULL,NULL,b.team_id,NULL,NULL FROM round_byes b JOIN rounds r ON r.id=b.round_id
+    WHERE r.season_id=$1 AND r.scheduled_date=$2::date AND r.status<>'CANCELLED' AND r.round_type='OFFICIAL'`,[seasonId,date])).rows;
+}
+
+/** Se vuelve a comprobar al cambiar la fecha o publicar un borrador anterior. */
+export async function validarIncorporacionesJornada(roundId: string, date: string, q = query) {
+  const conflicts = await q(`SELECT t.name FROM teams t WHERE t.competition_start_date>$2::date AND
+    (EXISTS (SELECT 1 FROM games g WHERE g.round_id=$1 AND g.status<>'CANCELLED'
+      AND (g.home_team_id=t.id OR g.away_team_id=t.id))
+    OR EXISTS (SELECT 1 FROM round_byes b WHERE b.round_id=$1 AND b.team_id=t.id))`,[roundId,date]);
+  if (conflicts.rows.length) throw new AppError(`Hay equipos cuya incorporación es posterior a la jornada: ${conflicts.rows.map(t=>t.name).join(', ')}. Revisa la fecha o su incorporación.`,409);
+}
+
 export interface OpcionesPropuesta {
   restTeamIds?: string[];
   earliestTimes?: Record<string, string>;
@@ -267,7 +287,7 @@ export interface OpcionesPropuesta {
  */
 const siguienteFecha = async (seasonId: string): Promise<string> => {
   const ultima = await query(
-    `SELECT scheduled_date FROM rounds WHERE season_id = $1 AND round_type = 'OFFICIAL' AND status <> 'CANCELLED' ORDER BY number DESC LIMIT 1`,
+    `SELECT scheduled_date FROM rounds WHERE season_id = $1 AND round_type = 'OFFICIAL' AND playoff_id IS NULL AND status <> 'CANCELLED' ORDER BY scheduled_date DESC, number DESC LIMIT 1`,
     [seasonId]
   );
   if (ultima.rows[0]?.scheduled_date) {
@@ -285,22 +305,29 @@ export const construirPropuesta = async (
 ): Promise<Propuesta & { seasonId: string }> => {
   const { seasonId } = opciones;
   await validarCupoJornadas(seasonId);
-  if (opciones.scheduledDate) await validarFechaJornada(seasonId, opciones.scheduledDate);
+  const date = opciones.scheduledDate ?? await siguienteFecha(seasonId);
+  await validarFechaJornada(seasonId, date);
 
   const [categorias, campos, historial, siguienteNumero] = await Promise.all([
-    cargarCategoriasConEquipos(seasonId),
+    cargarCategoriasConEquipos(seasonId, query, date),
     query(`SELECT id, name FROM fields WHERE season_id = $1 AND status = 'ACTIVE' ORDER BY name`, [seasonId]),
     cargarHistorial(seasonId),
     query(`SELECT COALESCE(MAX(number), 0) + 1 AS n FROM rounds WHERE season_id = $1 AND round_type = 'OFFICIAL'`, [seasonId]),
   ]);
 
   const availability = await query("SELECT value FROM settings WHERE season_id=$1 AND key='game_times'", [seasonId]);
-  const fieldSlots = availability.rows[0]?.value?.field_slots ?? {};
+  const fieldSlots = { ...(availability.rows[0]?.value?.field_slots ?? {}) };
   const slots = opciones.slots?.length
     ? opciones.slots.map((s) => s.slice(0, 5))
     : await cargarHorarios(seasonId);
 
-  const available = new Set(categorias.flatMap((c) => c.teams.map((t) => t.id)));
+  const reservations = await reservasDeFecha(seasonId, date);
+  const busy = new Set(reservations.flatMap(r => [r.home_team_id,r.away_team_id,r.bye_team_id].filter(Boolean)));
+  for (const field of campos.rows) {
+    fieldSlots[field.id] = (fieldSlots[field.id] ?? slots).filter((time: string) => !reservations.some(r => r.field_id === field.id && r.time === time));
+  }
+  const allTeams = await cargarCategoriasConEquipos(seasonId);
+  const available = new Set(allTeams.flatMap((c) => c.teams.map((t) => t.id)));
   const rests = opciones.restTeamIds ?? [];
   const earliest = opciones.earliestTimes ?? {};
   if (!Array.isArray(rests) || rests.some((id) => !available.has(id)) ||
@@ -311,8 +338,8 @@ export const construirPropuesta = async (
 
   const propuesta = proponerJornada({
     roundNumber: siguienteNumero.rows[0].n,
-    scheduledDate: opciones.scheduledDate ?? (await siguienteFecha(seasonId)),
-    categories: categorias.map((c) => ({ ...c, teams: c.teams.filter((t) => !rests.includes(t.id)) })),
+    scheduledDate: date,
+    categories: categorias.map((c) => ({ ...c, teams: c.teams.filter((t) => !rests.includes(t.id) && !busy.has(t.id)) })),
     earliestTimes: earliest,
     fields: campos.rows,
     fieldSlots,
@@ -321,10 +348,16 @@ export const construirPropuesta = async (
   });
 
   await validarFechaJornada(seasonId, propuesta.scheduledDate);
-  for (const cat of categorias) for (const team of cat.teams.filter((t) => rests.includes(t.id))) {
+  for (const cat of categorias) for (const team of cat.teams.filter((t) => rests.includes(t.id) && !busy.has(t.id))) {
     propuesta.byes.push({ teamId: team.id, teamName: team.name, categoryId: cat.id,
       categoryName: cat.name, reason: 'MANUAL', totalAfter: (historial.descansos[team.id] ?? 0) + 1 });
   }
+
+  const eligible = new Set(categorias.flatMap(c => c.teams.map(t => t.id)));
+  const future = allTeams.flatMap(c => c.teams).filter(t => !eligible.has(t.id));
+  if (future.length) propuesta.warnings.push(`Aún no se incorporan en esta fecha: ${future.map(t => t.name).join(', ')}. No se les asigna partido ni descanso.`);
+  if (busy.size) propuesta.warnings.push('Se respetaron los equipos y horarios ya asignados en esta fecha, incluidos borradores.');
+  propuesta.warnings.push('La propuesta agrega una jornada; no modifica partidos existentes. Los equipos sin fecha de incorporación confirmada se consideran disponibles.');
 
   return { ...propuesta, seasonId };
 };
@@ -374,13 +407,15 @@ export const guardarPropuesta = async (
     if (!season.rows.length) throw new AppError('Temporada no encontrada', 404);
     await validarCupoJornadas(propuesta.seasonId, query);
     if (!Array.isArray(propuesta.byes)) throw new AppError('Descansos inválidos', 400);
-    const categories = await cargarCategoriasConEquipos(propuesta.seasonId, query);
+    await validarFechaJornada(propuesta.seasonId, propuesta.scheduledDate, query);
+    const categories = await cargarCategoriasConEquipos(propuesta.seasonId, query, propuesta.scheduledDate);
     const teams = new Map(categories.flatMap((c) => c.teams.map((t) => [t.id, c.id] as const)));
     const fields = await query("SELECT id FROM fields WHERE season_id=$1 AND status='ACTIVE'", [propuesta.seasonId]);
-    const used = new Set<string>();
-    const occupied = new Set<string>();
+    const reservations = await reservasDeFecha(propuesta.seasonId, propuesta.scheduledDate, query);
+    const used = new Set<string>(reservations.flatMap(r => [r.home_team_id,r.away_team_id,r.bye_team_id].filter(Boolean)));
+    const occupied = new Set<string>(reservations.filter(r => r.field_id).map(r => `${r.field_id}:${r.time}`));
     const reserve = (id: string, category: string) => {
-      if (!teams.has(id) || teams.get(id) !== category || used.has(id)) throw new AppError('Revisa los equipos: deben ser oficiales, activos, de la misma categoría y aparecer una sola vez.', 400);
+      if (!teams.has(id) || teams.get(id) !== category || used.has(id)) throw new AppError('Revisa los equipos: deben estar activos e incorporados para la fecha, ser de la misma categoría y no tener otra asignación ese día. Actualiza la propuesta.', 400);
       used.add(id);
     };
     for (const g of propuesta.games) {

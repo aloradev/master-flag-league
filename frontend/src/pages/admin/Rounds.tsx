@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import RoundGames from './RoundGames';
 import ManualRound from './ManualRound';
+import TeamProgress from './TeamProgress';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import type { Season, TeamSummary } from '../../lib/types';
@@ -118,6 +119,7 @@ export default function AdminRounds() {
       </header>
 
       {error && <Alert tone="error">{error}</Alert>}
+      {season.data && <TeamProgress season={season.data} onOpenRound={setEditingId} />}
       {manual && season.data && <ManualRound season={season.data} onCancel={() => setManual(false)} onSaved={() => {
         setManual(false); void qc.invalidateQueries({ queryKey: ['rounds', seasonId] });
       }} />}
@@ -228,8 +230,9 @@ export default function AdminRounds() {
             </section>
           )}
 
+          {fecha !== propuesta.scheduledDate && <Alert tone="warning">Cambiaste la fecha. Recalcula para revisar incorporaciones y asignaciones existentes antes de guardar.</Alert>}
           <div className="flex flex-wrap gap-2 border-t border-base-300/60 pt-3">
-            <Button tone="success" disabled={!fecha} loading={guardar.isPending} onClick={() => guardar.mutate()}>
+            <Button tone="success" disabled={!fecha || fecha !== propuesta.scheduledDate} loading={guardar.isPending} onClick={() => guardar.mutate()}>
               Guardar como borrador
             </Button>
             <Button
@@ -247,8 +250,8 @@ export default function AdminRounds() {
 
           <p className="text-xs text-base-content/50">
             Nada de esto existe todavía en la base. Al guardar queda como borrador, que
-            solo ve administración; al publicar se hace visible para encargados y
-            árbitros, y empieza a contar para el historial del generador.
+            solo ve administración y ya se respeta en próximas propuestas; al publicar se hace visible para encargados y
+            árbitros.
           </p>
         </Card>
       )}
@@ -272,7 +275,7 @@ export default function AdminRounds() {
               const etiqueta = ETIQUETA_JORNADA[j.status];
               return (
                 <Card as="li" key={j.id} className="p-3">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <div id={`round-${j.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span className="text-sm font-bold">Jornada {j.number}</span>
                     <span className={`badge badge-sm ${etiqueta.tono}`}>{etiqueta.texto}</span>
                     <span className="text-xs text-base-content/60">

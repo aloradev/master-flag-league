@@ -673,3 +673,6 @@ ALTER TABLE games ADD COLUMN IF NOT EXISTS score_source VARCHAR(16) NOT NULL DEF
   CHECK (score_source IN ('EVENTS', 'MANUAL'));
 ALTER TABLE games ADD COLUMN IF NOT EXISTS statistics_status VARCHAR(16) NOT NULL DEFAULT 'COMPLETE'
   CHECK (statistics_status IN ('PENDING', 'COMPLETE'));
+
+-- La fecha deportiva no se deduce del momento de captura en la aplicación.
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS competition_start_date DATE;

@@ -188,5 +188,7 @@ export interface ValidationStats {
   rejected: number;
   blocked: number;
   eligible: number;
-  by_team: { id: string; name: string; color_primary: string; total: number; eligible: number; pending: number }[];
+  by_team: { id: string; name: string; color_primary: string; status: string; category_name: string;
+    total: number; eligible: number; pending: number; not_eligible: number; managers_count: number;
+    pending_players: { id: string; name: string; status: string; reason: string | null }[] }[];
 }

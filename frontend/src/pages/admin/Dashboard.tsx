@@ -5,6 +5,7 @@ import type { Season, ValidationStats } from '../../lib/types';
 import { Alert, Card, Spinner, Stat } from '../../components/ui';
 import { useAuth } from '../../store/auth';
 import { diasHasta, fechaTexto } from '../../lib/format';
+import RegistrationProgress from './RegistrationProgress';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -35,7 +36,7 @@ export default function AdminDashboard() {
         <h1 className="text-xl font-bold">Hola, {user?.name?.split(' ')[0]}</h1>
         <p className="text-sm text-base-content/60">
           {season.data
-            ? `${season.data.name} · inicia el ${fechaTexto(season.data.start_date)}`
+            ? `${season.data.name} · ${(daysToStart ?? 0) < 0 ? 'en curso desde el' : 'inicia el'} ${fechaTexto(season.data.start_date)}`
             : 'Sin temporada activa'}
         </p>
       </div>
@@ -77,48 +78,7 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      {(data?.by_team?.length ?? 0) > 0 && (
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-base-content/70">Avance por equipo</h2>
-            <Link to="/admin/equipos" className="text-xs text-primary hover:underline">
-              Administrar equipos
-            </Link>
-          </div>
-
-          <Card className="divide-y divide-base-300">
-            {data!.by_team.map((team) => {
-              const progress = team.total > 0 ? (team.eligible / team.total) * 100 : 0;
-              return (
-                <div key={team.id} className="px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="size-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: team.color_primary }}
-                      aria-hidden
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                      {team.name}
-                    </span>
-                    <span className="tabular shrink-0 text-xs text-base-content/60">
-                      {team.eligible}/{team.total} elegibles
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-base-300">
-                    <div
-                      className="h-full rounded-full bg-success transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  {team.pending > 0 && (
-                    <p className="mt-1 text-xs text-warning">{team.pending} en revisión</p>
-                  )}
-                </div>
-              );
-            })}
-          </Card>
-        </section>
-      )}
+      {season.data && data && <RegistrationProgress season={season.data} stats={data} canConfigure={user?.role === 'SUPER_ADMIN'} />}
 
       {season.data && (
         <section>

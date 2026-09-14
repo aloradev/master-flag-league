@@ -120,7 +120,7 @@ export const updateSeason = asyncHandler(async (req: AuthRequest, res: Response)
        name = COALESCE($1, name),
        start_date = COALESCE($9::date, start_date),
        end_date = CASE WHEN $8::boolean THEN $2::date ELSE end_date END,
-       registration_deadline = COALESCE($3, registration_deadline),
+       registration_deadline = CASE WHEN $10::boolean THEN $3::date ELSE registration_deadline END,
        default_start_time = COALESCE($4, default_start_time),
        require_approval_to_play = COALESCE($5, require_approval_to_play),
        status = COALESCE($6, status)
@@ -135,6 +135,7 @@ export const updateSeason = asyncHandler(async (req: AuthRequest, res: Response)
       id,
       Object.prototype.hasOwnProperty.call(req.body ?? {}, 'endDate'),
       startDate ?? null,
+      Object.prototype.hasOwnProperty.call(req.body ?? {}, 'registrationDeadline'),
     ]
   );
 

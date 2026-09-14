@@ -253,25 +253,37 @@ export const getValidationStats = asyncHandler(async (req: AuthRequest, res: Res
        COUNT(*) FILTER (WHERE is_eligible)::int                               AS eligible
      FROM players
      WHERE ($1::text IS NULL OR season_id = $1) AND removed_at IS NULL
+       AND EXISTS (SELECT 1 FROM seasons s WHERE s.id=players.season_id AND s.league_id=$2)
        AND EXISTS (
          SELECT 1 FROM teams t
          WHERE t.id = players.team_id AND t.team_type = 'OFFICIAL'
        )`,
-    [seasonId ?? null]
+    [seasonId ?? null, req.user!.leagueId]
   );
 
   const byTeam = await query(
-    `SELECT t.id, t.name, t.color_primary,
+    `SELECT t.id, t.name, t.color_primary, t.status, c.name AS category_name,
+            (SELECT COUNT(*)::int FROM team_users tu JOIN users u ON u.id=tu.user_id
+              WHERE tu.team_id=t.id AND u.active) AS managers_count,
             COUNT(p.id)::int                                        AS total,
             COUNT(p.id) FILTER (WHERE p.is_eligible)::int           AS eligible,
-            COUNT(p.id) FILTER (WHERE p.status = 'PENDING')::int    AS pending
+            COUNT(p.id) FILTER (WHERE p.status = 'PENDING')::int    AS pending,
+            COUNT(p.id) FILTER (WHERE NOT COALESCE(p.is_eligible,FALSE))::int AS not_eligible,
+            COALESCE(json_agg(json_build_object('id',p.id,
+              'name',CONCAT_WS(' ',p.first_name,p.last_name_paternal,p.last_name_maternal),
+              'status',p.status,'reason',p.eligibility_reason)
+              ORDER BY p.last_name_paternal,p.first_name)
+              FILTER (WHERE p.id IS NOT NULL AND NOT COALESCE(p.is_eligible,FALSE)), '[]'::json) AS pending_players
      FROM teams t
+     JOIN categories c ON c.id=t.category_id
+     JOIN seasons s ON s.id=t.season_id
      LEFT JOIN players p ON p.team_id = t.id AND p.removed_at IS NULL
      WHERE ($1::text IS NULL OR t.season_id = $1)
+       AND s.league_id=$2
        AND t.team_type = 'OFFICIAL'
-     GROUP BY t.id, t.name, t.color_primary
+     GROUP BY t.id, t.name, t.color_primary, c.name
      ORDER BY pending DESC, t.name`,
-    [seasonId ?? null]
+    [seasonId ?? null, req.user!.leagueId]
   );
 
   res.json({ success: true, data: { ...result.rows[0], by_team: byTeam.rows } });

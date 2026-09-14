@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { teamProgress, updateCompetitionEntry } from '../controllers/team-progress.controller.js';
 import { saveHistoricalResult } from '../controllers/historical-results.controller.js';
 import { updateHistoricalStatistics } from '../controllers/historical-statistics.controller.js';
 
@@ -138,6 +139,8 @@ router.put(
 );
 
 router.post('/admin/teams', requireAdmin, teams.createTeam);
+router.get('/admin/team-progress', requireAdmin, teamProgress);
+router.put('/admin/teams/:id/competition-entry', requireAdmin, updateCompetitionEntry);
 router.post('/admin/scrimmages', requireAdmin, scrimmages.create);
 router.get('/admin/scrimmages', requireAdmin, scrimmages.list);
 router.delete('/admin/scrimmages/:id', requireAdmin, scrimmages.remove);

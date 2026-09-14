@@ -42,7 +42,7 @@ export default function ManualRound({ season, onSaved, onCancel }: {
 
   return <Card className="space-y-4 p-4">
     <h2 className="text-lg font-bold">Crear jornada manual</h2>
-    <p className="text-sm text-base-content/70">Elige enfrentamientos entre equipos oficiales activos, incluso con plantilla pendiente. Los horarios son de Cancún. Se guardará como borrador; después podrás asignar árbitros y publicar. Para capturar estadísticas individuales se requieren jugadores registrados y la elegibilidad configurada.</p>
+    <p className="text-sm text-base-content/70">Elige enfrentamientos entre equipos oficiales activos, incluso con plantilla pendiente. Se respeta la fecha de incorporación confirmada y no se permiten equipos ni campos ya asignados ese día. Los horarios son de Cancún. Se guardará como borrador; después podrás asignar árbitros y publicar. Para capturar estadísticas individuales se requieren jugadores registrados y la elegibilidad configurada.</p>
     {options.isLoading && <Spinner />}
     <Button size="sm" disabled={options.isFetching} onClick={() => void options.refetch()}>Actualizar equipos activos</Button>
     {options.isError && <Alert tone="error">No se pudieron cargar los equipos. <button onClick={() => void options.refetch()}>Reintentar</button></Alert>}

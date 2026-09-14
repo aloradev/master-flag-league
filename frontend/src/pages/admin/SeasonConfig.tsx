@@ -101,7 +101,7 @@ export default function SeasonConfig() {
       api.put(`/admin/seasons/${seasonId}`, {
         endDate: dates.endDate || null,
         startDate: dates.startDate,
-        registrationDeadline: dates.registrationDeadline || undefined,
+        registrationDeadline: dates.registrationDeadline || null,
         defaultStartTime: dates.defaultStartTime || undefined,
         requireApprovalToPlay: requireApproval,
       }),
@@ -194,7 +194,7 @@ export default function SeasonConfig() {
           <Field label="Inicio de temporada" hint="Actualiza la proyección; no cambia las fechas de partidos ya programados.">
             <input type="date" className="input input-bordered w-full" value={dates.startDate} onChange={e => setDates({ ...dates, startDate: e.target.value })} />
           </Field>
-          <Field label="Cierre de registro" hint="Después de esta fecha el manager ya no da de alta">
+          <Field label="Cierre de registro (opcional)" hint="Vacío mantiene abiertas las altas de jugadores para managers, aunque la temporada haya iniciado. El cierre incluye todo ese día en Cancún; administración conserva sus permisos de alta.">
             <input
               type="date"
               className="input input-bordered w-full"

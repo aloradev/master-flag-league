@@ -117,8 +117,9 @@ export default function AdminTeams() {
   });
 
   const teams = useQuery({
-    queryKey: ['teams'],
-    queryFn: () => api.get<TeamSummary[]>('/teams'),
+    queryKey: ['teams', season.data?.id],
+    queryFn: () => api.get<TeamSummary[]>(`/teams?seasonId=${season.data!.id}`),
+    enabled: Boolean(season.data?.id),
   });
 
   const refresh = () => {
