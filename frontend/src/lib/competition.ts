@@ -63,6 +63,8 @@ export interface Game {
   game_type?: 'OFFICIAL' | 'SCRIMMAGE';
   home_score: number;
   away_score: number;
+  score_source?: 'EVENTS' | 'MANUAL';
+  statistics_status?: 'PENDING' | 'COMPLETE';
   walkover_team_id: string | null;
   mvp_offensive_player_id: string | null;
   mvp_defensive_player_id: string | null;

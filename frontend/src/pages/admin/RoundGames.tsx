@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { competition, ETIQUETA_PARTIDO, type Game, type Referee } from '../../lib/competition';
 import type { Season } from '../../lib/types';
 import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
+import HistoricalResult from './HistoricalResult';
 
 function GameEditor({ game, season, referees, locked }: { game: Game; season: Season; referees: Referee[]; locked: boolean }) {
   const qc = useQueryClient();
@@ -57,6 +58,9 @@ export default function RoundGames({ id, season }: { id: string; season: Season 
   return <section className="mt-4 space-y-3">
     <Link className="link text-sm" to="/admin/arbitros">Gestionar árbitros de la temporada</Link>
     {!round.data?.games.length && <p>No hay partidos en esta jornada.</p>}
-    {round.data?.games.map((g) => <GameEditor key={g.id} game={g} season={season} referees={refs.data ?? []} locked={['FINISHED', 'CANCELLED'].includes(round.data!.status)} />)}
+    {round.data?.games.map((g) => <div key={g.id} className="space-y-2">
+      <GameEditor game={g} season={season} referees={refs.data ?? []} locked={['FINISHED', 'CANCELLED'].includes(round.data!.status)} />
+      <Card className="p-3"><HistoricalResult game={g} roundStatus={round.data!.status} /></Card>
+    </div>)}
   </section>;
 }

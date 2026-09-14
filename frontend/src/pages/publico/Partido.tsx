@@ -8,6 +8,7 @@ import { Marco, BotonCompartir } from './Marco';
 import { fechaTexto } from '../../lib/format';
 
 type PublicGame = {
+  statistics_status?: 'PENDING' | 'COMPLETE';
   game_type?: 'OFFICIAL' | 'SCRIMMAGE';
   id: string; status: string; home_score: number; away_score: number;
   scheduled_time: string; scheduled_date: string; field_name: string | null;
@@ -29,6 +30,7 @@ export default function PartidoPublico() {
   return <Marco titulo={`${p.home_team_name} vs ${p.away_team_name}`} subtitulo={`${fechaTexto(p.scheduled_date)} · ${p.scheduled_time} Cancún${p.field_name ? ` · ${p.field_name}` : ''}`} acciones={<BotonCompartir texto={mensaje} />}>
     {consulta.isError && <Alert tone="warning">Reconectando… Se muestra el último marcador recibido.</Alert>}
     <Card className="space-y-4 p-5">
+      {p.statistics_status === 'PENDING' && <Alert tone="warning">Resultado confirmado. Estadísticas individuales pendientes de captura.</Alert>}
       {p.game_type === 'SCRIMMAGE' && <Alert tone="info">Scrimmage de prueba. No cuenta para posiciones ni rankings oficiales.</Alert>}
       <div className="flex items-center justify-between text-sm text-base-content/60"><span>{p.category_name}</span><span className={`badge ${p.status === 'LIVE' ? 'badge-error' : 'badge-ghost'}`}>{etiqueta[p.status] ?? p.status}</span></div>
       <div className="flex items-center gap-3">

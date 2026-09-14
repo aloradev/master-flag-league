@@ -293,7 +293,7 @@ export default function AdminRounds() {
 
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button size="xs" onClick={() => setEditingId(editingId === j.id ? null : j.id)}>
-                      {editingId === j.id ? 'Cerrar edición' : 'Programación y árbitros'}
+                      {editingId === j.id ? 'Cerrar edición' : 'Programación, árbitros y resultados'}
                     </Button>
                     <Link to="/jornadas" className="btn btn-xs btn-ghost">
                       Ver partidos

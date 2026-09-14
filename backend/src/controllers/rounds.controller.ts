@@ -24,7 +24,7 @@ import {
  */
 const GAME_COLUMNS = `g.id, g.season_id, g.round_id, g.category_id, g.field_id,
   g.home_team_id, g.away_team_id, to_char(g.scheduled_time, 'HH24:MI') AS scheduled_time,
-  g.status, g.home_score, g.away_score, g.walkover_team_id,
+  g.status, g.home_score, g.away_score, g.score_source, g.statistics_status, g.walkover_team_id,
   g.mvp_offensive_player_id, g.mvp_defensive_player_id,
   g.started_at, g.ended_at, g.notes, g.created_at, g.updated_at`;
 

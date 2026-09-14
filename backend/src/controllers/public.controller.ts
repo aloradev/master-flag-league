@@ -27,7 +27,7 @@ import { calcularPosiciones } from '../services/competition.service.js';
 /** Solo lo que hace falta para leer un partido en la calle. */
 const COLUMNAS_PARTIDO = `
   g.id, g.category_id, to_char(g.scheduled_time, 'HH24:MI') AS scheduled_time,
-  g.status, g.game_type, g.home_score, g.away_score, g.walkover_team_id,
+  g.status, g.game_type, g.home_score, g.away_score, g.score_source, g.statistics_status, g.walkover_team_id,
   g.home_team_id, g.away_team_id
 `;
 
@@ -59,7 +59,7 @@ const partidos = async (roundId: string, gameType = 'OFFICIAL') => {
 export const getPublicGame = asyncHandler(async (req: Request, res: Response) => {
   const id = (req.params as Record<string, string>).id;
   const r = await query(`
-    SELECT g.id, g.status, g.game_type, g.home_score, g.away_score,
+    SELECT g.id, g.status, g.game_type, g.home_score, g.away_score, g.score_source, g.statistics_status,
            to_char(g.scheduled_time, 'HH24:MI') AS scheduled_time,
            g.home_team_id, g.away_team_id,
            c.name AS category_name, c.color AS category_color,

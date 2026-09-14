@@ -89,3 +89,46 @@ La jornada publicada, la tabla y los perfiles de jugadores aprobados pueden comp
 Actualmente están cubiertos: usuarios y roles, managers multi-equipo, equipos, jugadores, documentos, validación, temporadas básicas, jornadas, partidos, árbitros, marcador, posiciones, rankings, perfiles públicos y finanzas básicas.
 
 Pendiente según la arquitectura: MVP automático de toda la liga, top 3 por equipo, Power Ranking, playoffs configurables, historial de campeones, notificaciones reales por WhatsApp/push, recordatorios automáticos de pago y respaldos programados.
+
+## Resultados de partidos ya jugados
+
+En **Jornadas → Programación, árbitros y resultados**, cada partido programado de
+una jornada publicada permite **Capturar resultado de partido ya jugado**.
+Si el encuentro todavía no existe, crea primero una jornada manual con los equipos
+que participaron y su fecha real; guarda el borrador y publícalo.
+
+Captura los puntos de ambos equipos y la fuente del resultado (por ejemplo, el acta).
+Solo Super Administrador y Administrador Deportivo pueden hacerlo. No hace falta
+haber dado de alta a todos los equipos de la liga ni tener jugadores registrados.
+
+El partido queda finalizado y cuenta para posiciones, con **Estadísticas pendientes**
+visible en administración y en la vista pública. No se generan jugadas ficticias:
+el marcador histórico se conserva independientemente de los eventos.
+
+**Corregir resultado histórico** permite rectificar el marcador indicando el motivo.
+Cada captura y corrección queda en auditoría, junto con el resultado anterior.
+No se admiten fechas futuras, scrimmages ni playoffs. Para convertir un partido programado a resultado histórico, todavía no debe tener jugadas.
+
+
+### Completar estadísticas del resultado histórico
+
+En el mismo partido, abre **Capturar o revisar estadísticas**. Selecciona equipo,
+jugada y jugador; puedes indicar periodo y yardas cuando corresponda. Los jugadores
+necesitan estar registrados y cumplir la elegibilidad configurada para la temporada.
+Usa **Actualizar jugadores y jugadas** si acabas de dar de alta a alguien.
+
+Indica la fuente o motivo antes de guardar cada jugada o anularla. Las anulaciones
+conservan el registro original y quedan en auditoría; para corregir una jugada,
+anúlala y registra la correcta. El marcador oficial permanece intacto.
+
+Revisa los puntos transcritos frente al resultado oficial y completa también las
+estadísticas sin puntos. Puedes asignar MVP ofensivo y defensivo. **Marcar estadísticas
+completas** requiere que las anotaciones coincidan con el marcador por equipo.
+A partir de entonces, el partido aporta sus estadísticas a los rankings de jugadores
+aprobados y desaparece el aviso público de estadísticas pendientes.
+
+Para corregir después, usa **Reabrir estadísticas para corregir** e indica el motivo.
+Mientras estén pendientes se excluyen los datos de ese partido de los rankings;
+el resultado sigue contando en posiciones. Al terminar vuelve a marcar completas.
+Solo Super Administrador y Administrador Deportivo pueden operar este flujo, que
+aplica a resultados históricos oficiales de temporada regular.

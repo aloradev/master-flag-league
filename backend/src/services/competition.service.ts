@@ -93,11 +93,15 @@ export const cargarReglas = async (seasonId: string, query: typeof defaultQuery 
  */
 export const refrescarMarcador = async (gameId: string, query: typeof import('../config/database.js').query = defaultQuery): Promise<{ home: number; away: number }> => {
   const partido = await query(
-    `SELECT home_team_id, away_team_id, status, walkover_team_id, season_id FROM games WHERE id = $1`,
+    `SELECT home_team_id, away_team_id, status, walkover_team_id, season_id,
+            score_source, home_score, away_score FROM games WHERE id = $1`,
     [gameId]
   );
   const g = partido.rows[0];
   if (!g) return { home: 0, away: 0 };
+
+  // Transcribir o anular estadísticas nunca modifica un resultado capturado del acta.
+  if (g.score_source === 'MANUAL') return { home: g.home_score, away: g.away_score };
 
   // Un partido por incomparecencia no tiene eventos que sumar: el
   // marcador lo dicta el reglamento, no el campo.

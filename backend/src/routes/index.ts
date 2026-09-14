@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { saveHistoricalResult } from '../controllers/historical-results.controller.js';
+import { updateHistoricalStatistics } from '../controllers/historical-statistics.controller.js';
 
 import * as auth from '../controllers/auth.controller.js';
 import * as users from '../controllers/users.controller.js';
@@ -180,6 +182,8 @@ router.post('/admin/rounds/:id/cancel', requireAdmin, rounds.cancelRound);
 router.delete('/admin/rounds/:id', requireAdmin, rounds.deleteRound);
 
 router.put('/admin/games/:id', requireAdmin, games.updateGame);
+router.put('/admin/games/:id/historical-result', requireAdmin, saveHistoricalResult);
+router.post('/admin/games/:id/historical-statistics', requireAdmin, updateHistoricalStatistics);
 router.post('/admin/games/:id/referees', requireAdmin, games.assignReferees);
 router.post('/admin/games/:id/walkover', requireAdmin, games.declareWalkover);
 router.post('/admin/referees', requireAdmin, games.createReferee);

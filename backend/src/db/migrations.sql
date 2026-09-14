@@ -667,3 +667,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS rounds_number_by_type ON rounds(season_id, rou
 ALTER TABLE teams DROP CONSTRAINT IF EXISTS teams_season_id_category_id_name_key;
 CREATE UNIQUE INDEX IF NOT EXISTS official_team_name_unique ON teams(season_id, category_id, name)
  WHERE team_type = 'OFFICIAL';
+
+-- Los resultados históricos no dependen de que se hayan transcrito las jugadas.
+ALTER TABLE games ADD COLUMN IF NOT EXISTS score_source VARCHAR(16) NOT NULL DEFAULT 'EVENTS'
+  CHECK (score_source IN ('EVENTS', 'MANUAL'));
+ALTER TABLE games ADD COLUMN IF NOT EXISTS statistics_status VARCHAR(16) NOT NULL DEFAULT 'COMPLETE'
+  CHECK (statistics_status IN ('PENDING', 'COMPLETE'));

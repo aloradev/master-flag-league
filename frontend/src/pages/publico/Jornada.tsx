@@ -10,6 +10,7 @@ import { fechaTexto } from '../../lib/format';
 import { Marco, BotonCompartir } from './Marco';
 
 interface PartidoPublico {
+  statistics_status?: 'PENDING' | 'COMPLETE';
   game_type?: 'OFFICIAL' | 'SCRIMMAGE';
   id: string;
   category_name: string;
@@ -102,6 +103,7 @@ const Partido = ({ p }: { p: PartidoPublico }) => {
         </span>
       </div>
 
+      {p.statistics_status === 'PENDING' && <p className="mb-2 text-xs text-warning">Estadísticas pendientes</p>}
       <div className="flex items-center gap-2">
         <Equipo
           nombre={p.home_team_name}
