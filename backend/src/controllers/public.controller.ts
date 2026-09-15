@@ -40,7 +40,7 @@ const partidos = async (roundId: string, gameType = 'OFFICIAL') => {
             hl.logo_url AS home_logo_url, hl.color_primary AS home_color,
             aw.name AS away_team_name, aw.short_name AS away_short_name,
             aw.logo_url AS away_logo_url, aw.color_primary AS away_color
-            ,COALESCE((SELECT json_agg(json_build_object('team_id', ge.team_id, 'points', ge.points, 'quarter', ge.quarter, 'created_at', ge.created_at) ORDER BY ge.created_at)
+            ,COALESCE((SELECT json_agg(json_build_object('team_id', ge.team_id, 'points', ge.points, 'quantity', ge.quantity, 'quarter', ge.quarter, 'created_at', ge.created_at) ORDER BY ge.created_at)
                        FROM game_events ge WHERE ge.game_id = g.id AND ge.voided_at IS NULL AND ge.event_type = 'TOUCHDOWN'), '[]'::json) AS touchdowns
      FROM games g
      JOIN categories c ON c.id = g.category_id
@@ -69,7 +69,7 @@ export const getPublicGame = asyncHandler(async (req: Request, res: Response) =>
            a.name AS away_team_name, a.short_name AS away_short_name,
            a.logo_url AS away_logo_url, a.color_primary AS away_color,
            r.scheduled_date, r.number AS round_number,
-           COALESCE((SELECT json_agg(json_build_object('team_id', e.team_id, 'points', e.points, 'quarter', e.quarter, 'created_at', e.created_at) ORDER BY e.created_at)
+           COALESCE((SELECT json_agg(json_build_object('team_id', e.team_id, 'points', e.points, 'quantity', e.quantity, 'quarter', e.quarter, 'created_at', e.created_at) ORDER BY e.created_at)
                      FROM game_events e WHERE e.game_id = g.id AND e.voided_at IS NULL AND e.event_type = 'TOUCHDOWN'), '[]'::json) AS touchdowns
     FROM games g
     JOIN rounds r ON r.id = g.round_id

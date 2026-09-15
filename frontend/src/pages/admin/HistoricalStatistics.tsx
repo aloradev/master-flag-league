@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { competition, nombreCompleto, type GameDetail } from '../../lib/competition';
 import { Alert, Button, Field, Spinner } from '../../components/ui';
+import QuickTotals from './QuickTotals';
 
 function Editor({ game }: { game: GameDetail }) {
   const qc = useQueryClient();
@@ -12,13 +13,13 @@ function Editor({ game }: { game: GameDetail }) {
   const [quarter, setQuarter] = useState('');
   const [yards, setYards] = useState('');
   const [reason, setReason] = useState('');
-  const [quickText, setQuickText] = useState('');
+  const [quickBusy, setQuickBusy] = useState(false);
   const [offensive, setOffensive] = useState(game.mvp_offensive_player_id ?? '');
   const [defensive, setDefensive] = useState(game.mvp_defensive_player_id ?? '');
   const save = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post(`/admin/games/${game.id}/historical-statistics`, { ...body, reason }),
     onSuccess: async () => {
-      await Promise.all(['game','round','rounds','statistics','player-stats','public-player-stats','rankings','public-game','publico-jornada'].map(key => qc.invalidateQueries({ queryKey: [key] })));
+      await Promise.all(['game','round','rounds','statistics','player-stats','public-player-stats','rankings','public-game','publico-jornada','admin-pending'].map(key => qc.invalidateQueries({ queryKey: [key] })));
     },
   });
   const pending = game.statistics_status === 'PENDING';
@@ -35,8 +36,8 @@ function Editor({ game }: { game: GameDetail }) {
     <Alert tone={pending ? 'warning' : 'success'}>{pending ? 'Estadísticas pendientes: se publicarán en rankings cuando completes la captura.' : 'Estadísticas completas. Reabre la captura para corregirlas.'}</Alert>
     {save.error && <Alert tone="error">{save.error.message}</Alert>}
     {save.isSuccess && <Alert tone="success">Cambio guardado y registrado en auditoría.</Alert>}
-    <fieldset disabled={save.isPending} className="space-y-3">
-      {pending && <details className="rounded border border-base-300 p-3"><summary className="cursor-pointer font-semibold">Captura rápida desde el acta</summary><p className="mt-2 text-xs">Una fila por estadística. Formato JSON: <code>[{'{'}"teamId":"…","eventType":"TOUCHDOWN","playerId":"…","count":1{'}'}]</code>. Se crean eventos individuales y no se permite superar el marcador.</p><textarea className="textarea textarea-bordered mt-2 w-full font-mono text-xs" rows={3} value={quickText} onChange={e=>setQuickText(e.target.value)} placeholder="[{&quot;teamId&quot;:&quot;id&quot;,&quot;eventType&quot;:&quot;RECEPTION&quot;,&quot;playerId&quot;:&quot;id&quot;,&quot;count&quot;:3}]"/><Button size="sm" disabled={!reason.trim()||!quickText.trim()} loading={save.isPending} onClick={()=>{try { const rows=JSON.parse(quickText); if(!Array.isArray(rows)) throw new Error(); save.mutate({action:'BULK',rows}); setQuickText(''); } catch { setQuickText('JSON inválido'); }}}>Guardar captura rápida</Button></details>}
+    {pending && <QuickTotals game={game} disabled={save.isPending} onBusyChange={setQuickBusy} />}
+    <fieldset disabled={save.isPending || quickBusy} className="space-y-3">
       <Field label="Fuente o motivo del cambio" hint="Se registra en cada jugada, anulación y cambio de estado."><textarea maxLength={1000} className="textarea textarea-bordered w-full" value={reason} onChange={e => setReason(e.target.value)} /></Field>
       {!pending ? <Button size="sm" disabled={!reason.trim()} onClick={() => save.mutate({ action: 'REOPEN' })}>Reabrir estadísticas para corregir</Button> : <>
         <div className="grid gap-3 sm:grid-cols-2">

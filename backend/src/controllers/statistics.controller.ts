@@ -17,22 +17,22 @@ const stats = asyncHandler(async (req: AuthRequest, res: Response) => {
             t.id AS team_id, t.name AS team_name, t.short_name,
             c.id AS category_id, c.name AS category_name,
             COUNT(DISTINCT g.id)::int AS games_played,
-            COUNT(*) FILTER (WHERE e.event_type = 'TOUCHDOWN')::int AS touchdowns,
+            COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'TOUCHDOWN'),0)::int AS touchdowns,
             COALESCE(SUM(e.yards) FILTER (WHERE e.event_type IN ('PASS_COMPLETE','RECEPTION','RUSH')), 0)::int AS yards,
-            COUNT(*) FILTER (WHERE e.event_type = 'RECEPTION')::int AS receptions,
-            COUNT(*) FILTER (WHERE e.event_type = 'PASS_COMPLETE')::int AS completions,
-            COUNT(*) FILTER (WHERE e.event_type = 'INTERCEPTION')::int AS interceptions,
-            COUNT(*) FILTER (WHERE e.event_type = 'FLAG_PULL')::int AS flag_pulls,
-            COUNT(*) FILTER (WHERE e.event_type = 'PASS_DEFENDED')::int AS passes_defended,
+            COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'RECEPTION'),0)::int AS receptions,
+            COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'PASS_COMPLETE'),0)::int AS completions,
+            COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'INTERCEPTION'),0)::int AS interceptions,
+            COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'FLAG_PULL'),0)::int AS flag_pulls,
+            COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'PASS_DEFENDED'),0)::int AS passes_defended,
             COUNT(DISTINCT g.id) FILTER (WHERE g.mvp_offensive_player_id = p.id)::int AS offensive_mvps,
             COUNT(DISTINCT g.id) FILTER (WHERE g.mvp_defensive_player_id = p.id)::int AS defensive_mvps,
-            (COUNT(*) FILTER (WHERE e.event_type = 'TOUCHDOWN') * 6
-             + COUNT(*) FILTER (WHERE e.event_type = 'RECEPTION')
-             + COUNT(*) FILTER (WHERE e.event_type = 'PASS_COMPLETE') * 0.5
+            (COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'TOUCHDOWN'),0) * 6
+             + COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'RECEPTION'),0)
+             + COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'PASS_COMPLETE'),0) * 0.5
              + COALESCE(SUM(e.yards) FILTER (WHERE e.event_type IN ('PASS_COMPLETE','RECEPTION','RUSH')), 0) * 0.05)::numeric AS offensive_score,
-            (COUNT(*) FILTER (WHERE e.event_type = 'INTERCEPTION') * 5
-             + COUNT(*) FILTER (WHERE e.event_type = 'FLAG_PULL')
-             + COUNT(*) FILTER (WHERE e.event_type = 'PASS_DEFENDED') * 2)::numeric AS defensive_score
+            (COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'INTERCEPTION'),0) * 5
+             + COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'FLAG_PULL'),0)
+             + COALESCE(SUM(e.quantity) FILTER (WHERE e.event_type = 'PASS_DEFENDED'),0) * 2)::numeric AS defensive_score
      FROM players p
      JOIN teams t ON t.id = p.team_id
      JOIN categories c ON c.id = p.category_id

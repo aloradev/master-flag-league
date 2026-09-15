@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import RoundGames from './RoundGames';
 import ManualRound from './ManualRound';
 import TeamProgress from './TeamProgress';
@@ -30,11 +30,14 @@ import {
  * con la que se toma la decisión, no una nota al pie.
  */
 export default function AdminRounds() {
+  const [searchParams] = useSearchParams();
+  const requestedRound = searchParams.get('roundId');
   const qc = useQueryClient();
   const [propuesta, setPropuesta] = useState<Proposal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fecha, setFecha] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(requestedRound);
+  useEffect(() => { if (requestedRound) setEditingId(requestedRound); }, [requestedRound]);
   const [manual, setManual] = useState(false);
   const [rests, setRests] = useState<string[]>([]);
   const [earliest, setEarliest] = useState<Record<string, string>>({});

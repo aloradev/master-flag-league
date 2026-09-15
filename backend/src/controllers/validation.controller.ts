@@ -50,6 +50,9 @@ export const getValidationQueue = asyncHandler(async (req: AuthRequest, res: Res
     conditions.push(`p.team_id = $${params.length}`);
   }
 
+  params.push(req.user!.leagueId);
+  conditions.push(`EXISTS (SELECT 1 FROM seasons s WHERE s.id=p.season_id AND s.league_id=$${params.length})`);
+
   const result = await query(
     `SELECT p.id, p.first_name, p.last_name_paternal, p.last_name_maternal,
             p.jersey_number, p.position, p.avatar_url, p.status, p.date_of_birth,

@@ -19,6 +19,7 @@
     "db:dev": "tsx scripts/dev-db.ts",
     "test": "node tests/integration.mjs",
     "test:audit": "node tests/audit-fixes.mjs",
+    "test:admin-pending": "node tests/admin-pending.mjs",
     "test:generator-entry": "node tests/generator-entry.mjs",
     "test:team-progress": "node tests/team-progress.mjs",
     "test:registration-progress": "node tests/registration-progress.mjs",

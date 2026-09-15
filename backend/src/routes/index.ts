@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { adminPending } from '../controllers/admin-pending.controller.js';
 import { teamProgress, updateCompetitionEntry } from '../controllers/team-progress.controller.js';
 import { saveHistoricalResult } from '../controllers/historical-results.controller.js';
 import { updateHistoricalStatistics } from '../controllers/historical-statistics.controller.js';
@@ -116,6 +117,7 @@ router.get('/documents/:id/file', loadManagedTeams, documents.serveDocument);
 // ══════════════════════════════ ADMINISTRACIÓN ════════════════════════════
 router.get('/admin/validation/queue', requireAdmin, validation.getValidationQueue);
 router.get('/admin/validation/stats', requireAdmin, validation.getValidationStats);
+router.get('/admin/pending', requireAdmin, adminPending);
 router.post('/admin/players/:id/review', requireAdmin, validation.reviewPlayer);
 
 router.get('/admin/users', requireAdmin, users.listUsers);

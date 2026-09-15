@@ -151,6 +151,54 @@ for(const action of ['ADD','VOID','COMPLETE','REOPEN']) assert.ok(actions.some(r
 assert.ok(actions.every(r=>r.new_value.reason==='Transcripción del acta'));
 console.log('OK: estadísticas posteriores al cierre, permisos, jugadores, conciliación, MVP, publicación, reapertura, anulación y rollback.');
 
+// Totales del acta: reemplazo de grupos, yardas acumuladas y reintentos seguros.
+await mutateStats({action:'REOPEN'});
+await db.exec("UPDATE games SET home_score=18 WHERE id='hist_game'");
+const { randomUUID } = await import('node:crypto');
+const snapshot = async () => (await db.query("SELECT id FROM game_events WHERE game_id='hist_game' AND voided_at IS NULL")).rows.map(e=>e.id);
+const total = {teamId:'hist_home',playerId:'hist_player',eventType:'TOUCHDOWN',count:3};
+const batch = async rows => ({action:'BULK',version:2,batchId:randomUUID(),expectedEventIds:await snapshot(),rows});
+const first = await batch([total,{...total,eventType:'RECEPTION',count:3,totalYards:42}]);
+let result = await mutateStats(first);
+assert.ok(!result.error,result.error?.stack);
+const after = await snapshot();
+assert.equal(after.length,2);
+let aggregate = (await db.query("SELECT * FROM game_events WHERE game_id='hist_game' AND voided_at IS NULL AND event_type='RECEPTION'")).rows[0];
+assert.equal(aggregate.quantity,3); assert.equal(aggregate.yards,42); assert.equal(aggregate.capture_source,'TOTALS');
+assert.ok(!(await mutateStats(first)).error);
+assert.deepEqual(await snapshot(),after,'Reintentar conserva los mismos registros');
+assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM game_stat_batches')).rows[0].n,1);
+await expectError({...first,rows:[{...total,count:2}]},409);
+await expectError({...first,batchId:randomUUID()},409);
+assert.ok(!(await mutateStats(await batch(first.rows))).error);
+assert.deepEqual(await snapshot(),after,'Un nuevo envío de totales iguales no duplica acciones');
+for (const count of [-1,1.5,101,'3',null]) await expectError(await batch([{...total,count}]),400);
+await expectError(await batch([null]),400);
+await expectError(await batch([total,total]),400);
+await expectError(await batch([{...total,playerId:'otro'}]),400);
+await expectError(await batch([{...total,eventType:'RECEPTION',totalYards:301}]),400);
+await expectError(await batch([{...total,eventType:'PAT_1',count:1}]),409); // Suma las anotaciones previamente capturadas.
+await expectError(await batch([{...total,count:4}]),409);
+assert.deepEqual(await snapshot(),after);
+assert.ok(!(await mutateStats({action:'COMPLETE'})).error);
+assert.equal((await getStats()).touchdowns,3);
+assert.equal((await getStats()).yards,42);
+assert.equal((await invoke(getPublicGame)).data.data.touchdowns[0].quantity,3);
+assert.ok(!(await mutateStats(first)).error,'Reintento confirmado también después del cierre');
+await mutateStats({action:'REOPEN'});
+const correction = await batch([{...total,count:2}]);
+pool.connect = async () => ({release(){},query:async(sql,params)=>{
+ if(sql.includes('INSERT INTO audit_logs')) throw new Error('audit unavailable');
+ return originalQuery(sql,params);
+}});
+assert.ok((await mutateStats(correction)).error);
+assert.deepEqual(await snapshot(),after,'Auditoría fallida revierte sustituciones');
+pool.connect = async () => ({query:originalQuery,release(){}});
+assert.ok(!(await mutateStats(correction)).error,'El mismo intento puede guardarse tras rollback');
+assert.ok(!(await mutateStats(await batch([{...total,count:0}]))).error);
+assert.equal((await db.query("SELECT COUNT(*)::int AS n FROM game_events WHERE game_id='hist_game' AND event_type='TOUCHDOWN' AND voided_at IS NULL")).rows[0].n,0);
+assert.deepEqual(await refrescarMarcador('hist_game'),{home:18,away:0});
+console.log('OK: totales, yardas acumuladas, reemplazo, cero, validaciones, revisión obsoleta, reintentos, publicación y rollback.');
 await db.close();
 await pool.end();
 console.log('OK: migración repetible, permisos, validación, resultado sin roster, posiciones, vista pública, corrección auditada, rollback y marcador preservado.');

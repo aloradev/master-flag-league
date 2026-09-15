@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { QueuePlayer, ValidationQueue as Queue } from '../../lib/types';
@@ -212,17 +213,20 @@ const ReviewCard = ({ player, onDone }: { player: QueuePlayer; onDone: () => voi
 };
 
 export default function ValidationQueue() {
+  const [searchParams,setSearchParams] = useSearchParams();
+  const teamId = searchParams.get('teamId');
   const queryClient = useQueryClient();
   const [onlyReady, setOnlyReady] = useState(false);
 
   const queue = useQuery({
-    queryKey: ['validation-queue'],
-    queryFn: () => api.get<Queue>('/admin/validation/queue'),
+    queryKey: ['validation-queue', teamId],
+    queryFn: () => api.get<Queue>(`/admin/validation/queue${teamId ? `?teamId=${encodeURIComponent(teamId)}` : ''}`),
   });
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['validation-queue'] });
     void queryClient.invalidateQueries({ queryKey: ['validation-stats'] });
+    void queryClient.invalidateQueries({ queryKey: ['admin-pending'] });
   };
 
   if (queue.isLoading) return <Spinner label="Cargando la cola de revisión…" />;
@@ -235,6 +239,7 @@ export default function ValidationQueue() {
     <div className="mx-auto max-w-2xl space-y-4">
       <div>
         <h1 className="text-xl font-bold">Validación de jugadores</h1>
+        {teamId && <Button size="sm" tone="ghost" onClick={()=>setSearchParams({})}>Quitar filtro de equipo</Button>}
         <p className="text-sm text-base-content/60">
           Registros esperando decisión, del más antiguo al más reciente.
         </p>

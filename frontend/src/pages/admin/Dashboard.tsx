@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import type { Season, ValidationStats } from '../../lib/types';
@@ -6,6 +5,7 @@ import { Alert, Card, Spinner, Stat } from '../../components/ui';
 import { useAuth } from '../../store/auth';
 import { diasHasta, fechaTexto } from '../../lib/format';
 import RegistrationProgress from './RegistrationProgress';
+import PendingPanel from './PendingPanel';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -26,7 +26,6 @@ export default function AdminDashboard() {
   if (season.isError || stats.isError) return <Alert tone="error">No se pudo cargar el panel. <button className="link" onClick={() => { void season.refetch(); void stats.refetch(); }}>Reintentar</button></Alert>;
 
   const data = stats.data;
-  const pendingWork = (data?.pending ?? 0) + (data?.corrections ?? 0);
 
   const daysToStart = diasHasta(season.data?.start_date);
 
@@ -41,22 +40,7 @@ export default function AdminDashboard() {
         </p>
       </div>
 
-      {/* Lo que requiere acción va primero */}
-      {pendingWork > 0 && (
-        <Link to="/admin/validacion" className="block">
-          <Card className="flex items-center justify-between p-4 transition-colors hover:bg-base-300/40">
-            <div>
-              <p className="font-semibold">
-                {pendingWork} registro{pendingWork === 1 ? '' : 's'} esperando tu revisión
-              </p>
-              <p className="text-sm text-base-content/60">Abrir cola de validación</p>
-            </div>
-            <span className="text-2xl" aria-hidden>
-              →
-            </span>
-          </Card>
-        </Link>
-      )}
+      {season.data && <PendingPanel key={season.data.id} seasonId={season.data.id} />}
 
       {daysToStart != null && daysToStart >= 0 && daysToStart <= 21 && (
         <Alert tone={daysToStart <= 7 ? 'warning' : 'info'}>

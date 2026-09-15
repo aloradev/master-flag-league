@@ -30,7 +30,7 @@ interface PartidoPublico {
   away_short_name: string | null;
   away_logo_url: string | null;
   away_color: string | null;
-  touchdowns: Array<{ team_id: string; points: number; quarter: number | null; created_at: string }>;
+  touchdowns: Array<{ team_id: string; points: number; quantity?: number; quarter: number | null; created_at: string }>;
 }
 
 interface JornadaPublica {
@@ -134,6 +134,7 @@ const Partido = ({ p }: { p: PartidoPublico }) => {
             <span key={`${t.created_at}-${i}`} className="mr-2 inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5">
               {t.team_id === p.home_team_id ? p.home_short_name || p.home_team_name : p.away_short_name || p.away_team_name}
               {t.quarter ? ` · Q${t.quarter}` : ''}
+              {(t.quantity ?? 1)>1 ? ` · ${t.quantity} TD` : ''}
             </span>
           ))}
         </div>

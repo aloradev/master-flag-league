@@ -15,7 +15,7 @@ type PublicGame = {
   category_name: string; home_team_id: string; away_team_id: string;
   home_team_name: string; home_short_name: string | null; home_logo_url: string | null; home_color: string | null;
   away_team_name: string; away_short_name: string | null; away_logo_url: string | null; away_color: string | null;
-  touchdowns: Array<{ team_id: string; quarter: number | null; created_at: string }>;
+  touchdowns: Array<{ team_id: string; quantity?: number; quarter: number | null; created_at: string }>;
 };
 
 const etiqueta: Record<string, string> = { SCHEDULED: 'Programado', LIVE: 'En vivo', FINISHED: 'Finalizado', WALKOVER: 'Incomparecencia' };
@@ -38,7 +38,7 @@ export default function PartidoPublico() {
         <div className="text-3xl font-black tabular">{p.home_score} - {p.away_score}</div>
         <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center"><TeamCrest name={p.away_team_name} shortName={p.away_short_name} logoUrl={p.away_logo_url} color={p.away_color ?? undefined} className="size-16" /><span className="font-semibold">{p.away_team_name}</span></div>
       </div>
-      {p.touchdowns.length > 0 && <div className="border-t border-base-300 pt-3"><p className="mb-2 text-sm font-semibold">Touchdowns</p><div className="flex flex-wrap gap-2 text-xs">{p.touchdowns.map((t, i) => <span key={`${t.created_at}-${i}`} className="rounded-full bg-base-200 px-3 py-1">{t.team_id === p.home_team_id ? p.home_short_name || p.home_team_name : p.away_short_name || p.away_team_name}{t.quarter ? ` · Q${t.quarter}` : ''}</span>)}</div></div>}
+      {p.touchdowns.length > 0 && <div className="border-t border-base-300 pt-3"><p className="mb-2 text-sm font-semibold">Touchdowns</p><div className="flex flex-wrap gap-2 text-xs">{p.touchdowns.map((t, i) => <span key={`${t.created_at}-${i}`} className="rounded-full bg-base-200 px-3 py-1">{t.team_id === p.home_team_id ? p.home_short_name || p.home_team_name : p.away_short_name || p.away_team_name}{t.quarter ? ` · Q${t.quarter}` : ''}{(t.quantity ?? 1)>1 ? ` · ${t.quantity} TD` : ''}</span>)}</div></div>}
       {p.status === 'LIVE' && <Alert tone="info">Marcador en vivo. Esta pantalla se actualiza automáticamente.</Alert>}
     </Card>
   </Marco>;

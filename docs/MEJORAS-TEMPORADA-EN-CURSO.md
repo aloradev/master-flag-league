@@ -7,7 +7,7 @@
 5. [x] Control de partidos pendientes, descansos e incorporaciones tardías por equipo.
 6. [x] Propuestas de calendario que incorporen equipos nuevos respetando lo ya programado y jugado.
 7. [x] Captura rápida de totales por jugador desde el acta, sin duplicar eventos ni puntos.
-8. [ ] Panel de pendientes administrativos.
+8. [x] Panel de pendientes administrativos.
 
 ## Primera entrega
 
@@ -59,8 +59,25 @@ Migración adicional: `teams.competition_start_date` ya incluida en entregas pre
 
 ## Sexta entrega
 
-La captura administrativa de estadísticas históricas admite un lote JSON de hasta
-200 filas. Cada cantidad se expande a eventos individuales; valida equipo, jugador,
-elegibilidad, yardas y puntos contra el marcador antes de guardar. La operación es
-transaccional y auditada. La interfaz incluye un formulario de pegado rápido en la
-sección de estadísticas del partido. Pruebas de compilación backend/frontend aprobadas.
+La captura administrativa ofrece hasta 200 filas con selección de equipo, jugador,
+estadística, cantidad y yardas acumuladas, más revisión previa. Los totales sustituyen
+el grupo seleccionado y preservan los demás; cero permite retirarlo. Se almacenan
+como registros agregados identificados en el historial, sin inventar jugadas individuales.
+Los rankings suman cantidades y yardas acumuladas. La operación valida el marcador
+incluyendo las anotaciones existentes, exige una revisión vigente y registra auditoría
+y recibo de reintento en una transacción. Requiere aplicar la migración de quantity,
+capture_source y game_stat_batches antes de publicar backend y frontend juntos.
+Las pruebas de resultados históricos cubren sustitución, reintentos, publicación,
+yardas acumuladas y rollback por fallo de auditoría.
+
+## Séptima entrega
+
+El inicio de administración reúne resultados atrasados, estadísticas incompletas,
+partidos pospuestos, asignaciones sin árbitro principal habilitado y registros por
+revisar o completar. Los partidos con varios avisos se muestran una sola vez en Todos.
+Incluye filtros, actualización automática cada minuto y actualización manual.
+Los accesos abren la jornada y el partido, o la cola de validación filtrada por equipo.
+El panel está limitado a la temporada elegida y liga del administrador; incluye
+partidos oficiales publicados, también playoffs. Excluye borradores, cancelaciones,
+scrimmages y jugadores dados de baja. No requiere una nueva migración.
+Prueba: `npm run test:admin-pending --prefix backend`.

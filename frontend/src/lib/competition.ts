@@ -22,6 +22,8 @@ export interface RefereeRef {
 }
 
 export interface GameEvent {
+  quantity?: number;
+  capture_source?: 'PLAY' | 'TOTALS';
   id: string;
   team_id: string;
   player_id: string | null;

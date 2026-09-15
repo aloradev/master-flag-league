@@ -5,6 +5,7 @@ import { withLockedGame } from '../services/game-transaction.service.js';
 import { audit } from '../services/audit.service.js';
 import { JUGADAS, esJugadaValida, cargarReglas } from '../services/competition.service.js';
 import { newPrefixedId } from '../utils/id.js';
+import { saveHistoricalTotals } from '../services/historical-totals.service.js';
 
 /** Captura administrativa del acta sin reabrir el partido ni recalcular su resultado. */
 export const updateHistoricalStatistics = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -28,6 +29,7 @@ export const updateHistoricalStatistics = asyncHandler(async (req: AuthRequest, 
       || (await q('SELECT 1 FROM playoff_games WHERE game_id=$1', [game.id])).rows.length) {
       throw new AppError('Solo se admiten resultados históricos de temporada regular publicados', 409);
     }
+    if (action === 'BULK') return saveHistoricalTotals(req,game,q);
     if (game.statistics_status !== (action === 'REOPEN' ? 'COMPLETE' : 'PENDING')) {
       throw new AppError(action === 'REOPEN' ? 'Las estadísticas ya están pendientes' : 'Reabre las estadísticas antes de modificarlas', 409);
     }
@@ -43,20 +45,7 @@ export const updateHistoricalStatistics = asyncHandler(async (req: AuthRequest, 
       return p;
     };
     let change: unknown;
-    if (action === 'BULK') {
-      if (!Array.isArray(body.rows) || body.rows.length < 1 || body.rows.length > 200) throw new AppError('La captura debe incluir entre 1 y 200 filas',400);
-      const points = new Map<string, number>(); let total = 0;
-      for (const row of body.rows as any[]) {
-        if (!esJugadaValida(row.eventType) || ![game.home_team_id,game.away_team_id].includes(row.teamId)) throw new AppError('Equipo o jugada inválidos',400);
-        const count = Number(row.count); if (!Number.isInteger(count) || count < 1 || count > 100) throw new AppError('Cada cantidad debe ser un entero entre 1 y 100',400);
-        const play = JUGADAS[row.eventType]; if (play.needsPlayer) await player(row.playerId,row.teamId);
-        if (row.yards != null && (!Number.isInteger(row.yards) || row.yards < -100 || row.yards > 100 || !['PASS_COMPLETE','RECEPTION','RUSH'].includes(row.eventType))) throw new AppError('Yardas inválidas',400);
-        for (let i=0;i<count;i++) await q(`INSERT INTO game_events(id,game_id,team_id,player_id,event_type,points,yards,recorded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[newPrefixedId('evt'),game.id,row.teamId,row.playerId||null,row.eventType,play.points,row.yards ?? null,req.user!.id]);
-        points.set(row.teamId,(points.get(row.teamId)??0)+play.points*count); total += count;
-      }
-      if ((points.get(game.home_team_id)??0) > game.home_score || (points.get(game.away_team_id)??0) > game.away_score) throw new AppError('Las cantidades superan el marcador histórico',409);
-      change={rows:body.rows.length,events:total};
-    } else if (action === 'ADD') {
+    if (action === 'ADD') {
       const { eventType, teamId, playerId, quarter, yards } = body;
       if (!esJugadaValida(eventType)) throw new AppError('Jugada inválida', 400);
       if (![game.home_team_id,game.away_team_id].includes(teamId)) throw new AppError('El equipo no juega este partido', 400);

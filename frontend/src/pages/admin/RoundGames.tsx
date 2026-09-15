@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { competition, ETIQUETA_PARTIDO, type Game, type Referee } from '../../lib/competition';
 import type { Season } from '../../lib/types';
 import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
@@ -51,14 +51,19 @@ function GameEditor({ game, season, referees, locked }: { game: Game; season: Se
 }
 
 export default function RoundGames({ id, season }: { id: string; season: Season }) {
+  const { hash } = useLocation();
   const round = useQuery({ queryKey: ['round', id], queryFn: () => competition.round(id) });
   const refs = useQuery({ queryKey: ['referees', season.id], queryFn: () => competition.referees(season.id) });
+  const ready = !!round.data && !!refs.data;
+  useEffect(() => {
+    if (ready && hash.startsWith('#game-')) document.getElementById(hash.slice(1))?.scrollIntoView({block:'center'});
+  }, [ready, hash]);
   if (round.isLoading || refs.isLoading) return <Spinner />;
   if (round.error || refs.error) return <Alert tone="error">{(round.error || refs.error)?.message}</Alert>;
   return <section className="mt-4 space-y-3">
     <Link className="link text-sm" to="/admin/arbitros">Gestionar árbitros de la temporada</Link>
     {!round.data?.games.length && <p>No hay partidos en esta jornada.</p>}
-    {round.data?.games.map((g) => <div key={g.id} className="space-y-2">
+    {round.data?.games.map((g) => <div key={g.id} id={`game-${g.id}`} className="space-y-2">
       <GameEditor game={g} season={season} referees={refs.data ?? []} locked={['FINISHED', 'CANCELLED'].includes(round.data!.status)} />
       <Card className="p-3"><HistoricalResult game={g} roundStatus={round.data!.status} /></Card>
     </div>)}

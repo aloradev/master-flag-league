@@ -186,8 +186,32 @@ incorporación. Prueba: `npm run test:generator-entry --prefix backend`.
 
 ### Captura rápida desde el acta
 
-En la sección de estadísticas históricas puedes pegar varias filas en una sola
-operación. Cada fila usa `teamId`, `eventType`, `playerId` y `count`; las jugadas
-con yardas aceptan también `yards`. El sistema valida jugadores, equipos, elegibilidad,
-cantidades y que los puntos no superen el marcador. Se generan eventos individuales
-para que los rankings conserven sus cálculos y la operación queda auditada.
+En las estadísticas históricas, abre **Captura rápida desde el acta** y agrega
+una fila por jugador y estadística. Selecciona los nombres y escribe el total final
+del acta. Para pases, recepciones y acarreos, indica las yardas acumuladas: por ejemplo,
+3 recepciones y 42 yardas. Cada fila sustituye su total anterior; las demás se conservan.
+Un total de cero retira esa estadística. Indica la fuente, pulsa **Revisar totales**
+y confirma los cambios. Si falla el envío, puedes reintentarlo sin duplicar la captura.
+Si alguien modificó las jugadas mientras revisabas, actualiza y vuelve a revisar.
+Se validan jugadores, elegibilidad y puntos incluyendo lo ya capturado. Los cambios
+quedan auditados y se publican en rankings al completar las estadísticas.
+
+### Panel de pendientes administrativos
+
+En el inicio de **Administración**, el panel reúne resultados pendientes de fechas
+anteriores a hoy en Cancún, estadísticas incompletas de partidos finalizados,
+partidos pospuestos, encuentros sin árbitro principal habilitado y registros por
+revisar o completar. Una cuenta de árbitro inactiva o sin acceso también genera aviso.
+
+Selecciona un filtro para ver sus pendientes. En **Todos**, cada partido aparece
+una sola vez aunque tenga varios avisos; por eso la suma de filtros puede superar
+el total de filas. **Abrir gestión del partido** abre su jornada y su captura;
+**Capturar jugadas y cerrar** lleva al modo de captura del encuentro. La revisión de
+registros abre la cola del equipo correspondiente, con opción para quitar el filtro.
+
+Los avisos se calculan a partir de los registros actuales y desaparecen al resolverlos.
+Usa **Actualizar pendientes** o espera la actualización automática de cada minuto.
+El panel incluye partidos oficiales publicados de la temporada, también playoffs;
+los borradores, partidos/jornadas cancelados, scrimmages y jugadores dados de baja
+quedan fuera. Los pendientes de plantilla y encargados se consultan en el bloque
+de inscripciones que aparece debajo.

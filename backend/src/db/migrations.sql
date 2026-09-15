@@ -676,3 +676,16 @@ ALTER TABLE games ADD COLUMN IF NOT EXISTS statistics_status VARCHAR(16) NOT NUL
 
 -- La fecha deportiva no se deduce del momento de captura en la aplicación.
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS competition_start_date DATE;
+
+-- Un total del acta conserva cantidad y yardas acumuladas sin inventar jugadas.
+ALTER TABLE game_events ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity BETWEEN 1 AND 100);
+ALTER TABLE game_events ADD COLUMN IF NOT EXISTS capture_source VARCHAR(16) NOT NULL DEFAULT 'PLAY'
+  CHECK (capture_source IN ('PLAY','TOTALS'));
+CREATE TABLE IF NOT EXISTS game_stat_batches (
+  id VARCHAR(36) PRIMARY KEY,
+  game_id VARCHAR(36) NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  user_id VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+  request_hash VARCHAR(64) NOT NULL,
+  result JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

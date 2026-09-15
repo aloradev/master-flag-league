@@ -76,7 +76,7 @@ const arbitrosDe = async (gameId: string) => {
 const eventosDe = async (gameId: string, desde?: string) => {
   const r = await query(
     `SELECT e.id, e.team_id, e.player_id, e.event_type, e.points, e.quarter, e.yards,
-            e.recorded_by, e.voided_at, e.created_at,
+            e.recorded_by, e.voided_at, e.created_at, e.quantity, e.capture_source,
             p.first_name, p.last_name_paternal, p.last_name_maternal, p.jersey_number,
             u.name AS recorded_by_name
      FROM game_events e
@@ -89,7 +89,7 @@ const eventosDe = async (gameId: string, desde?: string) => {
   );
   return r.rows.map((e) => ({
     ...e,
-    label: JUGADAS[e.event_type]?.label ?? e.event_type,
+    label: `${JUGADAS[e.event_type]?.label ?? e.event_type}${e.capture_source === 'TOTALS' ? ` × ${e.quantity} (total del acta)` : ''}`,
     // Mismo armado que en jugadores, para que un jugador se llame igual
     // en la lista de plantilla y en la bitácora del partido.
     player_name: e.player_id
