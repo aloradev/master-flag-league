@@ -101,10 +101,11 @@ const DocumentSlot = ({
           <input
             ref={inputRef}
             type="file"
-            accept="image/jpeg,image/png,application/pdf"
+            accept={type === 'PHOTO' ? 'image/jpeg,image/png' : 'image/jpeg,image/png,application/pdf'}
             // La fotografía permite elegir de la galería o usar la cámara.
             capture={type === 'PHOTO' ? undefined : 'environment'}
             className="hidden"
+            disabled={upload.isPending}
             onChange={(e) => handleFile(e.target.files?.[0])}
           />
 
@@ -115,8 +116,17 @@ const DocumentSlot = ({
             loading={upload.isPending}
             className="mt-2 w-full sm:w-auto"
           >
-            {upload.isPending ? 'Subiendo…' : document ? 'Reemplazar' : 'Subir archivo'}
+            {upload.isPending
+              ? 'Subiendo…'
+              : type === 'PHOTO'
+                ? document ? 'Reemplazar foto' : 'Seleccionar foto'
+                : document ? 'Reemplazar' : 'Subir archivo'}
           </Button>
+          {type === 'PHOTO' && (
+            <p className="mt-1 text-xs text-base-content/50">
+              Elige una foto de tu galería o archivos (JPG o PNG).
+            </p>
+          )}
         </div>
       </div>
     </Card>
