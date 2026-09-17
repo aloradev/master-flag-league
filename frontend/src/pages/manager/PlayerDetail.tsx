@@ -102,8 +102,8 @@ const DocumentSlot = ({
             ref={inputRef}
             type="file"
             accept="image/jpeg,image/png,application/pdf"
-            // En celular abre la cámara directamente (req. 48).
-            capture={type === 'PHOTO' ? 'user' : 'environment'}
+            // La fotografía permite elegir de la galería o usar la cámara.
+            capture={type === 'PHOTO' ? undefined : 'environment'}
             className="hidden"
             onChange={(e) => handleFile(e.target.files?.[0])}
           />
