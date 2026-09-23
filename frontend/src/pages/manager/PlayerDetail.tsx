@@ -102,8 +102,6 @@ const DocumentSlot = ({
             ref={inputRef}
             type="file"
             accept={type === 'PHOTO' ? 'image/jpeg,image/png' : 'image/jpeg,image/png,application/pdf'}
-            // La fotografía permite elegir de la galería o usar la cámara.
-            capture={type === 'PHOTO' ? undefined : 'environment'}
             className="hidden"
             disabled={upload.isPending}
             onChange={(e) => handleFile(e.target.files?.[0])}
