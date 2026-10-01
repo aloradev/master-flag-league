@@ -110,6 +110,8 @@ const NewTeamForm = ({
 export default function AdminTeams() {
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
+  const [category, setCategory] = useState('ALL');
+  const [search, setSearch] = useState('');
   const season = useQuery({
     queryKey: ['season-active'],
     queryFn: () => api.get<Season>('/seasons/active'),
@@ -131,6 +133,9 @@ export default function AdminTeams() {
     mutationFn: (id: string) => api.del(`/admin/teams/${id}`),
     onSuccess: refresh,
   });
+  const allTeams = teams.data ?? [];
+  const categories = season.data?.categories ?? [];
+  const filtered = allTeams.filter((team) => (category === 'ALL' || team.category_name === categories.find(item => item.id === category)?.name) && team.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   if (teams.isLoading || season.isLoading) return <Spinner />;
 
@@ -143,12 +148,12 @@ export default function AdminTeams() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Equipos</h1>
           <p className="text-sm text-base-content/60">
-            {teams.data?.length ?? 0} equipo(s) en la temporada
+            {allTeams.length} equipo(s) · {categories.length} categoría(s)
           </p>
         </div>
         {!creating && season.data && (
@@ -168,6 +173,14 @@ export default function AdminTeams() {
         <NewTeamForm season={season.data} onCreated={refresh} onCancel={() => setCreating(false)} />
       )}
 
+      {allTeams.length > 0 && <Card className="space-y-3 p-3">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar equipos por categoría">
+          <button className={`btn btn-sm ${category === 'ALL' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setCategory('ALL')}>Todos <span className="badge badge-sm">{allTeams.length}</span></button>
+          {categories.map((item) => <button key={item.id} className={`btn btn-sm ${category === item.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setCategory(item.id)}>{item.name} <span className="badge badge-sm">{allTeams.filter(t => t.category_name === item.name).length}</span></button>)}
+        </div>
+        <input className="input input-bordered w-full" placeholder="Buscar equipo…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar equipo" />
+      </Card>}
+
       {(teams.data?.length ?? 0) === 0 && !creating ? (
         <Card>
           <EmptyState
@@ -178,7 +191,7 @@ export default function AdminTeams() {
         </Card>
       ) : (
         <ul className="space-y-2">
-          {teams.data?.map((team) => {
+          {filtered.map((team) => {
             const total = Number(team.players_total);
             const eligible = Number(team.players_eligible);
             const pending = Number(team.players_pending);
@@ -235,6 +248,7 @@ export default function AdminTeams() {
           })}
         </ul>
       )}
+      {allTeams.length > 0 && filtered.length === 0 && <Card><EmptyState icon={<IconShield size={36} />} title="No encontramos equipos" description="Prueba con otra categoría o cambia el texto de búsqueda." /></Card>}
     </div>
   );
 }
