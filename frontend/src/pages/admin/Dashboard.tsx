@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import type { Season, ValidationStats } from '../../lib/types';
 import { Alert, Card, Spinner, Stat } from '../../components/ui';
@@ -41,6 +42,12 @@ export default function AdminDashboard() {
       </div>
 
       {season.data && <PendingPanel key={season.data.id} seasonId={season.data.id} />}
+      <nav aria-label="Tareas frecuentes" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Link to="/admin/validacion" className="btn btn-outline">Validar jugadores</Link>
+        <Link to="/admin/equipos" className="btn btn-outline">Gestionar equipos</Link>
+        <Link to="/admin/jornadas" className="btn btn-outline">Organizar jornadas</Link>
+        <Link to="/jornadas" className="btn btn-outline">Ver calendario</Link>
+      </nav>
 
       {daysToStart != null && daysToStart >= 0 && daysToStart <= 21 && (
         <Alert tone={daysToStart <= 7 ? 'warning' : 'info'}>

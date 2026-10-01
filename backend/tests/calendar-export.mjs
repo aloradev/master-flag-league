@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import ts from 'typescript';
+import { readFile } from 'node:fs/promises';
+const source=await readFile('../frontend/src/lib/calendarExport.ts','utf8');
+const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+const {matchCalendar}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const game={id:'test',scheduled_date:'2026-10-03',scheduled_time:'23:30',home_team_name:'Equipo, A',away_team_name:'Equipo; B',field_name:'Cancha\nCancún',field_location:'Cancún'};
+const output=matchCalendar(game,'https://example.test',new Date('2026-09-30T12:00:00Z'));
+assert.ok(output.includes('DTSTART:20261004T043000Z'),'Horario Cancún cruza correctamente al siguiente día UTC');
+assert.ok(output.includes('Equipo\\, A vs Equipo\\; B'));
+assert.ok(output.includes('Cancha\\nCancún'));
+assert.throws(()=>matchCalendar({...game,scheduled_time:'25:00'},'https://example.test'));
+assert.throws(()=>matchCalendar({...game,scheduled_date:'2026-02-30'},'https://example.test'));
+const long=matchCalendar({...game,home_team_name:'Á'.repeat(180)},'https://example.test');
+assert.ok(long.split('\r\n').every(line=>Buffer.byteLength(line)<=75),'Respeta límites de líneas incluso con acentos');
+assert.ok(output.includes('no se actualiza automáticamente'));
+console.log('PASS: exportación ICS, zona horaria, escape, fechas inválidas y plegado UTF-8.');

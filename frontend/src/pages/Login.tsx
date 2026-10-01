@@ -1,22 +1,29 @@
-import { useState, type FormEvent } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link, Navigate, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { PasswordInput } from '../components/PasswordInput';
 import { useAuth, homeFor } from '../store/auth';
 import { Alert, Button, Field } from '../components/ui';
 import { Logo } from '../components/Logo';
 import { ThemeToggle } from '../components/ThemeToggle';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const location = useLocation();
+  const [email, setEmail] = useState(typeof location.state?.email === 'string' ? location.state.email : '');
   const [password, setPassword] = useState('');
   const { login, error, submitting, status, user, clearError } = useAuth();
   const navigate = useNavigate();
+  const from = location.state?.from;
+  const destination = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/ingresar') ? from : null;
   const [params] = useSearchParams();
   const restablecida = params.get('restablecida') === '1';
+  useEffect(() => {
+    if (typeof location.state?.email === 'string') setEmail(location.state.email);
+  }, [location.key]);
 
   if (status === 'authenticated' && user) {
     return (
       <Navigate
-        to={user.mustChangePassword ? '/cambiar-contrasena' : homeFor(user.role)}
+        to={user.mustChangePassword ? '/cambiar-contrasena' : destination ?? homeFor(user.role)}
         replace
       />
     );
@@ -26,7 +33,7 @@ export default function Login() {
     event.preventDefault();
     try {
       const session = await login(email.trim(), password);
-      navigate(session.mustChangePassword ? '/cambiar-contrasena' : homeFor(session.role), {
+      navigate(session.mustChangePassword ? '/cambiar-contrasena' : destination ?? homeFor(session.role), {
         replace: true,
       });
     } catch {
@@ -44,7 +51,8 @@ export default function Login() {
         <div className="mb-7 flex flex-col items-center text-center">
           <Logo size="md" className="w-36 drop-shadow-lg sm:w-40" priority />
           <p className="mt-4 text-sm text-base-content/60">
-            Sistema de gestión de la liga
+            <span className="block text-xl font-bold text-base-content">Bienvenido a tu liga</span>
+            Ingresa para continuar con tu equipo.
           </p>
         </div>
 
@@ -71,8 +79,7 @@ export default function Login() {
           </Field>
 
           <Field label="Contraseña" required>
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="current-password"
               className="input input-bordered w-full"
               placeholder="••••••••"
@@ -92,6 +99,7 @@ export default function Login() {
             </Alert>
           )}
 
+          {params.get('registrado') === '1' && <Alert tone="success">Cuenta creada. Ingresa para inscribir tu equipo.</Alert>}
           {error && <Alert tone="error">{error}</Alert>}
 
           <Button
@@ -115,7 +123,7 @@ export default function Login() {
         </div>
 
         <p className="mt-5 text-center text-xs text-base-content/40">
-          Si no tienes acceso, solicítalo a la administración de la liga.
+          <Link to="/registro" className="link">Crear cuenta de encargado</Link> · <Link to="/" className="link">Conocer la liga</Link>
         </p>
       </div>
     </div>

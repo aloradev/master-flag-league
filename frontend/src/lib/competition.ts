@@ -76,6 +76,7 @@ export interface Game {
   category_name: string;
   category_color: string;
   field_name: string | null;
+  field_location?: string | null;
   round_number: number;
   scheduled_date: string;
   round_status: RoundStatus;

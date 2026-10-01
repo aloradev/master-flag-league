@@ -175,7 +175,7 @@ export default function SeasonConfig() {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div>
-        <h1 className="text-xl font-bold">{data.name}</h1>
+        <h1 className="text-xl font-bold">Temporada y categorías · {data.name}</h1>
         <p className="text-sm text-base-content/60">
           Inicia el{' '}
           {fechaTexto(data.start_date, { day: 'numeric', month: 'long', year: 'numeric' })}

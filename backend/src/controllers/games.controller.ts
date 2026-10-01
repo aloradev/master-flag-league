@@ -20,7 +20,7 @@ const GAME_COLUMNS = `g.id, g.season_id, g.round_id, g.category_id, g.field_id,
   g.started_at, g.ended_at, g.notes, g.created_at, g.updated_at`;
 
 const CONTEXTO = `c.name AS category_name, c.color AS category_color,
-  f.name AS field_name,
+  f.name AS field_name, f.location AS field_location,
   ro.number AS round_number, ro.scheduled_date, ro.status AS round_status,
   hl.name AS home_team_name, hl.short_name AS home_short_name,
   hl.logo_url AS home_logo_url, hl.color_primary AS home_color,

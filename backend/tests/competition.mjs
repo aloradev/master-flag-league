@@ -101,7 +101,7 @@ const run = async () => {
   // usa los de la liga. Se fijan explícitamente para que la capacidad de
   // la noche sea la de la liga real: 2 campos × 3 horarios = 6.
   const horariosPuestos = await call('PUT', `/admin/seasons/${seasonId}/settings/game_times`, {
-    token: admin, body: { value: { slots: ['19:00', '20:00', '21:00'] } },
+    token: admin, body: { value: { slots: ['19:00', '20:00', '21:00'], field_slots: {} } },
   });
   check('Con 3 horarios configurados', horariosPuestos.status === 200,
     JSON.stringify(horariosPuestos.body).slice(0, 150));
@@ -286,7 +286,7 @@ const run = async () => {
     },
   });
   check('Rechaza dos árbitros principales en el mismo partido',
-    dosPrincipales.status === 409, `${dosPrincipales.status}`);
+    dosPrincipales.status === 400 && /principal y un auxiliar/.test(dosPrincipales.body?.error ?? ''), `${dosPrincipales.status}`);
 
   // Vuelve a dejarlo bien y prueba el choque de horario.
   await call('POST', `/admin/games/${g1.id}/referees`, {

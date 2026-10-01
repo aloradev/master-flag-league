@@ -107,6 +107,7 @@ export default function PlayerForm() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving) return;
     setSaving(true);
     setError(null);
 
@@ -126,6 +127,7 @@ export default function PlayerForm() {
         const r = await api.put<{ back_to_review?: boolean }>(`/players/${id}`, cuerpo);
         void qc.invalidateQueries({ queryKey: ['player', id] });
         void qc.invalidateQueries({ queryKey: ['team'] });
+        void qc.invalidateQueries({ queryKey: ['registration-status'] });
         void qc.invalidateQueries({ queryKey: ['teams'] });
         const resultFlag = r?.back_to_review ? 'revision=1' : 'guardado=1';
         navigate(`/equipo/jugadores/${id}?${resultFlag}${teamQuery ? `&${teamQuery}` : ''}`, {
@@ -136,7 +138,10 @@ export default function PlayerForm() {
           teamId: selectedTeam,
           ...cuerpo,
         });
+        void qc.invalidateQueries({ queryKey: ['registration-status'] });
         // El jugador ya existe; el siguiente paso es su documentación.
+        void qc.invalidateQueries({ queryKey: ['team'] });
+        void qc.invalidateQueries({ queryKey: ['teams-managed'] });
         navigate(`/equipo/jugadores/${created.id}?nuevo=1${teamQuery ? `&${teamQuery}` : ''}`, { replace: true });
       }
     } catch (err) {
@@ -146,6 +151,8 @@ export default function PlayerForm() {
   };
 
   if (editando ? jugador.isLoading : teams.isLoading) return <Spinner />;
+  if (!editando && teams.error) return <Alert tone="error">No se pudieron cargar tus equipos. <button className="link" onClick={() => void teams.refetch()}>Reintentar</button></Alert>;
+  if (!editando && teams.data?.length === 0) return <Card className="space-y-4 p-6"><h1 className="text-xl font-bold">Primero necesitas un equipo</h1><p>Inscribe tu equipo para agregar jugadores. Si ya existe, solicita que vinculen tu cuenta.</p><Link className="btn btn-primary" to="/equipo/nuevo">Inscribir equipo</Link></Card>;
   if (editando && jugador.error) {
     return <Alert tone="error">{(jugador.error as Error).message}</Alert>;
   }
@@ -172,7 +179,7 @@ export default function PlayerForm() {
         <p className="text-sm text-base-content/60">
           {editando
             ? `${jugador.data?.team_name} · ${jugador.data?.category_name}`
-            : 'Paso 1 de 2 · Después subirás su fotografía e identificación.'}
+            : 'Paso 1 de 2 · Guarda sus datos y después completa los documentos que solicita la liga.'}
         </p>
       </div>
 
@@ -198,7 +205,9 @@ export default function PlayerForm() {
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      {!editando && <Alert title="Asignación del jugador">{teams.data?.find(t => t.id === selectedTeam)?.name} · {teams.data?.find(t => t.id === selectedTeam)?.category_name}. La categoría se toma del equipo elegido.</Alert>}
+      <form onSubmit={handleSubmit} className="space-y-4" aria-busy={saving}>
+        <fieldset disabled={saving} className="space-y-4">
         <Card className="space-y-4 p-4">
           {!editando && (teams.data?.length ?? 0) > 1 && (
             <Field label="Equipo" required>
@@ -344,9 +353,10 @@ export default function PlayerForm() {
             loading={saving}
             disabled={!complete}
           >
-            {editando ? 'Guardar cambios' : 'Continuar'}
+            {editando ? 'Guardar cambios' : 'Guardar y subir documentos'}
           </Button>
         </div>
+        </fieldset>
       </form>
     </div>
   );

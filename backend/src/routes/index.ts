@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { registrationStatus } from '../controllers/registration-status.controller.js';
+import * as onboarding from '../controllers/onboarding.controller.js';
 import { adminPending } from '../controllers/admin-pending.controller.js';
 import { teamProgress, updateCompetitionEntry } from '../controllers/team-progress.controller.js';
 import { saveHistoricalResult } from '../controllers/historical-results.controller.js';
@@ -21,6 +23,7 @@ import * as operations from '../controllers/operations.controller.js';
 import * as playoffs from '../controllers/playoffs.controller.js';
 import * as statistics from '../controllers/statistics.controller.js';
 import * as scrimmages from '../controllers/scrimmages.controller.js';
+import * as leagues from '../controllers/leagues.controller.js';
 
 import {
   requireAuth,
@@ -35,6 +38,8 @@ const router = Router();
 
 // ══════════════════════════ PÚBLICO (sin sesión) ══════════════════════════
 router.post('/auth/login', auth.login);
+router.post('/auth/register', onboarding.register);
+router.get('/public/registration-options', onboarding.options);
 router.post('/auth/refresh', auth.refresh);
 
 // ── Restablecer contraseña ──
@@ -65,6 +70,7 @@ router.use(restrictScrimmageToken);
 
 // ════════════════════════════════ SESIÓN ══════════════════════════════════
 router.get('/auth/me', auth.me);
+router.post('/teams', requireRole(ROLES.TEAM_MANAGER), onboarding.enroll);
 router.post('/auth/change-password', auth.changePassword);
 
 // ═══════════════════════ CATÁLOGOS (lectura general) ══════════════════════
@@ -78,6 +84,7 @@ router.get('/statistics/players', statistics.playerStats);
 // ═════════════════ EQUIPOS (admin: todos · manager: los suyos) ════════════
 router.get('/teams', loadManagedTeams, teams.listTeams);
 router.get('/teams/:id', loadManagedTeams, teams.getTeam);
+router.get('/teams/:id/registration-status', loadManagedTeams, registrationStatus);
 router.put('/teams/:id', loadManagedTeams, teams.updateTeam);
 // El logo lo puede subir administración o el propio encargado del equipo.
 router.post(
@@ -126,6 +133,9 @@ router.put('/admin/users/:id', requireAdmin, users.updateUser);
 router.post('/admin/users/:id/reset-password', requireAdmin, users.resetPassword);
 router.post('/admin/users/:id/reset-link', requireAdmin, users.createResetLink);
 router.get('/admin/roles', requireAdmin, users.listRoles);
+router.get('/admin/leagues', requireRole(ROLES.SUPER_ADMIN), leagues.list);
+router.post('/admin/leagues', requireRole(ROLES.SUPER_ADMIN), leagues.create);
+router.post('/admin/leagues/:id/select', requireRole(ROLES.SUPER_ADMIN), leagues.select);
 
 router.post('/admin/seasons', requireRole(ROLES.SUPER_ADMIN), seasons.createSeason);
 router.put('/admin/seasons/:id', requireRole(ROLES.SUPER_ADMIN), seasons.updateSeason);

@@ -1,3 +1,7 @@
+import { WeeklyCalendar } from '../components/WeeklyCalendar';
+import { CalendarActions } from '../components/CalendarActions';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useAuth, isAdmin } from '../store/auth';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -67,6 +71,7 @@ const Partido = ({ g }: { g: Game }) => {
         </p>
       )}
 
+      <div className="px-3 py-2"><CalendarActions game={g} /></div>
       {(g.referees ?? []).length > 0 && (
         <p className="border-t border-base-300/60 px-3 py-1.5 text-[11px] text-base-content/55">
           {g.referees!.map((r) => r.name).join(' · ')}
@@ -85,6 +90,16 @@ const Partido = ({ g }: { g: Game }) => {
  * llega al administrador.
  */
 export default function Jornadas() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [view, setView] = useState<'round'|'week'>('round');
+  const teamFilter = searchParams.get('equipo') ?? '';
+  const setTeamFilter = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set('equipo', value); else next.delete('equipo');
+    setSearchParams(next, { replace: true });
+  };
+  const user = useAuth(s => s.user);
+  const teams = useQuery({ queryKey: ['teams-managed'], queryFn: () => api.get<{ id: string; name: string }[]>('/teams?managed=true') });
   const [abierta, setAbierta] = useState<string | null>(null);
 
   const season = useQuery({
@@ -95,7 +110,7 @@ export default function Jornadas() {
   const seasonId = season.data?.id;
 
   const jornadas = useQuery({
-    queryKey: ['rounds', seasonId],
+    queryKey: ['rounds', seasonId], refetchInterval: 30000,
     queryFn: () => competition.rounds(seasonId),
     enabled: Boolean(seasonId),
   });
@@ -103,16 +118,17 @@ export default function Jornadas() {
   // La jornada abierta por omisión es la primera de la lista (la más
   // reciente): al entrar se quiere ver lo que se juega ahora.
   const lista = jornadas.data ?? [];
-  const activaId = abierta ?? lista[0]?.id ?? null;
+  const activaId = lista.find(j => j.id === abierta)?.id ?? lista[0]?.id ?? null;
 
   const detalle = useQuery({
-    queryKey: ['round', activaId],
+    queryKey: ['round', activaId], refetchInterval: 30000,
     queryFn: () => competition.round(activaId!),
     enabled: Boolean(activaId),
   });
 
   if (season.isLoading || jornadas.isLoading) return <Spinner label="Cargando jornadas…" />;
   if (season.error) return <Alert tone="error">No hay temporada activa.</Alert>;
+  if (jornadas.error) return <Alert tone="error">No se pudo actualizar el calendario. Intenta de nuevo.</Alert>;
 
   if (lista.length === 0) {
     return (
@@ -126,7 +142,7 @@ export default function Jornadas() {
 
   const d = detalle.data;
   const porCategoria = new Map<string, Game[]>();
-  for (const g of d?.games ?? []) {
+  for (const g of d?.games ?? []) { if (teamFilter && g.home_team_id !== teamFilter && g.away_team_id !== teamFilter) continue;
     if (!porCategoria.has(g.category_name)) porCategoria.set(g.category_name, []);
     porCategoria.get(g.category_name)!.push(g);
   }
@@ -134,10 +150,12 @@ export default function Jornadas() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-xl font-bold">Jornadas</h1>
+        <h1 className="text-xl font-bold">Calendario compartido</h1><p className="text-sm text-base-content/60">Horarios y sedes de la liga · Se actualiza cada 30 segundos.</p>{user && isAdmin(user.role) && <Link className="btn btn-outline btn-sm mt-2" to="/admin/jornadas">Administrar calendario</Link>}
         <p className="text-sm text-base-content/60">{season.data?.name}</p>
       </header>
 
+      <label className="block text-sm">Filtrar por equipo<select className="select mt-1 w-full sm:w-80" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}><option value="">Todos los partidos</option>{teams.data?.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>{teamFilter && porCategoria.size === 0 && <p role="status">Tu equipo no tiene partidos en esta jornada. Consulta los descansos o selecciona otra jornada.</p>}
+<div className="flex gap-2" aria-label="Vista del calendario"><button className={`btn btn-sm ${view === 'round' ? 'btn-primary' : 'btn-ghost'}`} aria-pressed={view === 'round'} onClick={() => setView('round')}>Por jornada</button><button className={`btn btn-sm ${view === 'week' ? 'btn-primary' : 'btn-ghost'}`} aria-pressed={view === 'week'} onClick={() => setView('week')}>Por semana</button></div>{view === 'week' && seasonId && <WeeklyCalendar seasonId={seasonId} teamId={teamFilter} />}<div hidden={view !== 'round'} className="space-y-5">
       {/* Selector horizontal: en celular se desliza con el pulgar. */}
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {lista.map((j) => {
@@ -190,7 +208,7 @@ export default function Jornadas() {
               <h2 className="text-sm font-bold">{nombre}</h2>
               <ul className="grid gap-2 sm:grid-cols-2">
                 {partidos.map((g) => (
-                  <Partido key={g.id} g={g} />
+                  <Partido key={g.id} g={{...g, scheduled_date: d.scheduled_date}} />
                 ))}
               </ul>
             </section>
@@ -200,7 +218,7 @@ export default function Jornadas() {
             <section className="space-y-2">
               <h2 className="text-sm font-bold">Descansan esta jornada</h2>
               <ul className="grid gap-2 sm:grid-cols-2">
-                {d.byes.map((b) => (
+                {d.byes.filter(b => !teamFilter || b.team_id === teamFilter).map((b) => (
                   <Card as="li" key={b.team_id} className="flex items-center gap-2 px-3 py-2">
                     <TeamCrest
                       name={b.team_name}
@@ -221,6 +239,7 @@ export default function Jornadas() {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

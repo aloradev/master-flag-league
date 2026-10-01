@@ -5,10 +5,10 @@ import { api } from '../../lib/api';
 import { fechaTexto } from '../../lib/format';
 import { Alert, Button, Card, Spinner } from '../../components/ui';
 
-type Kind='RESULT'|'STATISTICS'|'REFEREE'|'POSTPONED'|'REGISTRATION';
-type Item={id:string;type:'game'|'player';kinds:Kind[];title:string;detail:string;date:string|null;round_id:string|null;team_id:string|null;reason:string|null};
+type Kind='TEAM'|'RESULT'|'STATISTICS'|'REFEREE'|'POSTPONED'|'REGISTRATION';
+type Item={id:string;type:'game'|'player'|'team';kinds:Kind[];title:string;detail:string;date:string|null;round_id:string|null;team_id:string|null;reason:string|null};
 type Pending={items:Item[];counts:Record<Kind,number>;updated_at:string};
-const labels:Record<Kind,string>={RESULT:'Resultados pendientes',STATISTICS:'Estadísticas incompletas',REFEREE:'Sin árbitro principal habilitado',POSTPONED:'Partidos pospuestos',REGISTRATION:'Registros por revisar o completar'};
+const labels:Record<Kind,string>={TEAM:'Equipos incompletos',RESULT:'Resultados pendientes',STATISTICS:'Estadísticas incompletas',REFEREE:'Sin árbitro principal habilitado',POSTPONED:'Partidos pospuestos',REGISTRATION:'Registros por revisar o completar'};
 
 export default function PendingPanel({seasonId}:{seasonId:string}) {
   const [filter,setFilter]=useState<Kind|'ALL'>('ALL');
@@ -29,7 +29,7 @@ export default function PendingPanel({seasonId}:{seasonId:string}) {
         {(Object.keys(labels) as Kind[]).map(kind=><button key={kind} className={`btn btn-sm h-auto py-2 ${filter===kind?'btn-primary':'btn-ghost'}`} aria-pressed={filter===kind} onClick={()=>{setFilter(kind);setLimit(20);}}>{labels[kind]} ({pending.data!.counts[kind]})</button>)}
       </div>
       <p className="text-xs text-base-content/60">Un partido puede tener varios pendientes y aparece una sola vez en Todos.</p>
-      {!items.length && <Alert tone="success">{filter==='ALL'?'No hay pendientes de resultados, estadísticas, árbitros ni revisión de registros en este momento.':'No hay pendientes en este filtro.'}</Alert>}
+      {!items.length && <Alert tone="success">{filter==='ALL'?'No hay pendientes de equipos, resultados, estadísticas, árbitros ni revisión de registros en este momento.':'No hay pendientes en este filtro.'}</Alert>}
       <ul className="space-y-2">
         {items.slice(0,limit).map(item=><Card as="li" key={`${item.type}:${item.id}`} className="space-y-2 p-3">
           <h3 className="font-semibold">{item.title}</h3>

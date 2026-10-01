@@ -1,3 +1,4 @@
+import { Dialog } from './Dialog';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, isAdmin } from '../store/auth';
 import { Logo } from './Logo';
@@ -37,6 +38,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { to: '/admin/validacion', label: 'Validación', Icon: IconCheckCircle, primary: true },
     { to: '/admin/equipos', label: 'Equipos', Icon: IconShield, primary: true },
     { to: '/admin/jornadas', label: 'Jornadas', Icon: IconFootball, primary: true },
+    { to: '/jornadas', label: 'Calendario compartido', Icon: IconFootball },
     { to: '/admin/finanzas', label: 'Finanzas', Icon: IconMoney },
     { to: '/posiciones', label: 'Posiciones', Icon: IconTrophy },
     { to: '/rankings', label: 'Rankings', Icon: IconTrophy },
@@ -45,7 +47,8 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { to: '/admin/usuarios', label: 'Usuarios', Icon: IconUsers },
     { to: '/admin/arbitros', label: 'Árbitros', Icon: IconUsers },
     { to: '/admin/scrimmages', label: 'Scrimmages', Icon: IconFootball },
-    { to: '/admin/temporada', label: 'Temporada', Icon: IconSettings },
+    { to: '/admin/temporada', label: 'Temporada y categorías', Icon: IconSettings },
+    { to: '/admin/ligas', label: 'Ligas', Icon: IconShield, superAdminOnly: true },
     { to: '/admin/auditoria', label: 'Auditoría', Icon: IconClipboard, superAdminOnly: true },
   ],
   TEAM_MANAGER: [
@@ -53,7 +56,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { to: '/equipo/jugadores/nuevo', label: 'Agregar', Icon: IconPlus, primary: true },
     { to: '/equipo/roster', label: 'Roster', Icon: IconDocument, primary: true },
     { to: '/equipo/pagos', label: 'Pagos', Icon: IconMoney },
-    { to: '/jornadas', label: 'Jornadas', Icon: IconFootball },
+    { to: '/jornadas', label: 'Calendario', Icon: IconFootball, primary: true },
     { to: '/posiciones', label: 'Posiciones', Icon: IconTrophy },
     { to: '/rankings', label: 'Rankings', Icon: IconTrophy },
   ],
@@ -100,8 +103,8 @@ export const Layout = () => {
 
   items.push({ to: '/playoffs', label: 'Playoffs', Icon: IconTrophy });
   if (!items.some((item) => item.to === '/historial')) items.push({ to: '/historial', label: 'Historial', Icon: IconTrophy });
-  const primaryItems = items.filter((item) => item.primary);
-  const restoItems = items.filter((item) => !item.primary);
+  const primaryItems = items.filter((item) => item.primary).slice(0, 4);
+  const restoItems = items.filter((item) => !primaryItems.includes(item));
 
   /** `/admin` y `/equipo` son prefijo de sus propias subrutas: sin `end`
    *  se quedarían marcados como activos en toda la sección. */
@@ -137,9 +140,9 @@ export const Layout = () => {
   };
 
   return (
-    <div className="min-h-dvh md:flex">
+    <div className="min-h-dvh md:flex"><a href="#main-content" className="skip-link">Saltar al contenido</a>
       {/* Navegación lateral — escritorio */}
-      <aside className="hidden w-60 shrink-0 border-r border-base-300 bg-base-200/50 md:flex md:flex-col">
+      <aside className="hidden sticky top-0 h-dvh overflow-y-auto w-60 shrink-0 border-r border-base-300 bg-base-200/50 md:flex md:flex-col">
         <div className="flex items-center gap-2.5 px-4 py-4">
           <Link
             to="/ingresar"
@@ -218,8 +221,8 @@ export const Layout = () => {
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 px-4 pb-24 pt-4 md:px-8 md:pb-10 md:pt-6">
-          <Outlet />
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-4 pb-24 pt-4 md:px-8 md:pb-10 md:pt-6">
+          <div className="mb-5 flex items-center justify-between gap-3 border-b border-base-300 pb-3 text-xs text-base-content/60"><span>{items.find(item => activa(item.to))?.label ?? 'Mi espacio'}</span><Link to="/" className="link">Ver sitio público ↗</Link></div><Outlet />
         </main>
 
         {/* Navegación inferior — celular */}
@@ -262,34 +265,7 @@ export const Layout = () => {
             esto, desde el celular no había manera de abrir Pagos,
             Finanzas, Usuarios ni Temporada. */}
         {menuAbierto && (
-          <div className="fixed inset-0 z-40 flex items-end md:hidden">
-            {/* El fondo cierra al tocarlo pero se oculta del árbol de
-                accesibilidad: anunciado como botón, quien usa lector oye
-                dos controles "Cerrar" y el primero es invisible. */}
-            <div
-              aria-hidden="true"
-              onClick={() => setMenuAbierto(false)}
-              className="mfl-fondo absolute inset-0 bg-black/60"
-            />
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Más secciones"
-              className="mfl-hoja relative max-h-[80vh] w-full overflow-y-auto rounded-t-box
-                         border-t border-base-300 bg-base-200 p-2
-                         pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl"
-            >
-              <div className="flex items-center justify-between px-2 pb-1 pt-2">
-                <h2 className="text-sm font-bold">Más secciones</h2>
-                <button
-                  type="button"
-                  onClick={() => setMenuAbierto(false)}
-                  className="btn btn-ghost btn-sm min-h-11 px-3"
-                >
-                  Cerrar
-                </button>
-              </div>
-
+          <Dialog title="Más secciones" onClose={() => setMenuAbierto(false)}>
               <nav className="grid gap-1">
                 {restoItems.map((item) => (
                   <NavLink
@@ -310,8 +286,7 @@ export const Layout = () => {
                   </NavLink>
                 ))}
               </nav>
-            </div>
-          </div>
+          </Dialog>
         )}
       </div>
     </div>

@@ -74,6 +74,7 @@ export interface RosterPlayer {
 }
 
 export interface TeamDetail extends TeamSummary {
+  season_id: string;
   registration_deadline: string | null;
   require_approval_to_play: boolean;
   roster: RosterPlayer[];

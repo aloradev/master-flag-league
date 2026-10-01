@@ -2,9 +2,9 @@ import type { ReactNode } from 'react';
 import React from 'react';
 import { IconInbox } from './icons';
 
-export const Spinner = ({ label }: { label?: string }) => (
-  <div className="flex flex-col items-center justify-center gap-3 py-12">
-    <span className="loading loading-spinner loading-lg text-primary" />
+export const Spinner = ({ label = 'Cargando…' }: { label?: string }) => (
+  <div role="status" aria-live="polite" className="flex flex-col items-center justify-center gap-3 py-12">
+    <span aria-hidden="true" className="loading loading-spinner loading-lg text-primary" />
     {label && <p className="text-sm text-base-content/60">{label}</p>}
   </div>
 );
@@ -50,7 +50,7 @@ export const Alert = ({
   }[tone];
 
   return (
-    <div className={`rounded-field border px-4 py-3 text-sm ${styles}`} role="alert">
+    <div className={`rounded-field border px-4 py-3 text-sm ${styles}`} role={tone === 'error' ? 'alert' : 'status'}>
       {title && <p className="font-semibold">{title}</p>}
       {children && <div className={title ? 'mt-1 opacity-90' : ''}>{children}</div>}
     </div>

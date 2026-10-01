@@ -1,3 +1,5 @@
+import TeamOverview from './TeamOverview';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
@@ -14,6 +16,7 @@ const playerName = (p: TeamDetail['roster'][number]) =>
 
 export default function MyTeam() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState('');
   const huboBaja = searchParams.get('baja') === '1';
   const requestedTeamId = searchParams.get('equipo');
 
@@ -37,21 +40,25 @@ export default function MyTeam() {
   if (teams.isLoading || team.isLoading) return <Spinner label="Cargando tu equipo…" />;
 
   if (teams.isError || team.isError) {
-    return <Alert tone="error">No se pudo cargar la información de tu equipo.</Alert>;
+    return <Alert tone="error">No se pudo cargar la información de tu equipo. <button className="link" onClick={() => { void teams.refetch(); void team.refetch(); }}>Reintentar</button></Alert>;
   }
 
   if (!teamId) {
     return (
+      <div className="space-y-4">
+      <Link to="/equipo/nuevo" className="btn btn-primary">Inscribir mi equipo</Link>
       <EmptyState
         icon={<IconShield size={40} />}
-        title="Todavía no tienes un equipo asignado"
-        description="La administración de la liga debe asignarte como encargado antes de que puedas registrar jugadores."
-      />
+        title="Comienza con tu equipo"
+        description="Inscribe tu equipo o solicita vincular tu cuenta si ya existe en la liga."
+      /></div>
     );
   }
 
   const data = team.data!;
   const summary = data.registration_summary;
+  const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const filteredRoster = data.roster.filter(player => normalize(playerName(player) + ' ' + (player.jersey_number ?? '')).includes(normalize(search.trim())));
 
   // Req. 30: alertas concretas y accionables, no un panel decorativo.
   const needsAttention = data.roster.filter(
@@ -60,7 +67,8 @@ export default function MyTeam() {
   const daysLeft = diasHasta(data.registration_deadline);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-5"><Link to="/equipo/nuevo" className="btn btn-outline btn-sm">Inscribir otro equipo</Link>
+      {searchParams.get('inscrito') === '1' && <Alert tone="success" title="Equipo registrado">{data.name} · {data.category_name}. Continúa agregando tu plantilla; cada jugador tendrá su expediente para revisión.</Alert>}
       {huboBaja && (
         <Alert tone="success">El jugador quedó fuera del roster y su número está libre.</Alert>
       )}
@@ -105,6 +113,7 @@ export default function MyTeam() {
         </div>
       </div>
 
+      <TeamOverview teamId={teamId} seasonId={data.season_id} />
       {/* ESTADO DE REGISTRO (req. 29) — todo calculado por el sistema */}
       <section>
         <h2 className="mb-2 text-sm font-semibold text-base-content/70">Estado de registro</h2>
@@ -159,7 +168,7 @@ export default function MyTeam() {
         )}
       </div>
 
-      {/* Plantilla */}
+      <div className="grid grid-cols-2 gap-3"><Link to={`/jornadas?equipo=${encodeURIComponent(teamId)}`} className="btn btn-outline">Ver calendario</Link><Link to={`/equipo/pagos${teamQuery}`} className="btn btn-outline">Consultar pagos</Link></div>{/* Plantilla */}
       <section>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-base-content/70">Plantilla</h2>
@@ -168,7 +177,7 @@ export default function MyTeam() {
           </Link>
         </div>
 
-        {data.roster.length === 0 ? (
+        {data.roster.length > 0 && <label className="mb-3 block text-sm">Buscar en la plantilla<input type="search" className="input mt-1 w-full" placeholder="Nombre o número de jersey" value={search} onChange={event => setSearch(event.target.value)} /><span className="mt-1 block text-xs text-base-content/60" role="status">{filteredRoster.length} de {data.roster.length} jugadores</span></label>}{data.roster.length > 0 && filteredRoster.length === 0 && <EmptyState title="No encontramos jugadores" description="Prueba con otro nombre o número." action={<button className="btn btn-ghost" onClick={() => setSearch('')}>Limpiar búsqueda</button>} />}{data.roster.length === 0 ? (
           <Card>
             <EmptyState
               icon={<IconUsers size={40} />}
@@ -183,7 +192,7 @@ export default function MyTeam() {
           </Card>
         ) : (
           <ul className="space-y-2">
-            {data.roster.map((player) => (
+            {filteredRoster.map((player) => (
               <Card as="li" key={player.id}>
                 <Link
                   to={`/equipo/jugadores/${player.id}${teamQuery}`}

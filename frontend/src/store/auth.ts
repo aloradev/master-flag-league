@@ -20,6 +20,7 @@ interface AuthState {
   restore: () => Promise<void>;
   clearError: () => void;
   markPasswordChanged: () => void;
+  switchLeague: (leagueId: string) => Promise<void>;
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
@@ -80,6 +81,11 @@ export const useAuth = create<AuthState>((set, get) => ({
   markPasswordChanged: () => {
     const user = get().user;
     if (user) set({ user: { ...user, mustChangePassword: false } });
+  },
+  switchLeague: async (leagueId) => {
+    const result = await api.post<{accessToken:string}>(`/admin/leagues/${leagueId}/select`);
+    tokenStore.set(result.accessToken);
+    await get().restore();
   },
 }));
 

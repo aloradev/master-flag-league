@@ -44,8 +44,10 @@ for(const [i,[id,date,status,roundStatus,type,statisticsStatus]] of cases.entrie
 await db.exec(`INSERT INTO game_referees(id,game_id,referee_id,role) VALUES
   ('todo_gr1','todo_assigned','todo_ref','PRINCIPAL'),('todo_gr2','todo_no_account','todo_no_account','PRINCIPAL');`);
 let result=await invoke(); assert.ok(!result.error,result.error?.stack);
-assert.deepEqual(result.data.counts,{RESULT:1,STATISTICS:1,REFEREE:3,POSTPONED:1,REGISTRATION:2});
-assert.equal(result.data.items.length,7,'Cada partido aparece una sola vez aunque tenga varios pendientes');
+assert.deepEqual(Object.fromEntries(Object.entries(result.data.counts).filter(([key])=>key!=='TEAM')),{RESULT:1,STATISTICS:1,REFEREE:3,POSTPONED:1,REGISTRATION:2});
+assert.ok(result.data.counts.TEAM > 0);
+assert.ok(result.data.items.some(item=>item.type==='team' && item.kinds.includes('TEAM')));
+assert.equal(result.data.items.filter(item=>item.type!=='team').length,7,'Cada partido aparece una sola vez aunque tenga varios pendientes');
 assert.deepEqual(result.data.items.find(i=>i.id==='todo_old').kinds,['RESULT','REFEREE']);
 assert.equal(result.data.items.find(i=>i.id==='todo_old').round_id,'todo_r_old');
 assert.ok(!result.data.items.find(i=>i.id==='todo_future').kinds.includes('RESULT'),'La fecha futura no exige resultado');
@@ -56,7 +58,7 @@ assert.equal((await invoke({...user,role:'TEAM_MANAGER'})).error.statusCode,403)
 assert.equal((await invoke({...user,role:'FINANCE_ADMIN'})).error.statusCode,403);
 assert.equal((await invoke({...user,leagueId:'other'})).error.statusCode,404);
 assert.equal((await invoke(user,'missing')).error.statusCode,404);
-assert.equal((await invoke({...user,role:'SPORTS_ADMIN'})).data.items.length,7);
+assert.equal((await invoke({...user,role:'SPORTS_ADMIN'})).data.items.filter(item=>item.type!=='team').length,7);
 const queueFor = actor => new Promise(resolve=>getValidationQueue(
   {user:actor,query:{teamId:'todo_a'}}, {json:r=>resolve({data:r.data})},error=>resolve({error})
 ));
@@ -68,7 +70,10 @@ await db.exec("UPDATE users SET active=false WHERE id='todo_ref'");
 assert.ok((await invoke()).data.items.some(i=>i.id==='todo_assigned'),'Una cuenta inactiva requiere resolver la asignación');
 // Resolver en las tablas fuente elimina los avisos, sin guardar otra copia de pendientes.
 await db.exec(`UPDATE games SET status='FINISHED',statistics_status='COMPLETE' WHERE game_type='OFFICIAL';
-  UPDATE players SET status='APPROVED' WHERE removed_at IS NULL;`);
+  UPDATE players SET status='APPROVED',is_eligible=true WHERE removed_at IS NULL;`);
+result=await invoke();assert.equal(result.data.items.length,1);
+assert.equal(result.data.items[0].id,'todo_b','El equipo sin plantilla sigue pendiente');
+await db.exec(`INSERT INTO players(id,team_id,season_id,category_id,first_name,last_name_paternal,date_of_birth,status,is_eligible) VALUES ('todo_b_ready','todo_b','season_2026','cat_varonil_2026','Listo','Prueba','2000-01-01','APPROVED',true)`);
 result=await invoke();assert.equal(result.data.items.length,0);
 assert.ok(Object.values(result.data.counts).every(n=>n===0));
 await db.close();await pool.end();

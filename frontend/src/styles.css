@@ -315,3 +315,98 @@ h1, h2, h3 {
     color: #000 !important;
   }
 }
+
+/* Campaña pública MFL: identidad deportiva, independiente del tema operativo. */
+.mfl-campaign { --campaign-cyan:#24e5e7; --campaign-yellow:#eeff41; background:#080f1a; color:#f5f7fb; overflow:hidden; }
+.campaign-hero { position:relative; max-width:1600px; margin:auto; min-height:650px; display:flex; align-items:center; isolation:isolate; }
+.campaign-hero-art { position:absolute; inset:0 0 0 auto; width:79%; height:100%; object-fit:cover; object-position:65% center; z-index:-3; }
+.campaign-hero-shade { position:absolute; inset:0; background:linear-gradient(90deg,#080f1a 3%,rgba(8,15,26,.95) 20%,rgba(8,15,26,.4) 48%,transparent 74%),linear-gradient(0deg,#080f1a,transparent 22%); z-index:-2; }
+.campaign-hero-content { width:100%; max-width:1200px; margin:auto; padding:70px 32px; }
+.campaign-eyebrow { font-size:11px; font-weight:800; letter-spacing:.18em; color:var(--campaign-cyan); display:flex; align-items:center; gap:9px; }
+.campaign-eyebrow > span { width:7px; height:7px; background:var(--campaign-yellow); border-radius:50%; box-shadow:0 0 16px #eeff4160; }
+.campaign-hero h1 { font-size:clamp(64px,8.4vw,118px); line-height:.92; font-weight:950; letter-spacing:-.065em; margin:28px 0; }
+.mfl-campaign em { font-style:italic; color:var(--campaign-cyan); }
+.campaign-hero h1 em { color:var(--campaign-yellow); }
+.campaign-hero-description { color:#cbd4e1; font-size:17px; line-height:1.65; }
+.campaign-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:28px; }
+.campaign-button { min-height:50px; display:inline-flex; align-items:center; justify-content:center; gap:25px; padding:13px 22px; font-size:13px; font-weight:800; border:1px solid transparent; border-radius:4px; transition:transform .18s, background .18s; }
+.campaign-button:hover { transform:translateY(-2px); }
+.campaign-button-yellow { background:var(--campaign-yellow); color:#080f1a; }
+.campaign-button-yellow:hover { background:#f7ff95; }
+.campaign-button-outline { border-color:#647080; color:white; background:#080f1a70; }
+.campaign-button-outline:hover { background:#202c3d; }
+.campaign-hero-signature { display:flex; align-items:center; gap:12px; margin-top:38px; font-size:10px; font-weight:800; letter-spacing:.12em; }
+.campaign-hero-signature small { color:#98a6b9; font-size:11px; letter-spacing:0; font-weight:400; }
+.campaign-art-credit { position:absolute; right:18px; bottom:20px; font-size:8px; letter-spacing:.14em; color:#c5cddd; }
+.campaign-strip { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:18px 44px; padding:19px 24px; background:var(--campaign-cyan); color:#07151f; font-size:13px; font-weight:900; letter-spacing:.06em; text-transform:uppercase; }
+.campaign-strip i { padding-right:20px; font-size:20px; font-style:normal; }
+.campaign-section { max-width:1200px; margin:auto; padding:80px 32px; }
+.campaign-section-heading { display:flex; justify-content:space-between; align-items:end; gap:28px; margin-bottom:30px; }
+.campaign-section h2, .campaign-invite h2 { font-size:clamp(32px,4vw,54px); line-height:1.04; font-weight:950; letter-spacing:-.045em; margin-top:14px; }
+.campaign-section-heading > p { font-size:14px; line-height:1.7; color:#aab8ca; }
+.campaign-destinations { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+.campaign-destination { border:1px solid #293444; border-top:3px solid var(--card-accent); border-radius:5px; padding:28px; background:linear-gradient(135deg,#152031,#0e1623); transition:transform .2s,border-color .2s; }
+.campaign-destination:hover { transform:translateY(-5px); border-color:var(--card-accent); }
+.campaign-cyan { --card-accent:#24e5e7; }
+.campaign-pink { --card-accent:#ff61bd; }
+.campaign-yellow { --card-accent:#eeff41; }
+.campaign-destination-top { color:var(--card-accent); display:flex; align-items:center; justify-content:space-between; }
+.campaign-destination-top > span { font-size:48px; font-weight:950; line-height:1; color:#526176; }
+.campaign-destination h3 { font-size:21px; font-weight:900; letter-spacing:-.04em; margin:34px 0 12px; }
+.campaign-destination p { color:#b0bdcf; font-size:14px; line-height:1.7; }
+.campaign-destination-link { display:flex; justify-content:space-between; align-items:center; border-top:1px solid #2d394b; margin-top:26px; padding-top:18px; font-size:12px; font-weight:800; color:var(--card-accent); }
+.campaign-destination-link > span { font-size:24px; }
+.campaign-invite { display:grid; grid-template-columns:.75fr 1.25fr; gap:40px; padding:65px max(32px,calc((100vw - 1136px)/2)); background:radial-gradient(ellipse at 10% 90%,#173754,transparent 65%),#111b2b; border-block:1px solid #293444; }
+.campaign-invite-mark { position:relative; align-self:center; font-size:clamp(80px,12vw,190px); font-weight:950; font-style:italic; letter-spacing:-.1em; -webkit-text-stroke:1px #3c5872; color:transparent; line-height:1; }
+.campaign-invite-mark span { display:block; margin-left:40%; color:var(--campaign-cyan); -webkit-text-stroke:0; }
+.campaign-invite-copy > p:not(.campaign-eyebrow) { color:#afbed1; max-width:440px; margin-top:20px; font-size:14px; line-height:1.7; }
+.campaign-share-link { display:block; color:#95a7bd; font-size:10px; margin-top:22px; }
+.campaign-share-link input { display:block; width:100%; max-width:400px; background:transparent; color:#c6d5e8; padding:8px 0; font-size:12px; border-bottom:1px solid #3b4b60; }
+.campaign-copy-status { min-height:24px; }
+.campaign-faq { display:grid; grid-template-columns:1fr 1.4fr; gap:60px; }
+.campaign-faq .campaign-button { margin-top:25px; }
+.campaign-questions details { border-bottom:1px solid #2d394b; padding:21px 0; }
+.campaign-questions summary { cursor:pointer; font-weight:700; font-size:14px; }
+.campaign-questions p { color:#b0bdcf; font-size:14px; line-height:1.7; margin-top:16px; }
+.campaign-questions a { text-decoration:underline; color:var(--campaign-cyan); }
+.mfl-campaign :focus-visible { outline:3px solid #24e5e7; outline-offset:5px; }
+.public-page-heading { border-left:4px solid var(--color-primary); padding:16px 22px; background:linear-gradient(100deg,color-mix(in oklch,var(--color-primary) 9%,transparent),transparent); }
+@media (max-width:700px) {
+  .campaign-hero { min-height:780px; align-items:end; }
+  .campaign-hero-art { width:100%; height:440px; object-position:70% top; }
+  .campaign-hero-shade { background:linear-gradient(0deg,#080f1a 0%,#080f1a 43%,transparent 78%); }
+  .campaign-hero-content { padding:345px 24px 38px; }
+  .campaign-hero h1 { font-size:clamp(46px,14.7vw,60px); margin:22px 0; }
+  .campaign-hero-description { font-size:15px; }
+  .campaign-hero .campaign-eyebrow { font-size:9px; }
+  .campaign-hero-signature { margin-top:26px; }
+  .campaign-art-credit { top:15px; bottom:auto; font-size:7px; }
+  .campaign-actions { gap:10px; }
+  .campaign-hero .campaign-button { width:100%; }
+  .campaign-strip { gap:12px 18px; font-size:11px; padding:18px; }
+  .campaign-strip > span:first-child { width:100%; text-align:center; }
+  .campaign-strip i { padding-right:6px; }
+  .campaign-section { padding:48px 24px; }
+  .campaign-section-heading { display:block; }
+  .campaign-section-heading > p { margin-top:16px; }
+  .campaign-destinations { grid-template-columns:1fr; }
+  .campaign-destination { padding:24px; }
+  .campaign-destination h3 { margin-top:20px; }
+  .campaign-invite { display:block; padding:45px 24px; }
+  .campaign-invite-mark { display:none; }
+  .campaign-faq { grid-template-columns:1fr; gap:20px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .campaign-button,.campaign-destination { transition:none; }
+  .campaign-button:hover,.campaign-destination:hover { transform:none; }
+}
+
+/* Mejoras de interacción compartidas. */
+.skip-link { position:fixed; top:8px; left:8px; z-index:100; transform:translateY(-150%); background:var(--color-primary); color:var(--color-primary-content); padding:12px 18px; border-radius:8px; font-weight:700; }
+.skip-link:focus { transform:translateY(0); }
+main:focus { outline:none; }
+:where(a,button,input,select,textarea,summary):focus-visible { outline:2px solid var(--color-primary); outline-offset:3px; }
+.ux-steps { display:flex; gap:8px; padding:12px 0; }
+.ux-steps li { flex:1; border-bottom:3px solid var(--color-base-300); padding:10px 0; font-size:12px; font-weight:700; color:var(--color-base-content); }
+.ux-steps li[aria-current=step] { color:var(--color-primary); border-color:var(--color-primary); }
+@media(max-width:767px) { .input,.select,.textarea { font-size:16px; } .btn { min-height:44px; } }

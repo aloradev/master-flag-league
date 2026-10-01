@@ -1,3 +1,6 @@
+import Registration from './pages/Registration';
+import { RouteExperience } from './components/RouteExperience';
+import PublicHome from './pages/publico/Home';
 import { useEffect, useMemo, useState } from 'react';
 import {
   BrowserRouter,
@@ -27,6 +30,7 @@ import AdminTeamDetail from './pages/admin/TeamDetail';
 import AdminUsers from './pages/admin/Users';
 import AdminAudit from './pages/admin/Audit';
 import SeasonConfig from './pages/admin/SeasonConfig';
+import AdminLeagues from './pages/admin/Leagues';
 import Roster from './pages/Roster';
 import Jornadas from './pages/Jornadas';
 import Standings from './pages/Standings';
@@ -59,7 +63,7 @@ const Protected = ({
 
   if (status === 'loading') return <Spinner label="Cargando tu sesión…" />;
   if (status === 'anonymous' || !user) {
-    return <Navigate to="/ingresar" state={{ from: location.pathname }} replace />;
+    return <Navigate to="/ingresar" state={{ from: location.pathname + location.search }} replace />;
   }
 
   // Una contraseña temporal debe cambiarse antes de usar la plataforma.
@@ -104,8 +108,9 @@ const App = () => {
 
   return (
     <BrowserRouter>
+      <RouteExperience />
       {offline && <div role="status" className="fixed inset-x-0 top-0 z-50 bg-warning px-3 py-2 text-center text-xs font-medium text-warning-content">Sin conexión. Se muestran los últimos datos disponibles; las acciones requieren internet.</div>}
-      <Routes>
+      <Routes><Route path="/" element={<PublicHome />} /><Route path="/registro" element={<Registration />} />
         <Route path="/ingresar" element={<Login />} />
         {/* Sin sesión a propósito: quien no puede entrar tampoco puede
             autenticarse para pedir ayuda. */}
@@ -168,7 +173,7 @@ const App = () => {
             </Protected>
           }
         >
-          <Route path="/equipo" element={<MyTeam />} />
+          <Route path="/equipo/nuevo" element={<Registration team />} /><Route path="/equipo" element={<MyTeam />} />
           <Route path="/equipo/jugadores/nuevo" element={<PlayerForm />} />
           <Route path="/equipo/jugadores/:id" element={<PlayerDetail />} />
           <Route path="/equipo/jugadores/:id/editar" element={<PlayerForm />} />
@@ -216,6 +221,7 @@ const App = () => {
           }
         >
           <Route path="/admin/auditoria" element={<AdminAudit />} />
+          <Route path="/admin/ligas" element={<AdminLeagues />} />
         </Route>
 
         <Route

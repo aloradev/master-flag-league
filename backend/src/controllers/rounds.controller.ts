@@ -34,7 +34,7 @@ const partidosDeJornada = async (roundId: string) => {
   const r = await query(
     `SELECT ${GAME_COLUMNS},
             c.name AS category_name, c.color AS category_color,
-            f.name AS field_name,
+            f.name AS field_name, f.location AS field_location,
             hl.name AS home_team_name, hl.short_name AS home_short_name, hl.logo_url AS home_logo_url,
             aw.name AS away_team_name, aw.short_name AS away_short_name, aw.logo_url AS away_logo_url,
             COALESCE(

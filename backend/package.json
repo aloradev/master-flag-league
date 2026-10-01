@@ -18,6 +18,8 @@
     "typecheck": "tsc --noEmit",
     "db:dev": "tsx scripts/dev-db.ts",
     "test": "node tests/integration.mjs",
+    "test:onboarding": "node tests/onboarding-isolated.mjs",
+    "snapshot:data": "node scripts/snapshot-data.mjs",
     "test:audit": "node tests/audit-fixes.mjs",
     "test:admin-pending": "node tests/admin-pending.mjs",
     "test:generator-entry": "node tests/generator-entry.mjs",

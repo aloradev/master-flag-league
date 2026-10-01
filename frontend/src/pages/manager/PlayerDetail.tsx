@@ -252,6 +252,7 @@ export default function PlayerDetail() {
     mutationFn: (motivo: string) => api.del<{ modo: string }>(`/players/${id}`, { reason: motivo }),
     onSuccess: (_resultado, _motivo, _ctx) => {
       void queryClient.invalidateQueries({ queryKey: ['team'] });
+      void queryClient.invalidateQueries({ queryKey: ['registration-status'] });
       void queryClient.invalidateQueries({ queryKey: ['teams'] });
       void queryClient.invalidateQueries({ queryKey: ['players'] });
       navigate(destinoRef.current, { replace: true });
@@ -261,6 +262,7 @@ export default function PlayerDetail() {
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['player', id] });
     void queryClient.invalidateQueries({ queryKey: ['team'] });
+      void queryClient.invalidateQueries({ queryKey: ['registration-status'] });
   };
 
   if (player.isLoading) return <Spinner />;
@@ -412,6 +414,7 @@ export default function PlayerDetail() {
       </section>
 
       {/* Historial */}
+      {inManagerPortal && <Card className="space-y-3 p-4"><p className="text-sm">Los datos y documentos enviados quedan guardados. Puedes continuar con otro jugador y volver a este expediente desde tu plantilla.</p><div className="flex flex-wrap gap-2"><Link className="btn btn-primary" to={`/equipo/jugadores/nuevo?${teamQuery}`}>Agregar otro jugador</Link><Link className="btn btn-outline" to={`/equipo?${teamQuery}`}>Volver a la plantilla</Link></div></Card>}
       {data.approval_history.length > 0 && (
         <section>
           <h2 className="mb-2 text-sm font-semibold text-base-content/70">Historial</h2>

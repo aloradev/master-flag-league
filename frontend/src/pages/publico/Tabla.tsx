@@ -1,5 +1,6 @@
+import { ShareCard } from '../../components/ShareCard';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../lib/api';
+import { api, ApiError } from '../../lib/api';
 import { Card, EmptyState, Spinner } from '../../components/ui';
 import { IconTrophy } from '../../components/icons';
 import { TeamCrest } from '../../components/AuthImage';
@@ -46,8 +47,9 @@ export default function TablaPublicaPage() {
       <Marco titulo="Tabla general">
         <EmptyState
           icon={<IconTrophy size={40} />}
-          title="Todavía no hay temporada activa"
-          description="Cuando arranque la temporada, la tabla aparecerá aquí."
+          title={consulta.error instanceof ApiError && consulta.error.status === 404 ? 'Todavía no hay temporada activa' : 'No pudimos cargar las posiciones'}
+          description="Puedes volver a consultar sin salir de esta página."
+          action={<button className="btn btn-primary" onClick={() => void consulta.refetch()}>Reintentar</button>}
         />
       </Marco>
     );
@@ -85,15 +87,16 @@ export default function TablaPublicaPage() {
         <div className="space-y-5">
           {conEquipos.map((g) => (
             <section key={g.category.id}>
-              <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+              <h2 className="mb-3 flex items-center gap-3 text-xl font-black uppercase tracking-tight">
                 {g.category.color && (
                   <span
-                    className="size-2.5 rounded-full"
+                    className="h-7 w-1.5 rounded-full"
                     style={{ backgroundColor: g.category.color }}
                     aria-hidden
                   />
                 )}
                 {g.category.name}
+                <span className="ml-auto text-xs font-medium normal-case tracking-normal text-base-content/60">{g.rows.length} equipos</span>
               </h2>
 
               {/* En 390 px no caben nueve columnas. En lugar de encogerlas o
@@ -102,8 +105,8 @@ export default function TablaPublicaPage() {
                   abre a ver—, se eligen columnas por prioridad, con los
                   mismos cortes que la tabla de la aplicación. */}
               <Card className="overflow-x-auto">
-                <table className="table table-sm">
-                  <thead>
+                <table className="table table-sm public-standings">
+                  <thead className="bg-primary/10 text-xs uppercase text-base-content/80">
                     <tr>
                       <th className="w-8 text-center">#</th>
                       <th>Equipo</th>
@@ -119,14 +122,14 @@ export default function TablaPublicaPage() {
                   <tbody>
                     {g.rows.map((f) => (
                       <tr key={f.team_id}>
-                        <td className="tabular text-center font-bold">{f.position}</td>
+                        <td className="tabular text-center text-lg font-black text-primary">{f.position}</td>
                         <td>
                           <div className="flex items-center gap-2">
                             <TeamCrest
                               name={f.team_name}
                               shortName={f.short_name}
                               logoUrl={f.logo_url}
-                              className="size-7"
+                              className="size-9"
                             />
                             <span className="min-w-0 truncate font-medium">{f.team_name}</span>
                           </div>
@@ -138,7 +141,7 @@ export default function TablaPublicaPage() {
                         <td className="tabular text-center">
                           {f.point_diff > 0 ? `+${f.point_diff}` : f.point_diff}
                         </td>
-                        <td className="tabular text-center font-bold">{f.points}</td>
+                        <td className="tabular bg-primary/5 text-center text-lg font-black">{f.points}</td>
                         <td className="hidden lg:table-cell">
                           <Forma form={f.form} />
                         </td>
@@ -146,7 +149,7 @@ export default function TablaPublicaPage() {
                     ))}
                   </tbody>
                 </table>
-              </Card>
+              </Card><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={g.rows.map(row => `${row.position}. ${row.team_name} · ${row.points} pts · ${row.played} JJ`)} filename={`mfl-posiciones-${g.category.id}`} url={`${window.location.origin}/tabla`} /></div>
             </section>
           ))}
         </div>

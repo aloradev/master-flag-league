@@ -16,11 +16,13 @@ export const Marco = ({
   subtitulo,
   acciones,
   children,
+  campaign = false,
 }: {
   titulo: string;
   subtitulo?: string;
   acciones?: ReactNode;
   children: ReactNode;
+  campaign?: boolean;
 }) => {
   const { pathname } = useLocation();
   const enJornada = pathname.startsWith('/jornada');
@@ -31,17 +33,17 @@ export const Marco = ({
     }`;
 
   return (
-    <div className="min-h-dvh bg-base-100">
+    <div className="min-h-dvh bg-base-100"><a href="#public-content" className="skip-link">Saltar al contenido</a>
       <header className="sticky top-0 z-20 border-b border-base-300 bg-base-100/95 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-2.5">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <Link
-              to="/ingresar"
-              aria-label="Ir al acceso de Master Flag League"
+              to="/"
+              aria-label="Ir al inicio de Master Flag League"
               title="Ir al inicio"
               className="shrink-0 rounded-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <Logo size="sm" className="size-9" />
+              <Logo size="sm" className="size-12" />
             </Link>
             <div className="min-w-0 leading-tight">
               <p className="truncate text-sm font-bold">Master Flag League</p>
@@ -54,21 +56,22 @@ export const Marco = ({
           </div>
         </div>
 
-        <nav className="mx-auto flex max-w-3xl gap-1 px-3 pb-2">
+        <nav className="mx-auto flex max-w-6xl gap-1 px-3 pb-2"><Link to="/" className={pestana(pathname === '/')}>La liga</Link>
           <Link to="/jornada" className={pestana(enJornada)}>
-            Jornada
+            Partidos
           </Link>
-          <Link to="/tabla" className={pestana(!enJornada)}>
-            Tabla
+          <Link to="/tabla" className={pestana(pathname === '/tabla')}>
+            Posiciones
           </Link>
         </nav>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-4">
-        <div className="mb-4">
-          <h1 className="text-xl font-bold">{titulo}</h1>
+      <main id="public-content" tabIndex={-1} className={campaign ? 'mfl-campaign' : 'mx-auto max-w-5xl px-4 py-6'}>
+        {!campaign && <div className="public-page-heading mb-6">
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-primary">MFL · Cancún</p>
+          <h1 className="mt-2 text-3xl font-black uppercase tracking-tight sm:text-5xl">{titulo}</h1>
           {subtitulo && <p className="text-sm text-base-content/60">{subtitulo}</p>}
-        </div>
+        </div>}
         {children}
       </main>
 

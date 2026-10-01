@@ -35,7 +35,7 @@ const partidos = async (roundId: string, gameType = 'OFFICIAL') => {
   const r = await query(
     `SELECT ${COLUMNAS_PARTIDO},
             c.name AS category_name, c.color AS category_color,
-            f.name AS field_name,
+            f.name AS field_name, f.location AS field_location,
             hl.name AS home_team_name, hl.short_name AS home_short_name,
             hl.logo_url AS home_logo_url, hl.color_primary AS home_color,
             aw.name AS away_team_name, aw.short_name AS away_short_name,
@@ -63,7 +63,7 @@ export const getPublicGame = asyncHandler(async (req: Request, res: Response) =>
            to_char(g.scheduled_time, 'HH24:MI') AS scheduled_time,
            g.home_team_id, g.away_team_id,
            c.name AS category_name, c.color AS category_color,
-           f.name AS field_name,
+           f.name AS field_name, f.location AS field_location,
            h.name AS home_team_name, h.short_name AS home_short_name,
            h.logo_url AS home_logo_url, h.color_primary AS home_color,
            a.name AS away_team_name, a.short_name AS away_short_name,
@@ -100,17 +100,20 @@ const descansos = async (roundId: string) => {
 };
 
 /** La temporada vigente. Sin ella no hay nada público que mostrar. */
-const temporadaActiva = async () => {
+const temporadaActiva = async (req: Request) => {
+  const league = typeof req.query.liga === 'string' && req.query.liga.trim()
+    ? req.query.liga.trim() : (process.env.PUBLIC_LEAGUE_SLUG || 'cancun');
   const r = await query<{ id: string; name: string; year: number }>(
-    `SELECT id, name, year FROM seasons WHERE status = 'ACTIVE'
-     ORDER BY year DESC, start_date DESC LIMIT 1`
+    `SELECT s.id, s.name, s.year FROM seasons s JOIN leagues l ON l.id=s.league_id
+     WHERE s.status = 'ACTIVE' AND l.status='ACTIVE' AND (l.slug=$1 OR l.id=$1)
+     ORDER BY s.year DESC, s.start_date DESC LIMIT 1`, [league]
   );
   return r.rows[0] ?? null;
 };
 
 /** Seguimiento de pruebas únicamente durante la fecha actual de Cancún. */
-export const getPublicScrimmages = asyncHandler(async (_req: Request, res: Response) => {
-  const season = await temporadaActiva();
+export const getPublicScrimmages = asyncHandler(async (req: Request, res: Response) => {
+  const season = await temporadaActiva(req);
   if (!season) return res.json({ success: true, data: [] });
   const rounds = await query(`SELECT ro.id, to_char(ro.scheduled_date, 'YYYY-MM-DD') AS scheduled_date
     FROM rounds ro WHERE ro.season_id = $1
@@ -134,7 +137,7 @@ export const getPublicScrimmages = asyncHandler(async (_req: Request, res: Respo
  */
 export const getPublicRound = asyncHandler(async (req: Request, res: Response) => {
   const id = (req.params as Record<string, string>).id;
-  const temporada = await temporadaActiva();
+  const temporada = await temporadaActiva(req);
   if (!temporada) throw new AppError('Todavía no hay una temporada activa', 404);
 
   const r = await query(
@@ -178,8 +181,8 @@ export const getPublicRound = asyncHandler(async (req: Request, res: Response) =
 /**
  * GET /api/v1/public/rounds — el calendario publicado, para navegar.
  */
-export const listPublicRounds = asyncHandler(async (_req: Request, res: Response) => {
-  const temporada = await temporadaActiva();
+export const listPublicRounds = asyncHandler(async (req: Request, res: Response) => {
+  const temporada = await temporadaActiva(req);
   if (!temporada) throw new AppError('Todavía no hay una temporada activa', 404);
 
   const r = await query(
@@ -205,8 +208,8 @@ export const listPublicRounds = asyncHandler(async (_req: Request, res: Response
  * Se calcula, nunca se guarda: una tabla almacenada se desincroniza del
  * primer partido que se corrige.
  */
-export const getPublicStandings = asyncHandler(async (_req: Request, res: Response) => {
-  const temporada = await temporadaActiva();
+export const getPublicStandings = asyncHandler(async (req: Request, res: Response) => {
+  const temporada = await temporadaActiva(req);
   if (!temporada) throw new AppError('Todavía no hay una temporada activa', 404);
 
   const filas = await calcularPosiciones(temporada.id);
