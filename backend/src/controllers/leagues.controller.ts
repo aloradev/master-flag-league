@@ -5,6 +5,7 @@ import { query, withTransaction } from '../config/database.js';
 import { newPrefixedId } from '../utils/id.js';
 import { slugify } from '../utils/slug.js';
 import { generateTokens } from '../utils/jwt.js';
+import { audit } from '../services/audit.service.js';
 
 const clean = (value: unknown, max = 255) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 
@@ -45,6 +46,24 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
     return {id:leagueId,name,seasonId,categories};
   });
   res.status(201).json({success:true,data});
+});
+
+export const update = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const name=clean(req.body?.name); const city=clean(req.body?.city,120); const state=clean(req.body?.state,120);
+  if (!name || !city) throw new AppError('Indica el nombre y la ciudad de la liga.',400);
+  const data=await withTransaction(async q=>{
+    const before=(await q('SELECT id,name,city,state,slug FROM leagues WHERE id=$1 FOR UPDATE',[req.params.id])).rows[0];
+    if (!before) throw new AppError('Liga no encontrada.',404);
+    if ((await q('SELECT id FROM leagues WHERE LOWER(TRIM(name))=LOWER($1) AND id<>$2',[name,before.id])).rows.length) {
+      throw new AppError('Ya existe otra liga con ese nombre.',409);
+    }
+    const updated=(await q(`UPDATE leagues SET name=$1,city=$2,state=$3 WHERE id=$4
+      RETURNING id,name,slug,city,state,status`,[name,city,state||null,before.id])).rows[0];
+    await audit(req,{leagueId:before.id,action:'UPDATE_LEAGUE',entityType:'league',entityId:before.id,
+      oldValue:{name:before.name,city:before.city,state:before.state},newValue:{name,city,state:state||null}},q);
+    return updated;
+  });
+  res.json({success:true,data});
 });
 
 export const select = asyncHandler(async (req: AuthRequest, res: Response) => {

@@ -120,6 +120,7 @@ export default function AdminRounds() {
         </Button>
         <Button disabled={!seasonId || manual || proponer.isPending || guardar.isPending} onClick={() => { setManual(true); setPropuesta(null); setError(null); }}>Crear jornada manual</Button>
       </header>
+      <Alert tone="info" title="¿Todavía no registraron jugadores?">Puedes publicar la jornada y, después de jugar, abrirla para capturar únicamente el marcador final. El resultado actualiza posiciones aunque las estadísticas individuales queden pendientes.</Alert>
 
       {error && <Alert tone="error">{error}</Alert>}
       {season.data && <TeamProgress season={season.data} onOpenRound={setEditingId} />}
@@ -299,7 +300,7 @@ export default function AdminRounds() {
 
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button size="xs" onClick={() => setEditingId(editingId === j.id ? null : j.id)}>
-                      {editingId === j.id ? 'Cerrar edición' : 'Programación, árbitros y resultados'}
+                      {editingId === j.id ? 'Cerrar gestión' : j.status === 'DRAFT' ? 'Programación y árbitros' : 'Capturar resultados y gestionar partidos'}
                     </Button>
                     <Link to="/jornadas" className="btn btn-xs btn-ghost">
                       Ver partidos

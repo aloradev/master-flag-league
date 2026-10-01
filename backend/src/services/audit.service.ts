@@ -3,6 +3,7 @@ import { newPrefixedId } from '../utils/id.js';
 import type { AuthRequest } from '../middleware/auth.js';
 
 interface AuditEntry {
+  leagueId?: string;
   action: string;
   entityType: string;
   entityId?: string;
@@ -23,7 +24,7 @@ export const audit = async (req: AuthRequest, entry: AuditEntry, executor?: type
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
         newPrefixedId('log'),
-        req.user?.leagueId ?? null,
+        entry.leagueId ?? req.user?.leagueId ?? null,
         req.user?.id ?? null,
         req.user?.email ?? null,
         entry.action,

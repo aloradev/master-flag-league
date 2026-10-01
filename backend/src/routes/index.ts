@@ -135,6 +135,7 @@ router.post('/admin/users/:id/reset-link', requireAdmin, users.createResetLink);
 router.get('/admin/roles', requireAdmin, users.listRoles);
 router.get('/admin/leagues', requireRole(ROLES.SUPER_ADMIN), leagues.list);
 router.post('/admin/leagues', requireRole(ROLES.SUPER_ADMIN), leagues.create);
+router.put('/admin/leagues/:id', requireRole(ROLES.SUPER_ADMIN), leagues.update);
 router.post('/admin/leagues/:id/select', requireRole(ROLES.SUPER_ADMIN), leagues.select);
 
 router.post('/admin/seasons', requireRole(ROLES.SUPER_ADMIN), seasons.createSeason);

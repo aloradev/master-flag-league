@@ -36,8 +36,8 @@ export default function PendingPanel({seasonId}:{seasonId:string}) {
           <p className="text-xs text-base-content/60">{item.detail}{item.date ? ` · ${fechaTexto(item.date)}` : ''}</p>
           <div className="flex flex-wrap gap-2">{item.kinds.map(kind=><span key={kind} className="text-xs text-warning">{labels[kind]}</span>)}</div>
           {item.reason && <p className="text-sm">{item.reason}</p>}
-          {item.type==='game' ? <div className="flex flex-wrap gap-3"><Link className="btn btn-sm" to={`/admin/jornadas?roundId=${encodeURIComponent(item.round_id!)}#game-${encodeURIComponent(item.id)}`}>Abrir gestión del partido</Link>
-            {item.kinds.includes('RESULT') && <Link className="btn btn-sm btn-ghost" to={`/arbitro/partido/${encodeURIComponent(item.id)}`}>Capturar jugadas y cerrar</Link>}</div>
+          {item.type==='game' ? <div className="flex flex-wrap gap-3"><Link className="btn btn-sm" to={`/admin/jornadas?roundId=${encodeURIComponent(item.round_id!)}#game-${encodeURIComponent(item.id)}`}>{item.kinds.includes('RESULT')?'Capturar marcador final':'Abrir gestión del partido'}</Link>
+            {item.kinds.includes('RESULT') && <Link className="btn btn-sm btn-ghost" to={`/arbitro/partido/${encodeURIComponent(item.id)}`}>Capturar jugadas si hay roster</Link>}</div>
             : <div className="flex flex-wrap gap-3 text-sm"><Link className="link" to={`/admin/validacion?teamId=${encodeURIComponent(item.team_id!)}`}>Revisar registros del equipo</Link><Link className="link" to={`/admin/equipos/${encodeURIComponent(item.team_id!)}`}>Abrir equipo</Link></div>}
         </Card>)}
       </ul>

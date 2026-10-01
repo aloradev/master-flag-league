@@ -64,5 +64,7 @@ No se ha desplegado ni publicado esta entrega. La vista de desarrollo usa el bac
 - Solo `SUPER_ADMIN` ve `/admin/ligas`. Puede crear una liga con su primera temporada y categorías iniciales, y cambiar el contexto administrativo sin mezclar datos.
 - La liga nueva recibe la configuración documental base. Después se ajusta desde “Temporada y categorías”.
 - Las consultas públicas conservan Cancún como liga predeterminada (`PUBLIC_LEAGUE_SLUG`, con respaldo `cancun`) y aceptan `?liga=<slug>` para consultar otra liga sin elegir por accidente la temporada más reciente de otro tenant.
+- El Super Administrador puede cambiar el nombre, ciudad y estado de una liga; su slug se conserva para no romper enlaces existentes.
+- Administración puede capturar el marcador final de un partido oficial publicado sin jugadores ni jugadas registradas. El partido queda finalizado, actualiza posiciones inmediatamente y conserva las estadísticas individuales como pendientes para completarlas después.
 
 Validación adicional: avance y aislamiento de equipos dentro del entorno efímero; 363 regresiones correctas; suite de pendientes administrativos correcta; pruebas ICS de zona horaria, escape, fechas inválidas y plegado UTF-8 correctas. Compilaciones frontend y backend correctas.

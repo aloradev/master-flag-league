@@ -95,6 +95,9 @@ try {
   const newLeague=await call('POST','/admin/leagues',{name:'Liga Norte QA',city:'Cancún',state:'Quintana Roo',seasonName:'Apertura QA',year:2026,startDate:'2026-10-01',registrationDeadline:'2026-10-20',categories:['Libre','Femenil',' libre ']},adminToken);
   assert.equal(newLeague.status,201,JSON.stringify(newLeague));
   assert.equal(newLeague.data.categories.length,2);
+  assert.equal((await call('PUT',`/admin/leagues/${newLeague.data.id}`,{name:'Liga Norte Actualizada',city:'Cancún',state:'Quintana Roo'},token)).status,403);
+  const renamed=await call('PUT',`/admin/leagues/${newLeague.data.id}`,{name:'Liga Norte Actualizada',city:'Cancún',state:'Quintana Roo'},adminToken);
+  assert.equal(renamed.status,200); assert.equal(renamed.data.slug,'liga-norte-qa');
   assert.equal((await call('POST','/admin/leagues',{name:' Liga Norte QA ',city:'Cancún',seasonName:'Otra',year:2026,startDate:'2026-10-01',categories:['Libre']},adminToken)).status,409);
   assert.equal((await call('GET','/public/registration-options')).data.some(o=>o.league_id===newLeague.data.id),true);
   assert.equal((await call('GET','/public/standings?liga=liga-norte-qa')).data.season.id,newLeague.data.seasonId);
