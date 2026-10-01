@@ -85,6 +85,13 @@ export default function TablaPublicaPage() {
         />
       ) : (
         <div className="space-y-5">
+          <Card className="border-primary/20 bg-primary/5 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><h2 className="font-bold">¿Cómo se calcula la tabla?</h2><p className="mt-1 text-sm text-base-content/70">Victoria <strong>3 pts</strong> · empate <strong>1 pt</strong> · derrota <strong>0 pts</strong>.</p></div>
+              <span className="badge badge-primary badge-outline">Sistema 3–1–0</span>
+            </div>
+            <p className="mt-2 text-xs text-base-content/60">En caso de empate se consideran victorias, diferencia de puntos, puntos a favor y enfrentamiento directo.</p>
+          </Card>
           {conEquipos.map((g) => (
             <section key={g.category.id}>
               <h2 className="mb-3 flex items-center gap-3 text-xl font-black uppercase tracking-tight">
@@ -114,8 +121,8 @@ export default function TablaPublicaPage() {
                       <th className="hidden text-center sm:table-cell" title="Ganados">G</th>
                       <th className="hidden text-center sm:table-cell" title="Empatados">E</th>
                       <th className="hidden text-center sm:table-cell" title="Perdidos">P</th>
-                      <th className="text-center" title="Diferencia de puntos">DIF</th>
-                      <th className="text-center">PTS</th>
+                      <th className="text-center" title="Diferencia: puntos a favor menos puntos en contra">DIF</th>
+                      <th className="text-center" title="Puntos de clasificación">PTS</th>
                       <th className="hidden text-center lg:table-cell">Últimos</th>
                     </tr>
                   </thead>

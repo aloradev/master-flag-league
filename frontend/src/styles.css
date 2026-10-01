@@ -319,6 +319,19 @@ h1, h2, h3 {
 /* Campaña pública MFL: identidad deportiva, independiente del tema operativo. */
 .mfl-campaign { --campaign-cyan:#24e5e7; --campaign-yellow:#eeff41; background:#080f1a; color:#f5f7fb; overflow:hidden; }
 .campaign-hero { position:relative; max-width:1600px; margin:auto; min-height:650px; display:flex; align-items:center; isolation:isolate; }
+.login-shell { display:flex; align-items:center; justify-content:center; gap:clamp(32px,7vw,110px); }
+.login-playfield { position:relative; display:none; width:360px; height:360px; overflow:hidden; border:1px solid rgba(36,229,231,.28); border-radius:28px; background:linear-gradient(145deg,#101f35,#07101e); box-shadow:0 24px 70px rgba(0,0,0,.3); isolation:isolate; }
+.login-playfield::before { content:""; position:absolute; inset:12%; border:2px solid rgba(36,229,231,.2); border-radius:50%; transform:rotate(-22deg) scaleX(1.8); }
+.login-field-line { position:absolute; display:block; background:rgba(238,255,65,.45); transform:rotate(-25deg); }
+.login-field-line-one { width:150%; height:2px; top:34%; left:-25%; }
+.login-field-line-two { width:150%; height:2px; top:68%; left:-25%; }
+.login-ball { position:absolute; top:88px; right:55px; z-index:2; display:grid; place-items:center; width:76px; height:76px; border-radius:50%; background:#f4a340; font-size:42px; filter:drop-shadow(0 15px 12px rgba(0,0,0,.35)); animation:mfl-login-ball 4s ease-in-out infinite; }
+.login-playfield-copy { position:absolute; left:30px; bottom:28px; z-index:2; color:#cbd7e8; font-size:13px; font-weight:800; letter-spacing:.16em; line-height:1.15; }
+.login-playfield-copy strong { color:#eeff41; font-size:35px; letter-spacing:-.06em; }
+.login-playfield-copy small { display:block; margin-top:8px; color:#24e5e7; font-size:11px; letter-spacing:.08em; }
+@keyframes mfl-login-ball { 0%,100% { transform:translate3d(0,0,0) rotate(-8deg); } 50% { transform:translate3d(-150px,105px,0) rotate(18deg); } }
+@media (min-width: 760px) { .login-playfield { display:block; } }
+@media (prefers-reduced-motion: reduce) { .login-ball { animation:none; } }
 .campaign-hero-art { position:absolute; inset:0 0 0 auto; width:79%; height:100%; object-fit:cover; object-position:65% center; z-index:-3; }
 .campaign-hero-shade { position:absolute; inset:0; background:linear-gradient(90deg,#080f1a 3%,rgba(8,15,26,.95) 20%,rgba(8,15,26,.4) 48%,transparent 74%),linear-gradient(0deg,#080f1a,transparent 22%); z-index:-2; }
 .campaign-hero-content { width:100%; max-width:1200px; margin:auto; padding:70px 32px; }

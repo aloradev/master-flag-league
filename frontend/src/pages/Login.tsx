@@ -42,12 +42,14 @@ export default function Login() {
   };
 
   return (
-    <div className="hero-gradient relative flex min-h-dvh items-center justify-center px-4 py-10">
+    <div className="login-screen hero-gradient relative flex min-h-dvh items-center justify-center px-4 py-10">
       <div className="absolute right-3 top-3">
         <ThemeToggle compact />
       </div>
 
-      <div className="w-full max-w-sm">
+      <div className="login-shell w-full max-w-4xl">
+        <div className="login-playfield" aria-hidden="true"><span className="login-field-line login-field-line-one" /><span className="login-field-line login-field-line-two" /><span className="login-ball">🏈</span><span className="login-playfield-copy">LA SIGUIENTE<br /><strong>JUGADA</strong><small>empieza aquí</small></span></div>
+        <div className="login-card-wrap w-full max-w-sm">
         <div className="mb-7 flex flex-col items-center text-center">
           <Logo size="md" className="w-36 drop-shadow-lg sm:w-40" priority />
           <p className="mt-4 text-sm text-base-content/60">
@@ -125,6 +127,7 @@ export default function Login() {
         <p className="mt-5 text-center text-xs text-base-content/40">
           <Link to="/registro" className="link">Crear cuenta de encargado</Link> · <Link to="/" className="link">Conocer la liga</Link>
         </p>
+        </div>
       </div>
     </div>
   );

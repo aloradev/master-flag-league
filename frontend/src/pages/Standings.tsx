@@ -127,6 +127,14 @@ export default function Standings() {
         />
       )}
 
+      <Card className="border-primary/20 bg-primary/5 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><h2 className="font-bold">Sistema de puntuación</h2><p className="mt-1 text-sm text-base-content/70">Victoria <strong>3 pts</strong> · empate <strong>1 pt</strong> · derrota <strong>0 pts</strong>.</p></div>
+          <span className="badge badge-primary badge-outline">3–1–0</span>
+        </div>
+        <p className="mt-2 text-xs text-base-content/60">Desempates: victorias, diferencia, puntos a favor y enfrentamiento directo.</p>
+      </Card>
+
       {conJuego &&
         grupos.map((g) => (
           <section key={g.category.id} className="space-y-2">
