@@ -49,7 +49,7 @@ export default function Login() {
 
       <div className="login-shell w-full max-w-4xl">
         <div className="login-playfield" aria-hidden="true"><span className="login-field-line login-field-line-one" /><span className="login-field-line login-field-line-two" /><span className="login-ball">🏈</span><span className="login-playfield-copy">LA SIGUIENTE<br /><strong>JUGADA</strong><small>empieza aquí</small></span></div>
-        <div className="login-card-wrap w-full max-w-sm">
+        <div className="login-card-wrap w-full max-w-md">
         <div className="mb-7 flex flex-col items-center text-center">
           <Logo size="md" className="w-36 drop-shadow-lg sm:w-40" priority />
           <p className="mt-4 text-sm text-base-content/60">
