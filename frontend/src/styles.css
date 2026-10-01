@@ -320,6 +320,12 @@ h1, h2, h3 {
 .mfl-campaign { --campaign-cyan:#24e5e7; --campaign-yellow:#eeff41; background:#080f1a; color:#f5f7fb; overflow:hidden; }
 .campaign-hero { position:relative; max-width:1600px; margin:auto; min-height:650px; display:flex; align-items:center; isolation:isolate; }
 .login-screen { background:radial-gradient(circle at 18% 25%,rgba(36,229,231,.13),transparent 28%),radial-gradient(circle at 82% 18%,rgba(255,97,189,.12),transparent 30%),linear-gradient(135deg,#061b24 0%,#091321 48%,#1b0e2d 100%); overflow:hidden; }
+.login-screen .login-card-wrap { color:var(--color-base-content); }
+[data-theme='mfl-light'] .login-screen { background:radial-gradient(circle at 15% 20%,rgba(14,165,233,.16),transparent 30%),radial-gradient(circle at 85% 15%,rgba(219,39,119,.12),transparent 28%),linear-gradient(135deg,#eaf9fb 0%,#f8fafc 52%,#f8effc 100%); }
+[data-theme='mfl-light'] .login-screen::before { color:rgba(8,119,145,.08); }
+[data-theme='mfl-light'] .login-playfield { background:linear-gradient(145deg,#d8f6f5,#eef4fb); border-color:rgba(8,119,145,.35); box-shadow:0 28px 90px rgba(23,57,81,.18), inset 0 0 45px rgba(14,165,233,.08); }
+[data-theme='mfl-light'] .login-playfield-copy { color:#17364e; }
+[data-theme='mfl-light'] .login-corner-copy { color:rgba(23,54,78,.58); }
 .login-screen::before { content:"MFL"; position:absolute; left:4vw; bottom:-.12em; color:rgba(36,229,231,.06); font-size:clamp(160px,24vw,420px); font-weight:950; font-style:italic; letter-spacing:-.12em; line-height:1; pointer-events:none; }
 .login-shell { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(28px,5vw,86px); }
 .login-card-wrap { animation:mfl-login-enter .55s ease-out both; }
