@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { Logo } from '../../components/Logo';
 import { ThemeToggle } from '../../components/ThemeToggle';
+import { useAuth, homeFor } from '../../store/auth';
 
 /**
  * Marco de las pantallas públicas.
@@ -25,6 +26,7 @@ export const Marco = ({
   campaign?: boolean;
 }) => {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const enJornada = pathname.startsWith('/jornada');
 
   const pestana = (activa: boolean) =>
@@ -52,12 +54,10 @@ export const Marco = ({
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {acciones}
-            <Link to="/ingresar" className="hidden min-h-10 items-center rounded-field px-3 text-sm font-semibold text-base-content/70 hover:bg-base-200 sm:inline-flex">
-              Ingresar
-            </Link>
-            <Link to="/registro" className="btn btn-sm btn-primary hidden sm:inline-flex">
-              Crear cuenta
-            </Link>
+            {user ? <Link to={homeFor(user.role)} className="btn btn-sm btn-primary">Mi espacio</Link> : <>
+              <Link to="/ingresar" className="inline-flex min-h-10 items-center rounded-field px-2 text-xs font-semibold text-base-content/70 hover:bg-base-200 sm:px-3 sm:text-sm">Ingresar</Link>
+              <Link to="/registro" className="btn btn-sm btn-primary px-2 text-xs sm:px-3 sm:text-sm">Crear cuenta</Link>
+            </>}
             <ThemeToggle compact />
           </div>
         </div>

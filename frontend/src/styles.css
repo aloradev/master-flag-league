@@ -319,7 +319,7 @@ h1, h2, h3 {
 /* Campaña pública MFL: identidad deportiva, independiente del tema operativo. */
 .mfl-campaign { --campaign-cyan:#24e5e7; --campaign-yellow:#eeff41; background:#080f1a; color:#f5f7fb; overflow:hidden; }
 .campaign-hero { position:relative; max-width:1600px; margin:auto; min-height:650px; display:flex; align-items:center; isolation:isolate; }
-.login-shell { display:flex; align-items:center; justify-content:center; gap:clamp(32px,7vw,110px); }
+.login-shell { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
 .login-playfield { position:relative; display:none; width:360px; height:360px; overflow:hidden; border:1px solid rgba(36,229,231,.28); border-radius:28px; background:linear-gradient(145deg,#101f35,#07101e); box-shadow:0 24px 70px rgba(0,0,0,.3); isolation:isolate; }
 .login-playfield::before { content:""; position:absolute; inset:12%; border:2px solid rgba(36,229,231,.2); border-radius:50%; transform:rotate(-22deg) scaleX(1.8); }
 .login-field-line { position:absolute; display:block; background:rgba(238,255,65,.45); transform:rotate(-25deg); }
@@ -330,7 +330,8 @@ h1, h2, h3 {
 .login-playfield-copy strong { color:#eeff41; font-size:35px; letter-spacing:-.06em; }
 .login-playfield-copy small { display:block; margin-top:8px; color:#24e5e7; font-size:11px; letter-spacing:.08em; }
 @keyframes mfl-login-ball { 0%,100% { transform:translate3d(0,0,0) rotate(-8deg); } 50% { transform:translate3d(-150px,105px,0) rotate(18deg); } }
-@media (min-width: 760px) { .login-playfield { display:block; } }
+@media (min-width: 760px) { .login-shell { flex-direction:row; gap:clamp(32px,7vw,110px); } .login-playfield { display:block; } }
+@media (max-width: 759px) { .login-playfield { display:block; width:min(100%,390px); height:118px; border-radius:20px; } .login-playfield::before { inset:-30% 25%; transform:rotate(-22deg) scaleX(1.8); } .login-ball { top:22px; right:30px; width:52px; height:52px; font-size:28px; } .login-playfield-copy { left:20px; bottom:18px; font-size:9px; } .login-playfield-copy strong { font-size:25px; } .login-playfield-copy small { margin-top:3px; font-size:9px; } .login-field-line-one { top:30%; } .login-field-line-two { top:72%; } }
 @media (prefers-reduced-motion: reduce) { .login-ball { animation:none; } }
 .campaign-hero-art { position:absolute; inset:0 0 0 auto; width:79%; height:100%; object-fit:cover; object-position:65% center; z-index:-3; }
 .campaign-hero-shade { position:absolute; inset:0; background:linear-gradient(90deg,#080f1a 3%,rgba(8,15,26,.95) 20%,rgba(8,15,26,.4) 48%,transparent 74%),linear-gradient(0deg,#080f1a,transparent 22%); z-index:-2; }
