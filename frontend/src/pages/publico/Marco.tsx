@@ -52,6 +52,12 @@ export const Marco = ({
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {acciones}
+            <Link to="/ingresar" className="hidden min-h-10 items-center rounded-field px-3 text-sm font-semibold text-base-content/70 hover:bg-base-200 sm:inline-flex">
+              Ingresar
+            </Link>
+            <Link to="/registro" className="btn btn-sm btn-primary hidden sm:inline-flex">
+              Crear cuenta
+            </Link>
             <ThemeToggle compact />
           </div>
         </div>

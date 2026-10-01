@@ -35,6 +35,7 @@ export default function Home() {
           <p className="campaign-hero-description">Tu equipo. Tu gente. Tu siguiente jugada.<br />Forma parte de Master Flag League.</p>
           <div className="campaign-actions">
             <Link className="campaign-button campaign-button-yellow" to="/registro">Inscribe a tu equipo <span aria-hidden="true">↗</span></Link>
+            <Link className="campaign-button campaign-button-outline" to="/ingresar">Ya tengo cuenta · Ingresar <span aria-hidden="true">→</span></Link>
             <Link className="campaign-button campaign-button-outline" to="/jornada">Explora la liga <span aria-hidden="true">→</span></Link>
           </div>
           <div className="campaign-hero-signature"><img src="/logo-96.webp" alt="" width="44" height="44" /><span>MASTER FLAG LEAGUE<br /><small>El juego nos une.</small></span></div>
