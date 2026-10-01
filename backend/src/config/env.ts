@@ -71,24 +71,18 @@ const hasDatabaseConfig = (): boolean =>
 /** No detienen el arranque, pero degradan la plataforma de forma silenciosa. */
 const WARNINGS: Check[] = [
   {
-    key: 'RESEND_API_KEY',
+    key: 'EMAIL_API_KEY',
     required: false,
     message:
-      'Sin Resend los correos quedan en cola y agotarán sus reintentos. ' +
+      'Sin EMAIL_API_KEY los correos quedan en cola y agotarán sus reintentos. ' +
       'Los managers no se enterarán de documentos rechazados.',
-  },
-  {
-    key: 'BREVO_API_KEY',
-    required: false,
-    message:
-      'Configura BREVO_API_KEY o RESEND_API_KEY para enviar correos transaccionales.',
   },
   {
     key: 'EMAIL_FROM',
     required: false,
     message:
-      'Define un remitente de un dominio verificado en Resend, por ejemplo ' +
-      'Master Flag League <noreply@tu-dominio-verificado.com>.',
+      'Define el remitente autorizado por tu proveedor, por ejemplo ' +
+      'Master Flag League <masterflagleague@gmail.com>.',
   },
 ];
 
