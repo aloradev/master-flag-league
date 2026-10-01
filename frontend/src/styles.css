@@ -328,6 +328,17 @@ h1, h2, h3 {
 
 /* Campaña pública MFL: identidad deportiva, independiente del tema operativo. */
 .mfl-campaign { --campaign-cyan:#24e5e7; --campaign-yellow:#eeff41; background:#080f1a; color:#f5f7fb; overflow:hidden; }
+[data-theme='mfl-light'] .mfl-campaign { --campaign-cyan:#087c91; --campaign-yellow:#b6c900; background:#f5f9fb; color:#10243a; }
+[data-theme='mfl-light'] .mfl-campaign .campaign-hero { background:#e8f2f5; }
+[data-theme='mfl-light'] .mfl-campaign .campaign-hero-shade { background:linear-gradient(90deg,#e8f2f5 3%,rgba(232,242,245,.94) 20%,rgba(232,242,245,.35) 48%,transparent 74%),linear-gradient(0deg,#e8f2f5,transparent 22%); }
+[data-theme='mfl-light'] .mfl-campaign .campaign-hero-description, [data-theme='mfl-light'] .mfl-campaign .campaign-section-heading > p { color:#40566c; }
+[data-theme='mfl-light'] .mfl-campaign .campaign-button-outline { border-color:#7890a0; color:#17364e; background:rgba(255,255,255,.65); }
+[data-theme='mfl-light'] .mfl-campaign .campaign-button-outline:hover { background:#fff; }
+[data-theme='mfl-light'] .mfl-campaign .campaign-destination { border-color:#c7d8e0; background:linear-gradient(135deg,#fff,#edf5f8); }
+[data-theme='mfl-light'] .mfl-campaign .campaign-destination p, [data-theme='mfl-light'] .mfl-campaign .campaign-invite-copy > p:not(.campaign-eyebrow), [data-theme='mfl-light'] .mfl-campaign .campaign-questions p { color:#526b7d; }
+[data-theme='mfl-light'] .mfl-campaign .campaign-destination-link { border-color:#d0dfe5; }
+[data-theme='mfl-light'] .mfl-campaign .campaign-invite { background:radial-gradient(ellipse at 10% 90%,#d9edf3,transparent 65%),#edf5f8; border-color:#c7d8e0; }
+[data-theme='mfl-light'] .mfl-campaign .campaign-questions details { border-color:#c7d8e0; }
 .campaign-hero { position:relative; max-width:1600px; margin:auto; min-height:650px; display:flex; align-items:center; isolation:isolate; }
 .login-screen { background:radial-gradient(circle at 18% 25%,rgba(36,229,231,.13),transparent 28%),radial-gradient(circle at 82% 18%,rgba(255,97,189,.12),transparent 30%),linear-gradient(135deg,#061b24 0%,#091321 48%,#1b0e2d 100%); overflow:hidden; }
 .login-screen .login-card-wrap { color:var(--color-base-content); }
