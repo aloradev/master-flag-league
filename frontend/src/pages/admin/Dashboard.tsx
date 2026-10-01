@@ -47,6 +47,7 @@ export default function AdminDashboard() {
         <Link to="/admin/equipos" className="btn btn-outline">Gestionar equipos</Link>
         <Link to="/admin/jornadas" className="btn btn-outline">Organizar jornadas</Link>
         <Link to="/jornadas" className="btn btn-outline">Ver calendario</Link>
+        {user?.role === 'SUPER_ADMIN' && <Link to="/admin/ligas" className="btn btn-primary">Ligas y nombre</Link>}
       </nav>
 
       {daysToStart != null && daysToStart >= 0 && daysToStart <= 21 && (

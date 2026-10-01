@@ -7,6 +7,7 @@ import { useAuth } from '../../store/auth';
 import { fechaTexto } from '../../lib/format';
 import { OperationsStatus } from '../../components/OperationsStatus';
 import FieldTimes from './FieldTimes';
+import { Link } from 'react-router-dom';
 
 interface DocumentSettings {
   required: string[];
@@ -180,6 +181,7 @@ export default function SeasonConfig() {
           Inicia el{' '}
           {fechaTexto(data.start_date, { day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
+        {isSuperAdmin && <Link className="link mt-2 inline-block text-sm" to="/admin/ligas">Cambiar nombre o administrar ligas →</Link>}
       </div>
 
       {message && <Alert tone={message.tone}>{message.text}</Alert>}
