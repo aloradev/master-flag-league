@@ -328,14 +328,18 @@ h1, h2, h3 {
 .login-field-line { position:absolute; display:block; background:rgba(238,255,65,.45); transform:rotate(-25deg); }
 .login-field-line-one { width:150%; height:2px; top:34%; left:-25%; }
 .login-field-line-two { width:150%; height:2px; top:68%; left:-25%; }
+.login-field-line-three { width:100%; height:1px; top:50%; left:0; opacity:.35; transform:rotate(25deg); }
 .login-ball { position:absolute; top:100px; right:65px; z-index:2; display:grid; place-items:center; width:92px; height:92px; border-radius:50%; background:#f4a340; font-size:50px; filter:drop-shadow(0 15px 12px rgba(0,0,0,.35)); animation:mfl-login-ball 4s ease-in-out infinite; }
 .login-playfield-copy { position:absolute; left:30px; bottom:28px; z-index:2; color:#cbd7e8; font-size:13px; font-weight:800; letter-spacing:.16em; line-height:1.15; }
 .login-playfield-copy strong { color:#eeff41; font-size:35px; letter-spacing:-.06em; }
 .login-playfield-copy small { display:block; margin-top:8px; color:#24e5e7; font-size:11px; letter-spacing:.08em; }
+.login-corner-copy { position:absolute; right:24px; bottom:24px; color:rgba(203,215,232,.48); font-size:8px; letter-spacing:.16em; text-align:right; line-height:1.5; }
+.login-corner-copy b { color:#24e5e7; font-weight:700; }
+.login-quick-links { display:flex; justify-content:center; gap:18px; margin-top:18px; color:rgba(203,215,232,.45); font-size:9px; font-weight:800; letter-spacing:.14em; }
 @keyframes mfl-login-ball { 0%,100% { transform:translate3d(0,0,0) rotate(-8deg); } 50% { transform:translate3d(-150px,105px,0) rotate(18deg); } }
 @keyframes mfl-login-enter { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
 @media (min-width: 760px) { .login-shell { flex-direction:row; gap:clamp(40px,7vw,120px); } .login-playfield { display:block; } }
-@media (max-width: 759px) { .login-playfield { display:block; width:min(100%,390px); height:118px; border-radius:20px; } .login-playfield::before { inset:-30% 25%; transform:rotate(-22deg) scaleX(1.8); } .login-ball { top:22px; right:30px; width:52px; height:52px; font-size:28px; } .login-playfield-copy { left:20px; bottom:18px; font-size:9px; } .login-playfield-copy strong { font-size:25px; } .login-playfield-copy small { margin-top:3px; font-size:9px; } .login-field-line-one { top:30%; } .login-field-line-two { top:72%; } }
+@media (max-width: 759px) { .login-playfield { display:block; width:min(100%,390px); height:150px; border-radius:20px; } .login-playfield::before { inset:-30% 25%; transform:rotate(-22deg) scaleX(1.8); } .login-ball { top:25px; right:30px; width:58px; height:58px; font-size:30px; } .login-playfield-copy { left:20px; bottom:18px; font-size:9px; } .login-playfield-copy strong { font-size:25px; } .login-playfield-copy small { margin-top:3px; font-size:9px; } .login-field-line-one { top:30%; } .login-field-line-two { top:72%; } .login-corner-copy { right:18px; bottom:18px; font-size:7px; } .login-quick-links { gap:9px; font-size:7px; } }
 @media (prefers-reduced-motion: reduce) { .login-ball { animation:none; } }
 .campaign-hero-art { position:absolute; inset:0 0 0 auto; width:79%; height:100%; object-fit:cover; object-position:65% center; z-index:-3; }
 .campaign-hero-shade { position:absolute; inset:0; background:linear-gradient(90deg,#080f1a 3%,rgba(8,15,26,.95) 20%,rgba(8,15,26,.4) 48%,transparent 74%),linear-gradient(0deg,#080f1a,transparent 22%); z-index:-2; }
