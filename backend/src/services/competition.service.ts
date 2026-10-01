@@ -393,7 +393,7 @@ async function validarCupoJornadas(seasonId: string, executor: typeof defaultQue
 }
 
 export const guardarPropuesta = async (
-  propuesta: Propuesta & { seasonId: string },
+  propuesta: Propuesta & { seasonId: string; manual?: boolean },
   userId: string
 ): Promise<string> => {
   const roundId = newPrefixedId('round');
@@ -412,13 +412,15 @@ export const guardarPropuesta = async (
     const teams = new Map(categories.flatMap((c) => c.teams.map((t) => [t.id, c.id] as const)));
     const fields = await query("SELECT id FROM fields WHERE season_id=$1 AND status='ACTIVE'", [propuesta.seasonId]);
     const reservations = await reservasDeFecha(propuesta.seasonId, propuesta.scheduledDate, query);
-    const used = new Set<string>(reservations.flatMap(r => [r.home_team_id,r.away_team_id,r.bye_team_id].filter(Boolean)));
+    const reserved = new Set<string>(reservations.flatMap(r => [r.home_team_id,r.away_team_id,r.bye_team_id].filter(Boolean)));
+    const used = new Set<string>();
     const occupied = new Set<string>(reservations.filter(r => r.field_id).map(r => `${r.field_id}:${r.time}`));
     const reserve = (id: string, category: string) => {
-      if (!teams.has(id) || teams.get(id) !== category || used.has(id)) throw new AppError('Revisa los equipos: deben estar activos e incorporados para la fecha, ser de la misma categoría y no tener otra asignación ese día. Actualiza la propuesta.', 400);
+      if (!teams.has(id) || teams.get(id) !== category || reserved.has(id) || (!propuesta.manual && used.has(id))) throw new AppError('Revisa los equipos: deben estar activos e incorporados para la fecha, ser de la misma categoría y no tener otra asignación ese día. Actualiza la propuesta.', 400);
       used.add(id);
     };
     for (const g of propuesta.games) {
+      if (g.homeTeamId === g.awayTeamId) throw new AppError('Los equipos deben ser distintos', 400);
       reserve(g.homeTeamId, g.categoryId); reserve(g.awayTeamId, g.categoryId);
       const slot = `${g.fieldId}:${g.time}`;
       if (!fields.rows.some((f) => f.id === g.fieldId) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(g.time ?? '') || occupied.has(slot)) throw new AppError('Campo u horario inválido u ocupado por otro partido.', 400);
@@ -432,8 +434,8 @@ export const guardarPropuesta = async (
     propuesta.roundNumber = next.rows[0].n;
     await validarFechaJornada(propuesta.seasonId, propuesta.scheduledDate, query);
     await query(
-      `INSERT INTO rounds (id, season_id, number, name, scheduled_date, status, generated_by)
-       VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6)`,
+      `INSERT INTO rounds (id, season_id, number, name, scheduled_date, status, generated_by, allow_team_repeats)
+       VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6, $7)`,
       [
         roundId,
         propuesta.seasonId,
@@ -441,6 +443,7 @@ export const guardarPropuesta = async (
         `Jornada ${propuesta.roundNumber}`,
         propuesta.scheduledDate,
         userId,
+        Boolean(propuesta.manual),
       ]
     );
 

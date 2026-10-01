@@ -21,11 +21,13 @@ export default function ManualRound({ season, onSaved, onCancel }: {
   const settings = useQuery({ queryKey: ['season-settings', season.id], queryFn: () => api.get<{ game_times?: { slots?: string[]; field_slots?: Record<string, string[]> } }>(`/seasons/${season.id}/settings`) });
   const teams = categories.flatMap(c => c.teams.map(t => ({ ...t, category: c })));
   const playing = matches.flatMap(m => [m.home, m.away]).filter(Boolean);
+  const appearances = matches.flatMap(m => [m.home, m.away]).filter(Boolean).reduce<Record<string, number>>((acc, id) => ({ ...acc, [id]: (acc[id] ?? 0) + 1 }), {});
   const complete = matches.length > 0 && matches.every(m => m.category && m.home && m.away && m.field && m.time);
   const duplicateSlot = new Set(matches.filter(m => m.field && m.time).map(m => `${m.field}:${m.time}`)).size < matches.filter(m => m.field && m.time).length;
   const save = useMutation({
     mutationFn: () => {
       const proposal: Proposal = {
+        manual: true,
         seasonId: season.id, scheduledDate: date, roundNumber: 0, capacity: matches.length, warnings: [],
         games: matches.map(m => ({ categoryId: m.category, categoryName: categories.find(c => c.id === m.category)!.name,
           homeTeamId: m.home, homeTeamName: teams.find(t => t.id === m.home)!.name,
@@ -56,7 +58,7 @@ export default function ManualRound({ season, onSaved, onCancel }: {
         </select></Field>
         <div className="grid gap-3 sm:grid-cols-2">{(['home', 'away'] as const).map(side => <Field key={side} label={side === 'home' ? 'Equipo local' : 'Equipo visitante'}>
           <select className="select select-bordered w-full" value={m[side]} onChange={e => update(m.key, { [side]: e.target.value })}>
-            <option value="">Selecciona equipo</option>{categories.find(c => c.id === m.category)?.teams.map(t => <option key={t.id} value={t.id} disabled={playing.includes(t.id) && m[side] !== t.id}>{t.name}</option>)}
+            <option value="">Selecciona equipo</option>{categories.find(c => c.id === m.category)?.teams.map(t => <option key={t.id} value={t.id}>{t.name} — {appearances[t.id] ?? 0} {(appearances[t.id] ?? 0) === 1 ? 'partido' : 'partidos'}</option>)}
           </select></Field>)}</div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Campo"><select className="select select-bordered w-full" value={m.field} onChange={e => update(m.key, { field: e.target.value })}>
@@ -76,6 +78,7 @@ export default function ManualRound({ season, onSaved, onCancel }: {
         </label>)}
       </section>
       {duplicateSlot && <Alert tone="warning">Hay dos partidos en el mismo campo y horario. Cambia uno antes de guardar.</Alert>}
+      {Object.entries(appearances).filter(([, count]) => count >= 3).map(([id, count]) => <Alert key={id} tone="warning">{teams.find(t => t.id === id)?.name} ya tiene {count} partidos asignados en esta jornada. Puedes continuar.</Alert>)}
       <div className="flex flex-wrap gap-2"><Button tone="success" loading={save.isPending} disabled={!date || !complete || duplicateSlot || options.isError} onClick={() => save.mutate()}>Guardar jornada manual como borrador</Button>
         <Button tone="ghost" onClick={onCancel}>Cancelar</Button></div>
     </fieldset>

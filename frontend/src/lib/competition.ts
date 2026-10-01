@@ -170,6 +170,7 @@ export interface ProposedBye {
 }
 
 export interface Proposal {
+  manual?: boolean;
   roundNumber: number;
   scheduledDate: string;
   capacity: number;

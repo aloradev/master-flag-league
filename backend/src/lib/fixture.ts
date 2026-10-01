@@ -76,6 +76,7 @@ export interface DescansoPropuesto {
 }
 
 export interface Propuesta {
+  manual?: boolean;
   roundNumber: number;
   scheduledDate: string;
   capacity: number;

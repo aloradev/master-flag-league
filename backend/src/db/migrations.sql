@@ -384,8 +384,15 @@ CREATE OR REPLACE FUNCTION check_equipo_una_vez_por_jornada()
 RETURNS TRIGGER AS $$
 DECLARE
   choque INTEGER;
+  permite_repetidos BOOLEAN;
 BEGIN
   IF NEW.status = 'CANCELLED' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT COALESCE(allow_team_repeats, FALSE) INTO permite_repetidos
+  FROM rounds WHERE id = NEW.round_id;
+  IF permite_repetidos THEN
     RETURN NEW;
   END IF;
 
@@ -658,6 +665,7 @@ CREATE TRIGGER revoke_changed_user_sessions BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION revoke_changed_user_sessions();
 
 ALTER TABLE rounds ADD COLUMN IF NOT EXISTS round_type VARCHAR(20) NOT NULL DEFAULT 'OFFICIAL';
+ALTER TABLE rounds ADD COLUMN IF NOT EXISTS allow_team_repeats BOOLEAN NOT NULL DEFAULT FALSE;
 UPDATE rounds ro SET round_type = 'SCRIMMAGE'
  WHERE EXISTS (SELECT 1 FROM games g WHERE g.round_id = ro.id AND g.game_type = 'SCRIMMAGE')
  AND NOT EXISTS (SELECT 1 FROM games g WHERE g.round_id = ro.id AND g.game_type = 'OFFICIAL');
