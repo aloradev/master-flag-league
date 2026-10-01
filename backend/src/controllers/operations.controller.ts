@@ -18,7 +18,7 @@ export const status = asyncHandler(async (_req, res) => {
   if (stalled.rows[0].count > 0) void operationalAlert('EMAIL_BACKLOG');
   res.json({ success: true, data: {
     database: 'connected', workerEnabled: process.env.EMAIL_WORKER_ENABLED !== 'false',
-    resendConfigured: Boolean(process.env.RESEND_API_KEY), webhookConfigured: Boolean(process.env.OPERATIONS_WEBHOOK_URL),
+    resendConfigured: Boolean(process.env.RESEND_API_KEY), brevoConfigured: Boolean(process.env.BREVO_API_KEY), webhookConfigured: Boolean(process.env.OPERATIONS_WEBHOOK_URL),
     counts: Object.fromEntries(counts.rows.map((row) => [row.status, row.count])),
     stalled: stalled.rows[0].count, recentFailures: recentFailures.rows,
   } });

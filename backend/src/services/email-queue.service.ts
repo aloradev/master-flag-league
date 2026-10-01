@@ -32,18 +32,26 @@ export async function enqueueEmail(payload: EmailPayload, options: { dedupeKey?:
 
 export const retryDelay = (attempt: number) => Math.min(3600, 30 * 2 ** Math.max(0, attempt - 1));
 export async function deliverEmail(payload: EmailPayload, id: string): Promise<{ ok: boolean; retryable: boolean; code: string }> {
-  if (!process.env.RESEND_API_KEY) return { ok: false, retryable: true, code: 'RESEND_NOT_CONFIGURED' };
+  const brevoKey = process.env.BREVO_API_KEY;
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!brevoKey && !resendKey) return { ok: false, retryable: true, code: 'EMAIL_PROVIDER_NOT_CONFIGURED' };
   try {
-    const response = await fetch('https://api.resend.com/emails', {
+    const brevo = Boolean(brevoKey);
+    const response = await fetch(brevo ? 'https://api.brevo.com/v3/smtp/email' : 'https://api.resend.com/emails', {
       method: 'POST', signal: AbortSignal.timeout(10_000),
-      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': id },
-      body: JSON.stringify(payload),
+      headers: brevo
+        ? { 'api-key': brevoKey!, 'Content-Type': 'application/json', 'X-MFL-Job': id }
+        : { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json', 'Idempotency-Key': id },
+      body: JSON.stringify(brevo ? {
+        sender: { name: payload.from.replace(/\s*<[^>]+>\s*$/, ''), email: payload.from.match(/<([^>]+)>/)?.[1] ?? payload.from },
+        to: payload.to.map(email => ({ email })), subject: payload.subject, htmlContent: payload.html,
+      } : payload),
     });
     const detail = response.status === 409 ? await response.json().catch(() => ({})) as { name?: string } : {};
     const concurrent = detail.name === 'concurrent_idempotent_requests';
     return { ok: response.ok, retryable: response.status === 429 || response.status >= 500 || concurrent,
-      code: response.ok ? 'ACCEPTED' : `RESEND_${response.status}` };
-  } catch { return { ok: false, retryable: true, code: 'RESEND_NETWORK' }; }
+      code: response.ok ? 'ACCEPTED' : `${brevo ? 'BREVO' : 'RESEND'}_${response.status}` };
+  } catch { return { ok: false, retryable: true, code: `${brevoKey ? 'BREVO' : 'RESEND'}_NETWORK` }; }
 }
 
 /** Reclamo atómico y lease recuperable: varias instancias no toman el mismo trabajo. */

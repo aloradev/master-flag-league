@@ -78,6 +78,12 @@ const WARNINGS: Check[] = [
       'Los managers no se enterarán de documentos rechazados.',
   },
   {
+    key: 'BREVO_API_KEY',
+    required: false,
+    message:
+      'Configura BREVO_API_KEY o RESEND_API_KEY para enviar correos transaccionales.',
+  },
+  {
     key: 'EMAIL_FROM',
     required: false,
     message:
