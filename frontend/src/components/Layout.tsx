@@ -140,7 +140,7 @@ export const Layout = () => {
   };
 
   return (
-    <div className="min-h-dvh md:flex"><a href="#main-content" className="skip-link">Saltar al contenido</a>
+    <div className="mfl-app-shell min-h-dvh md:flex"><a href="#main-content" className="skip-link">Saltar al contenido</a>
       {/* Navegación lateral — escritorio */}
       <aside className="hidden sticky top-0 h-dvh overflow-y-auto w-60 shrink-0 border-r border-base-300 bg-base-200/50 md:flex md:flex-col">
         <div className="flex items-center gap-2.5 px-4 py-4">
