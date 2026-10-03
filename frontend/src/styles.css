@@ -118,6 +118,15 @@ body {
 .mfl-app-shell .btn-primary { box-shadow:0 6px 18px color-mix(in oklch, var(--color-primary) 22%, transparent); }
 .mfl-app-shell header { background:color-mix(in oklch, var(--color-base-100) 88%, var(--color-primary) 4%); }
 .mfl-app-shell nav.fixed { border-top:2px solid color-mix(in oklch, var(--color-primary) 28%, var(--color-base-300)); }
+.mfl-standing-row { transition:background-color 160ms ease, transform 160ms ease; }
+.mfl-standing-row:hover { background:color-mix(in oklch, var(--color-primary) 7%, transparent); }
+.mfl-rank-badge { display:inline-flex; align-items:center; justify-content:center; min-width:1.8rem; height:1.8rem; border-radius:999px; }
+.mfl-podium-1 .mfl-rank-badge { background:color-mix(in oklch, var(--color-accent) 24%, transparent); color:var(--color-accent-content); box-shadow:0 0 0 2px color-mix(in oklch, var(--color-accent) 45%, transparent); }
+.mfl-podium-2 .mfl-rank-badge { background:color-mix(in oklch, #94a3b8 22%, transparent); }
+.mfl-podium-3 .mfl-rank-badge { background:color-mix(in oklch, #b77945 22%, transparent); }
+.public-standings th { white-space:nowrap; letter-spacing:.08em; }
+.public-standings td, .public-standings th { border-color:color-mix(in oklch, var(--color-base-300) 65%, transparent); }
+@media (max-width: 639px) { .public-standings { min-width:640px; } .public-standings th:first-child, .public-standings td:first-child { position:sticky; left:0; z-index:1; background:var(--color-base-200); } }
 @keyframes mfl-app-enter { from { opacity:.7; transform:translateY(5px); } to { opacity:1; transform:none; } }
 @media (prefers-reduced-motion: reduce) { .mfl-app-shell main { animation:none; } }
 

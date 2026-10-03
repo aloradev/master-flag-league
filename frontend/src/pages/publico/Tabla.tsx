@@ -127,8 +127,8 @@ export default function TablaPublicaPage() {
                   </thead>
                   <tbody>
                     {g.rows.map((f) => (
-                      <tr key={f.team_id}>
-                        <td className="tabular text-center text-lg font-black text-primary">{f.position}</td>
+                      <tr key={f.team_id} className={`mfl-standing-row ${f.position <= 3 ? `mfl-podium-${f.position}` : ''}`}>
+                        <td className="tabular text-center text-lg font-black text-primary"><span className="mfl-rank-badge">{f.position}</span></td>
                         <td>
                           <div className="flex items-center gap-2">
                             <TeamCrest
@@ -146,7 +146,7 @@ export default function TablaPublicaPage() {
                         <td className="tabular hidden text-center sm:table-cell">{f.draws}</td>
                         <td className="tabular hidden text-center sm:table-cell">{f.losses}</td>
                         <td className="tabular text-center">
-                          {f.point_diff > 0 ? `+${f.point_diff}` : f.point_diff}
+                          <span className={f.point_diff > 0 ? 'text-success font-bold' : f.point_diff < 0 ? 'text-error' : ''}>{f.point_diff > 0 ? `+${f.point_diff}` : f.point_diff}</span>
                         </td>
                         <td className="hidden lg:table-cell">
                           <Forma form={f.form} />

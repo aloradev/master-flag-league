@@ -29,8 +29,8 @@ const Forma = ({ form }: { form: ('W' | 'D' | 'L')[] }) => {
 };
 
 const Fila = ({ f, destacar }: { f: StandingRow; destacar: boolean }) => (
-  <tr className={destacar ? 'bg-primary/5' : undefined}>
-    <td className="tabular w-8 text-center font-bold">{f.position}</td>
+  <tr className={`mfl-standing-row ${destacar ? 'bg-primary/5' : ''} ${f.position <= 3 ? `mfl-podium-${f.position}` : ''}`}>
+    <td className="tabular w-8 text-center font-bold"><span className="mfl-rank-badge">{f.position}</span></td>
     <td>
       <div className="flex items-center gap-2">
         <TeamCrest
@@ -55,7 +55,7 @@ const Fila = ({ f, destacar }: { f: StandingRow; destacar: boolean }) => (
     <td className="tabular hidden text-center md:table-cell">{f.points_against}</td>
     <td className="tabular text-center">
       {f.point_diff > 0 ? '+' : ''}
-      {f.point_diff}
+      <span className={f.point_diff > 0 ? 'text-success font-bold' : f.point_diff < 0 ? 'text-error' : ''}>{f.point_diff}</span>
     </td>
     <td className="hidden text-center lg:table-cell">
       <Forma form={f.form} />
