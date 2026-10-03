@@ -155,7 +155,7 @@ export default function TablaPublicaPage() {
                     ))}
                   </tbody>
                 </table>
-              </Card><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={g.rows.map(row => `${row.position}. ${row.team_name} · ${row.played} JJ · ${row.wins} JG · DIF ${row.point_diff}`)} filename={`mfl-posiciones-${g.category.id}`} url={`${window.location.origin}/tabla`} /></div>
+              </Card><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={[]} table={{ headers: ['POS','EQUIPO','JJ','JG','JE','JP','PF','PC','DIF'], rows: g.rows.map(row => [String(row.position), row.team_name, String(row.played), String(row.wins), String(row.draws), String(row.losses), String(row.points_for), String(row.points_against), String(row.point_diff)]) }} filename={`mfl-posiciones-${g.category.id}`} url={`${window.location.origin}/tabla`} /></div>
             </section>
           ))}
         </div>
