@@ -42,7 +42,7 @@ const Fila = ({ f, destacar }: { f: StandingRow; destacar: boolean }) => (
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold leading-tight">{f.team_name}</span>
           <span className="block text-[11px] text-base-content/50 sm:hidden">
-            {f.wins}G · {f.draws}E · {f.losses}P
+            {f.played} JJ · {f.wins}G · {f.draws}E · {f.losses}P · DIF {f.point_diff >= 0 ? '+' : ''}{f.point_diff}
           </span>
         </span>
       </div>
@@ -61,7 +61,6 @@ const Fila = ({ f, destacar }: { f: StandingRow; destacar: boolean }) => (
       <Forma form={f.form} />
     </td>
     <td className="tabular hidden text-center md:table-cell text-xs">{f.streak}</td>
-    <td className="tabular w-10 text-center text-base font-black">{f.points}</td>
   </tr>
 );
 
@@ -161,7 +160,6 @@ export default function Standings() {
                     <th className="text-center" title="Diferencia">DIF</th>
                     <th className="hidden text-center lg:table-cell">Forma</th>
                     <th className="hidden text-center md:table-cell">Racha</th>
-                    <th className="text-center">PTS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -174,13 +172,7 @@ export default function Standings() {
           </section>
         ))}
 
-      {conJuego && (
-        <p className="text-xs text-base-content/50">
-          Victoria 3 puntos · empate 1 · derrota 0. Se desempata por puntos, victorias,
-          diferencia, puntos a favor y enfrentamiento directo. Los valores se configuran
-          en los ajustes de la temporada.
-        </p>
-      )}
+      {conJuego && <p className="text-xs text-base-content/50">Orden: victorias, diferencia de puntos, puntos a favor y enfrentamiento directo. El sistema de puntos queda desactivado por ahora.</p>}
     </div>
   );
 }

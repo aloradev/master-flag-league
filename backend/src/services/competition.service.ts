@@ -625,8 +625,11 @@ export const calcularPosiciones = async (
     head_to_head: directo,
   };
 
+  // Formato clásico MFL: la tabla se ordena por victorias y diferencia.
+  // Los puntos quedan calculados para compatibilidad, pero no participan.
+  const criteriosActivos = reglas.tiebreakers.filter((nombre) => nombre !== 'points');
   filas.sort((a, b) => {
-    for (const nombre of reglas.tiebreakers) {
+    for (const nombre of criteriosActivos) {
       const fn = criterio[nombre];
       if (!fn) continue;
       const d = fn(a, b);

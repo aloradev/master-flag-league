@@ -65,7 +65,7 @@ export default function TablaPublicaPage() {
         (g) =>
           `${g.category.name}\n` +
           g.rows
-            .map((f) => `${f.position}. ${f.team_name} — ${f.points} pts (${f.played} JJ)`)
+            .map((f) => `${f.position}. ${f.team_name} — ${f.played} JJ · ${f.wins} JG · DIF ${f.point_diff}`)
             .join('\n')
       )
       .join('\n\n') +
@@ -87,10 +87,10 @@ export default function TablaPublicaPage() {
         <div className="space-y-5">
           <Card className="border-primary/20 bg-primary/5 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><h2 className="font-bold">¿Cómo se calcula la tabla?</h2><p className="mt-1 text-sm text-base-content/70">Victoria <strong>3 pts</strong> · empate <strong>1 pt</strong> · derrota <strong>0 pts</strong>.</p></div>
-              <span className="badge badge-primary badge-outline">Sistema 3–1–0</span>
+              <div><h2 className="font-bold">¿Cómo se ordena la tabla?</h2><p className="mt-1 text-sm text-base-content/70">Primero cuentan las <strong>victorias</strong>, después la diferencia y los puntos a favor.</p></div>
+              <span className="badge badge-primary badge-outline">Formato clásico</span>
             </div>
-            <p className="mt-2 text-xs text-base-content/60">En caso de empate se consideran victorias, diferencia de puntos, puntos a favor y enfrentamiento directo.</p>
+            <p className="mt-2 text-xs text-base-content/60">El sistema de puntos queda desactivado por ahora. Los empates se resuelven con diferencia, puntos a favor y enfrentamiento directo.</p>
           </Card>
           {conEquipos.map((g) => (
             <section key={g.category.id}>
@@ -122,7 +122,6 @@ export default function TablaPublicaPage() {
                       <th className="hidden text-center sm:table-cell" title="Empatados">E</th>
                       <th className="hidden text-center sm:table-cell" title="Perdidos">P</th>
                       <th className="text-center" title="Diferencia: puntos a favor menos puntos en contra">DIF</th>
-                      <th className="text-center" title="Puntos de clasificación">PTS</th>
                       <th className="hidden text-center lg:table-cell">Últimos</th>
                     </tr>
                   </thead>
@@ -139,6 +138,7 @@ export default function TablaPublicaPage() {
                               className="size-9"
                             />
                             <span className="min-w-0 truncate font-medium">{f.team_name}</span>
+                            <span className="sm:hidden text-[11px] text-base-content/55">{f.played} JJ · {f.wins}G · {f.draws}E · {f.losses}P · DIF {f.point_diff > 0 ? '+' : ''}{f.point_diff}</span>
                           </div>
                         </td>
                         <td className="tabular hidden text-center sm:table-cell">{f.played}</td>
@@ -148,7 +148,6 @@ export default function TablaPublicaPage() {
                         <td className="tabular text-center">
                           {f.point_diff > 0 ? `+${f.point_diff}` : f.point_diff}
                         </td>
-                        <td className="tabular bg-primary/5 text-center text-lg font-black">{f.points}</td>
                         <td className="hidden lg:table-cell">
                           <Forma form={f.form} />
                         </td>
@@ -156,7 +155,7 @@ export default function TablaPublicaPage() {
                     ))}
                   </tbody>
                 </table>
-              </Card><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={g.rows.map(row => `${row.position}. ${row.team_name} · ${row.points} pts · ${row.played} JJ`)} filename={`mfl-posiciones-${g.category.id}`} url={`${window.location.origin}/tabla`} /></div>
+              </Card><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={g.rows.map(row => `${row.position}. ${row.team_name} · ${row.played} JJ · ${row.wins} JG · DIF ${row.point_diff}`)} filename={`mfl-posiciones-${g.category.id}`} url={`${window.location.origin}/tabla`} /></div>
             </section>
           ))}
         </div>
