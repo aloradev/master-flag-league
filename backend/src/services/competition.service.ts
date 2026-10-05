@@ -622,12 +622,13 @@ export const calcularPosiciones = async (
     wins: (a, b) => b.wins - a.wins,
     point_diff: (a, b) => b.point_diff - a.point_diff,
     points_for: (a, b) => b.points_for - a.points_for,
+    points_against: (a, b) => a.points_against - b.points_against,
     head_to_head: directo,
   };
 
-  // Formato clásico MFL: la tabla se ordena por victorias y diferencia.
+  // Formato clásico MFL: récord primero, después producción ofensiva y defensa.
   // Los puntos quedan calculados para compatibilidad, pero no participan.
-  const criteriosActivos = reglas.tiebreakers.filter((nombre) => nombre !== 'points');
+  const criteriosActivos = ['wins', 'points_for', 'points_against', 'point_diff', 'head_to_head'];
   filas.sort((a, b) => {
     for (const nombre of criteriosActivos) {
       const fn = criterio[nombre];

@@ -87,10 +87,10 @@ export default function TablaPublicaPage() {
         <div className="space-y-5">
           <Card className="border-primary/20 bg-primary/5 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><h2 className="font-bold">¿Cómo se ordena la tabla?</h2><p className="mt-1 text-sm text-base-content/70">Primero cuentan las <strong>victorias</strong>, después la diferencia y los puntos a favor.</p></div>
+              <div><h2 className="font-bold">¿Cómo se ordena la tabla?</h2><p className="mt-1 text-sm text-base-content/70">Primero cuentan las <strong>victorias</strong>, después los puntos a favor y en contra.</p></div>
               <span className="badge badge-primary badge-outline">Formato clásico</span>
             </div>
-            <p className="mt-2 text-xs text-base-content/60">El sistema de puntos queda desactivado por ahora. Los empates se resuelven con diferencia, puntos a favor y enfrentamiento directo.</p>
+            <p className="mt-2 text-xs text-base-content/60">El sistema de puntos queda desactivado por ahora. Los empates se resuelven con PF, PC, diferencia y enfrentamiento directo.</p>
           </Card>
           {conEquipos.map((g) => (
             <section key={g.category.id}>

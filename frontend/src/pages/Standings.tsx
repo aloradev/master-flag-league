@@ -172,7 +172,7 @@ export default function Standings() {
           </section>
         ))}
 
-      {conJuego && <p className="text-xs text-base-content/50">Orden: victorias, diferencia de puntos, puntos a favor y enfrentamiento directo. El sistema de puntos queda desactivado por ahora.</p>}
+      {conJuego && <p className="text-xs text-base-content/50">Orden: victorias, puntos a favor, puntos en contra, diferencia y enfrentamiento directo. El sistema de puntos queda desactivado por ahora.</p>}
     </div>
   );
 }
