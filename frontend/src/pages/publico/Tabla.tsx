@@ -111,7 +111,13 @@ export default function TablaPublicaPage() {
                   se sale de la pantalla es PTS, justo lo que la gente
                   abre a ver—, se eligen columnas por prioridad, con los
                   mismos cortes que la tabla de la aplicación. */}
-              <Card className="overflow-x-auto">
+              <div className="space-y-2 sm:hidden">
+                {g.rows.map((f) => <Card key={f.team_id} className={`mfl-mobile-standing p-3 ${f.position <= 3 ? `mfl-podium-${f.position}` : ''}`}>
+                  <div className="flex items-center gap-3"><span className="mfl-rank-badge text-lg font-black text-primary">{f.position}</span><TeamCrest name={f.team_name} shortName={f.short_name} logoUrl={f.logo_url} className="size-10" /><div className="min-w-0 flex-1"><p className="truncate font-bold">{f.team_name}</p><p className="text-xs text-base-content/60">{f.played} JJ · {f.wins} JG · {f.draws} JE · {f.losses} JP</p></div><span className="text-right"><strong className="block text-lg tabular">{f.point_diff > 0 ? '+' : ''}{f.point_diff}</strong><small className="text-[10px] uppercase text-base-content/50">DIF</small></span></div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 border-t border-base-300/60 pt-2 text-center text-xs"><span><b className="block tabular text-sm">{f.points_for}</b>PF</span><span><b className="block tabular text-sm">{f.points_against}</b>PC</span><span><b className="block tabular text-sm">{f.form.map((r) => r === 'W' ? 'G' : r === 'D' ? 'E' : 'P').join(' ') || '—'}</b>FORMA</span></div>
+                </Card>)}
+              </div>
+              <Card className="hidden overflow-x-auto sm:block">
                 <table className="table table-sm public-standings">
                   <thead className="bg-primary/10 text-xs uppercase text-base-content/80">
                     <tr>

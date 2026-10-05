@@ -1,6 +1,6 @@
 import { PasswordInput } from '../components/PasswordInput';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../store/auth';
@@ -12,6 +12,9 @@ export default function Registration({ team = false }: { team?: boolean }) {
   const navigate = useNavigate();
   const cache = useQueryClient();
   const user = useAuth(s => s.user);
+  // Una cuenta autenticada no debe volver al alta de usuario: ese formulario
+  // crearía una segunda cuenta y confunde el flujo de inscripción de equipo.
+  if (user && !team) return <Navigate to="/equipo/nuevo" replace />;
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [seasonId, setSeasonId] = useState('');
