@@ -71,6 +71,7 @@ router.use(restrictScrimmageToken);
 // ════════════════════════════════ SESIÓN ══════════════════════════════════
 router.get('/auth/me', auth.me);
 router.post('/teams', requireRole(ROLES.TEAM_MANAGER), onboarding.enroll);
+router.get('/teams/check-name', requireRole(ROLES.TEAM_MANAGER), onboarding.checkTeamName);
 router.post('/auth/change-password', auth.changePassword);
 
 // ═══════════════════════ CATÁLOGOS (lectura general) ══════════════════════

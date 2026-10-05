@@ -26,6 +26,8 @@ export default function Registration({ team = false }: { team?: boolean }) {
   const selectedSeason = seasonId || (seasons.length === 1 ? seasons[0].id : '');
   const categories = choices.filter(o => o.id === selectedSeason);
   const selected = categories.find(o => o.category_id === categoryId);
+  const [nameDraft, setNameDraft] = useState('');
+  const nameCheck = useQuery({ queryKey: ['team-name-check', nameDraft, selectedSeason, categoryId], queryFn: () => api.get<{ exists: boolean; mine: boolean; id: string | null }>(`/teams/check-name?name=${encodeURIComponent(nameDraft.trim())}&seasonId=${encodeURIComponent(selectedSeason)}&categoryId=${encodeURIComponent(categoryId)}`), enabled: team && nameDraft.trim().length >= 3 && Boolean(selectedSeason && categoryId), staleTime: 3000 });
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault(); if (busy) return; setBusy(true); setError('');
     const form = new FormData(event.currentTarget);
@@ -48,19 +50,20 @@ export default function Registration({ team = false }: { team?: boolean }) {
     <p>{team ? 'Inscribe tu equipo en una temporada abierta y continúa con la plantilla. La validación de jugadores y los pagos conservan sus reglas.' : 'Crea tu cuenta de encargado. Después de ingresar podrás inscribir tu equipo y gestionar sus jugadores.'}</p>
     {options.isLoading ? <Spinner /> : options.error ? <Alert tone="error">No se pudieron consultar las inscripciones. <button type="button" className="link" onClick={() => void options.refetch()}>Reintentar</button></Alert> : !choices.length ? <Alert>No hay temporadas con inscripciones abiertas.</Alert> :
       <form onSubmit={submit} className="space-y-4" aria-busy={busy}><fieldset disabled={busy} className="space-y-4">
-        <label className="block">{team ? 'Nombre del equipo' : 'Tu nombre'}<input name="name" required maxLength={255} autoComplete={team ? 'off' : 'name'} className="input mt-1 w-full" /></label>
+        <label className="block">{team ? 'Nombre del equipo' : 'Tu nombre'}<input name="name" required maxLength={255} autoComplete={team ? 'off' : 'name'} className="input mt-1 w-full" value={team ? nameDraft : undefined} onChange={team ? e => setNameDraft(e.target.value) : undefined} /></label>
         {team ? <>
           <label className="block">Temporada<select name="season" className="select mt-1 w-full" required value={selectedSeason} onChange={e => { setSeasonId(e.target.value); setCategoryId(''); }}><option value="" disabled>Elige una temporada</option>{seasons.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
           <label className="block">Categoría<select name="category" className="select mt-1 w-full" required value={categoryId} disabled={!selectedSeason} onChange={e => setCategoryId(e.target.value)}><option value="" disabled>Elige la categoría de tu equipo</option>{categories.map(o => <option key={o.category_id} value={o.category_id}>{o.category_name}</option>)}</select></label>
           <p className="text-sm text-base-content/60">Los jugadores que agregues pertenecerán a esta categoría. Para corregirla después, contacta a la administración de la liga.</p>
           {selected && <Alert title="Tu inscripción">{selected.name} · {selected.category_name}. Después podrás agregar jugadores y sus documentos.</Alert>}
+          {nameCheck.data?.exists && (nameCheck.data.mine ? <Alert tone="warning">Este equipo ya está vinculado a tu cuenta. Revisa <Link className="link" to="/equipo">Mis equipos</Link> para continuar.</Alert> : <Alert tone="warning">Este equipo ya existe en esta categoría. No se creará un duplicado; solicita a administración que vincule tu cuenta.</Alert>)}
         </> : <>
           <label className="block">Liga donde jugarás<select name="league" className="select mt-1 w-full">{leagues.map(o => <option key={o.league_id} value={o.league_id}>{o.league_name}</option>)}</select><span className="mt-1 block text-sm text-base-content/60">Aquí eliges una liga existente. La creación y configuración de ligas está reservada al Super Administrador.</span></label>
           <label className="block">Correo<input name="email" type="email" required maxLength={255} autoComplete="email" className="input mt-1 w-full" /></label>
           <label className="block">Contraseña<PasswordInput name="password" pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}" title="Usa al menos 8 caracteres, una letra y un número" required minLength={8} maxLength={72} autoComplete="new-password" className="input mt-1 w-full" /><span className="text-sm text-base-content/60">Al menos 8 caracteres, una letra y un número.</span></label>
         </>}
         {error && <Alert tone="error">{error}</Alert>}
-        <button className="btn btn-primary w-full" disabled={busy}>{busy ? 'Guardando…' : team ? 'Inscribir equipo' : 'Crear cuenta'}</button>
+        <button className="btn btn-primary w-full" disabled={busy || Boolean(nameCheck.data?.exists)}>{busy ? 'Guardando…' : team ? 'Inscribir equipo' : 'Crear cuenta'}</button>
       </fieldset></form>}
     {team && <p className="text-sm text-base-content/60">Si tu equipo ya está registrado, pide a la liga vincular tu cuenta. No vuelvas a crearlo: así conservas su plantilla e historial.</p>}
     <Link className="link" to={team ? '/equipo' : '/ingresar'}>{team ? 'Volver a mis equipos' : 'Ya tengo cuenta · Ingresar'}</Link>

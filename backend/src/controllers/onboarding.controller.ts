@@ -68,3 +68,16 @@ export const enroll = asyncHandler(async (req: AuthRequest, res: Response) => {
   });
   res.status(201).json({ success: true, data });
 });
+
+export const checkTeamName = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const name = text(req.query?.name, 255).replace(/\s+/g, ' ');
+  const seasonId = text(req.query?.seasonId, 36);
+  const categoryId = text(req.query?.categoryId, 36);
+  if (!name || !seasonId || !categoryId) return res.json({ success: true, data: { exists: false } });
+  const result = await query(`SELECT t.id, EXISTS(SELECT 1 FROM team_users tu WHERE tu.team_id=t.id AND tu.user_id=$4) AS mine
+    FROM teams t JOIN seasons s ON s.id=t.season_id
+    WHERE t.season_id=$1 AND t.category_id=$2 AND s.league_id=$5
+      AND t.team_type='OFFICIAL' AND LOWER(regexp_replace(TRIM(t.name), '\\s+', ' ', 'g'))=LOWER($3) LIMIT 1`, [seasonId, categoryId, name, req.user!.id, req.user!.leagueId]);
+  const row = result.rows[0];
+  res.json({ success: true, data: { exists: Boolean(row), mine: Boolean(row?.mine), id: row?.id ?? null } });
+});
