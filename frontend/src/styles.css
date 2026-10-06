@@ -462,6 +462,8 @@ h1, h2, h3 {
 /* Mejoras de interacción compartidas. */
 .skip-link { position:fixed; top:8px; left:8px; z-index:100; transform:translateY(-150%); background:var(--color-primary); color:var(--color-primary-content); padding:12px 18px; border-radius:8px; font-weight:700; }
 .skip-link:focus { transform:translateY(0); }
+.league-live h2 { font-size:32px; letter-spacing:0; overflow-wrap:anywhere; }
+.league-live .campaign-section-heading { align-items:center; }
 main:focus { outline:none; }
 :where(a,button,input,select,textarea,summary):focus-visible { outline:2px solid var(--color-primary); outline-offset:3px; }
 .ux-steps { display:flex; gap:8px; padding:12px 0; }

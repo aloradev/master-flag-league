@@ -1,16 +1,22 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const apiTarget = loadEnv(mode, '.', '').API_PROXY_TARGET || 'http://localhost:5000';
+  return {
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
     proxy: {
       // En desarrollo el frontend llama a /api y Vite lo reenvía a la API.
-      '/api': { target: 'http://localhost:5000', changeOrigin: true },
+      '/api': {
+        target: apiTarget,
+        changeOrigin: true,
+        configure: proxy => proxy.on('proxyReq', request => request.removeHeader('origin')),
+      },
       // Avatares y logos: los sirve la API cuando no hay Cloudinary.
-      '/media': { target: 'http://localhost:5000', changeOrigin: true },
+      '/media': { target: apiTarget, changeOrigin: true },
     },
   },
   build: {
@@ -26,4 +32,5 @@ export default defineConfig({
       },
     },
   },
+  };
 });

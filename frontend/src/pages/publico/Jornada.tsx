@@ -9,7 +9,7 @@ import { ETIQUETA_PARTIDO, type GameStatus, type RoundStatus } from '../../lib/c
 import { fechaTexto } from '../../lib/format';
 import { Marco, BotonCompartir } from './Marco';
 
-interface PartidoPublico {
+export interface PartidoPublico {
   statistics_status?: 'PENDING' | 'COMPLETE';
   game_type?: 'OFFICIAL' | 'SCRIMMAGE';
   id: string;
@@ -33,7 +33,7 @@ interface PartidoPublico {
   touchdowns: Array<{ team_id: string; points: number; quantity?: number; quarter: number | null; created_at: string }>;
 }
 
-interface JornadaPublica {
+export interface JornadaPublica {
   season: { id: string; name: string; year: number };
   round: {
     id: string;
@@ -78,7 +78,7 @@ const Equipo = ({
   </div>
 );
 
-const Partido = ({ p }: { p: PartidoPublico }) => {
+export const Partido = ({ p }: { p: PartidoPublico }) => {
   const etiqueta = ETIQUETA_PARTIDO[p.status];
   const conMarcador = p.home_score != null && p.away_score != null;
 
@@ -139,7 +139,7 @@ const Partido = ({ p }: { p: PartidoPublico }) => {
           ))}
         </div>
       )}
-      <Link to={`/partido/${p.id}`} className="mt-3 block text-center text-xs font-semibold text-primary">Ver partido en vivo</Link>
+      <Link to={`/partido/${p.id}`} className="mt-3 block text-center text-xs font-semibold text-primary">{p.status === 'LIVE' ? 'Ver partido en vivo' : 'Ver partido'}</Link>
     </Card>
   );
 };
@@ -155,14 +155,15 @@ export default function JornadaPublicaPage() {
 
   const consulta = useQuery({
     queryKey: ['publico-jornada', id ?? 'vigente'],
-    queryFn: () => api.get<JornadaPublica>(id ? `/public/round/${id}` : '/public/round'),
+    queryFn: ({ signal }) => api.get<JornadaPublica>(id ? `/public/round/${id}` : '/public/round', signal),
     retry: false,
     refetchInterval: 15000,
   });
 
   const scrimmages = useQuery({
     queryKey: ['publico-scrimmages'],
-    queryFn: () => api.get<PartidoPublico[]>('/public/scrimmages'),
+    queryFn: ({ signal }) => api.get<PartidoPublico[]>('/public/scrimmages', signal),
+    retry: false,
     refetchInterval: 10000,
   });
   const pruebas = <section className="mt-5 space-y-2">
@@ -174,7 +175,7 @@ export default function JornadaPublicaPage() {
     </>}
   </section>;
 
-  if (consulta.isLoading || scrimmages.isLoading) return <Marco titulo="Jornada"><Spinner /></Marco>;
+  if (consulta.isLoading) return <Marco titulo="Jornada"><Spinner /></Marco>;
 
   if (!consulta.data) {
     return (

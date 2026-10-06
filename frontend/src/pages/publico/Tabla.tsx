@@ -7,7 +7,7 @@ import { TeamCrest } from '../../components/AuthImage';
 import type { StandingsGroup } from '../../lib/competition';
 import { Marco, BotonCompartir } from './Marco';
 
-interface TablaPublica {
+export interface TablaPublica {
   season: { id: string; name: string; year: number };
   categories: StandingsGroup[];
 }
@@ -36,7 +36,7 @@ const Forma = ({ form }: { form: ('W' | 'D' | 'L')[] }) => {
 export default function TablaPublicaPage() {
   const consulta = useQuery({
     queryKey: ['publico-tabla'],
-    queryFn: () => api.get<TablaPublica>('/public/standings'),
+    queryFn: ({ signal }) => api.get<TablaPublica>('/public/standings', signal),
     retry: false,
   });
 

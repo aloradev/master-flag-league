@@ -1,4 +1,5 @@
 import { LeagueCommunity } from '../../components/LeagueCommunity';
+import { LeagueLive } from '../../components/LeagueLive';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -48,6 +49,7 @@ export default function Home() {
         {categories.length ? categories.map(category => <span key={category}><i aria-hidden="true">✦</i> {category}</span>) : <span><i aria-hidden="true">✦</i> MASTER FLAG LEAGUE</span>}
       </div>
 
+      <LeagueLive />
       <section className="campaign-section" aria-labelledby="vive-liga">
         <div className="campaign-section-heading"><div><p className="campaign-eyebrow">DENTRO Y FUERA DE LA CANCHA</p><h2 id="vive-liga">VIVE CADA <em>JUGADA.</em></h2></div><p>La emoción sigue después del silbatazo.<br />Todo lo que pasa en tu liga, aquí.</p></div>
         <div className="campaign-destinations">

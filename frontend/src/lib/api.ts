@@ -5,7 +5,7 @@
  * en producción VITE_API_URL apunta al servicio de Render.
  */
 const BASE = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api/v1`
+  ? `${import.meta.env.VITE_API_URL.replace(/\/+$/, '')}/api/v1`
   : '/api/v1';
 
 const TOKEN_KEY = 'mfl.token';
@@ -67,11 +67,17 @@ const request = async <T>(path: string, options: RequestOptions = {}): Promise<T
   if (token) headers.Authorization = `Bearer ${token}`;
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
 
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  options.signal?.addEventListener('abort', abort, { once: true });
+  if (options.signal?.aborted) controller.abort();
+  const timeout = setTimeout(abort, 30000);
+  try {
   const response = await fetch(`${BASE}${path}`, {
     method: options.method ?? 'GET',
     headers,
     body: options.formData ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
-    signal: options.signal,
+    signal: controller.signal,
   });
 
   if (response.status === 401) {
@@ -84,7 +90,14 @@ const request = async <T>(path: string, options: RequestOptions = {}): Promise<T
     throw new ApiError('Tu sesión expiró. Vuelve a ingresar.', 401);
   }
 
-  const payload = await response.json().catch(() => null);
+  const payload = await response.json().catch((error: unknown) => {
+    if (controller.signal.aborted) throw error;
+    return null;
+  });
+
+  if (response.ok && response.status !== 204 && payload === null) {
+    throw new ApiError('No se pudo conectar con los datos de la liga. Intenta nuevamente en un momento.', 502);
+  }
 
   if (!response.ok || payload?.success === false) {
     throw new ApiError(
@@ -95,6 +108,18 @@ const request = async <T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   return (payload?.data ?? payload) as T;
+  } catch (error) {
+    if (controller.signal.aborted && !options.signal?.aborted) {
+      throw new ApiError('La conexión tardó demasiado. El servidor puede estar iniciando; vuelve a intentar.', 408);
+    }
+    if (error instanceof TypeError) {
+      throw new ApiError('No se pudo conectar con la liga. Revisa tu conexión y vuelve a intentar.', 0);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    options.signal?.removeEventListener('abort', abort);
+  }
 };
 
 export const api = {
