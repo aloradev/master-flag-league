@@ -29,6 +29,7 @@ const data = { season: { id: 'season_2026', name: 'Temporada 2026', year: 2026 }
       assert.equal(await page.locator('dt').filter({ hasText: 'MVP ofensivos' }).locator('..').locator('dd').textContent(), '1');
       await capture('player-profile');
       const download = page.waitForEvent('download');
+      await page.locator('.public-share-panel > summary').click();
       await page.getByRole('button', { name: 'Descargar tarjeta', exact: true }).click();
       assert.ok((await download).suggestedFilename().endsWith('.png'));
       await page.getByRole('link', { name: 'Ver equipo Halcones Demo', exact: true }).click();
@@ -57,7 +58,7 @@ const data = { season: { id: 'season_2026', name: 'Temporada 2026', year: 2026 }
       await page.getByRole('heading', { name: 'Jornada de prueba', exact: true }).waitFor();
       assert.equal(await page.locator('dt').filter({ hasText: 'Touchdowns' }).locator('..').locator('dd').textContent(), '6');
       await page.getByRole('heading', { name: 'Ahora en la cancha', exact: true }).waitFor();
-      assert.ok((await page.locator('a[href="/partido/next"]').locator('..').innerText()).includes('vs'));
+      assert.deepEqual(await page.locator('a[href="/partido/next"]').locator('..').locator('.public-match-score').allTextContents(), ['—', '—']);
       await capture('round-agenda');
       await page.getByLabel('Agrupar por', { exact: true }).selectOption('categoria');
       await page.getByRole('heading', { name: 'Mixto', exact: true }).waitFor();
@@ -72,7 +73,10 @@ const data = { season: { id: 'season_2026', name: 'Temporada 2026', year: 2026 }
       await page.locator('a[href="/partido/final"]').waitFor();
       assert.equal(await page.locator('a[href="/partido/live"]').count(), 0);
       const share = decodeURIComponent(await page.getByRole('link', { name: 'Compartir', exact: true }).getAttribute('href'));
-      assert.ok(share.includes('/jornada/r1?estado=FINISHED'));
+      const sharedRound = new URL(share.split('Jornada: ')[1]);
+      assert.equal(sharedRound.pathname, '/jornada/r1');
+      assert.equal(sharedRound.searchParams.get('estado'), 'FINISHED');
+      assert.equal(sharedRound.searchParams.get('agrupar'), 'cancha');
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.locator('a[href="/partido/final"]').waitFor();
       await page.getByLabel('Jornada publicada', { exact: true }).selectOption('r2');

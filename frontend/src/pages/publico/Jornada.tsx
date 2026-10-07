@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api';
-import { Alert, Card, EmptyState, Spinner } from '../../components/ui';
+import { Alert, EmptyState, Spinner } from '../../components/ui';
 import { IconFootball } from '../../components/icons';
 import { TeamCrest } from '../../components/AuthImage';
 import { ETIQUETA_PARTIDO, type GameStatus, type RoundStatus } from '../../lib/competition';
@@ -59,33 +59,32 @@ const Equipo = ({
   logo,
   color,
   puntos,
-  alineado,
+  local,
+  ganador,
 }: {
   nombre: string;
   corto: string | null;
   logo: string | null;
   color: string | null;
   puntos: number | null;
-  alineado: 'izq' | 'der';
+  local: boolean;
+  ganador: boolean;
 }) => (
-  <div
-    className={`flex min-w-0 flex-1 items-center gap-2 ${
-      alineado === 'der' ? 'flex-row-reverse text-right' : ''
-    }`}
-  >
-    <TeamCrest name={nombre} shortName={corto} logoUrl={logo} color={color ?? undefined} className="size-9" />
-    <span className="min-w-0 flex-1 truncate text-sm font-medium">{nombre}</span>
-    {puntos != null && <span className="tabular shrink-0 text-lg font-bold">{puntos}</span>}
+  <div className="public-match-team">
+    <TeamCrest name={nombre} shortName={corto} logoUrl={logo} color={color ?? undefined} className="size-9 shrink-0" />
+    <div className="min-w-0"><p className={`public-match-name ${ganador ? 'font-bold' : 'font-semibold'}`}>{nombre}</p><p className="public-match-side">{local ? 'Local' : 'Visitante'}{ganador && <span className="ml-2 font-semibold text-primary">Ganador</span>}</p></div>
+    <span className={`public-match-score tabular ${ganador ? 'text-primary' : ''}`} aria-label={puntos == null ? 'Sin marcador' : `${puntos} puntos`}>{puntos ?? '—'}</span>
   </div>
 );
 
 export const Partido = ({ p }: { p: PartidoPublico }) => {
   const etiqueta = ETIQUETA_PARTIDO[p.status];
   const conMarcador = ['LIVE', 'FINISHED', 'WALKOVER'].includes(p.status) && p.home_score != null && p.away_score != null;
+  const final = p.status === 'FINISHED' || p.status === 'WALKOVER';
 
   return (
-    <Card className={`min-w-0 p-3 transition-shadow ${p.status === 'LIVE' ? 'border-error/60 shadow-lg shadow-error/10' : ''}`}>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-base-content/60">
+    <article aria-label={`${p.home_team_name} vs ${p.away_team_name}`} className={`public-match-card ${p.status === 'LIVE' ? 'public-match-live' : ''}`}>
+      <div className="public-match-heading">
         <span className="flex min-w-0 items-center gap-1.5">
           {p.category_color && (
             <span
@@ -94,45 +93,39 @@ export const Partido = ({ p }: { p: PartidoPublico }) => {
               aria-hidden
             />
           )}
-          <span className="truncate">{p.category_name}</span>
+          <span className="break-words">{p.category_name}</span>
           {p.game_type === 'SCRIMMAGE' && <span className="badge badge-sm badge-info">Scrimmage</span>}
         </span>
-        <span className="flex shrink-0 items-center gap-2">
-          {p.scheduled_time && <span className="tabular font-medium">{p.scheduled_time}</span>}
-          {p.field_name && <span className="max-w-32 break-words">{p.field_name}</span>}
-          <span className={`badge badge-sm ${etiqueta.tono} ${p.status === 'LIVE' ? 'animate-pulse' : ''}`}>{etiqueta.texto}</span>
-        </span>
+        <span className={`badge badge-sm shrink-0 ${etiqueta.tono}`}>{etiqueta.texto}</span>
       </div>
 
-      {p.statistics_status === 'PENDING' && <p className="mb-2 text-xs text-warning">Estadísticas pendientes</p>}
-      <div className="flex items-center gap-2">
+      <div className="public-match-teams">
         <Equipo
           nombre={p.home_team_name}
           corto={p.home_short_name}
           logo={p.home_logo_url}
           color={p.home_color}
           puntos={conMarcador ? p.home_score : null}
-          alineado="izq"
+          local
+          ganador={final && conMarcador && p.home_score! > p.away_score!}
         />
-        {/* Guion al medio de los dígitos, no de la línea base: alineado
-            abajo, "2 — 0" se lee como "2 _ 0". */}
-        <span className="shrink-0 self-center px-1 text-base-content/30">
-          {conMarcador ? '—' : 'vs'}
-        </span>
         <Equipo
           nombre={p.away_team_name}
           corto={p.away_short_name}
           logo={p.away_logo_url}
           color={p.away_color}
           puntos={conMarcador ? p.away_score : null}
-          alineado="der"
+          local={false}
+          ganador={final && conMarcador && p.away_score! > p.home_score!}
         />
       </div>
+      <dl className="public-match-details"><div><dt>Hora de Cancún</dt><dd className="tabular">{p.scheduled_time || 'Por confirmar'}</dd></div><div><dt>Cancha</dt><dd>{p.field_name || 'Por confirmar'}</dd></div></dl>
+      {final && p.statistics_status === 'PENDING' && <p className="mt-2 text-xs text-warning">Estadísticas pendientes</p>}
       {p.touchdowns?.length > 0 && (
         <div className="mt-3 border-t border-base-300 pt-2 text-xs text-base-content/70">
           <span className="font-semibold">Touchdowns:</span>{' '}
           {p.touchdowns.map((t, i) => (
-            <span key={`${t.created_at}-${i}`} className="mr-2 inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5">
+            <span key={`${t.created_at}-${i}`} className="mr-2 inline-flex max-w-full flex-wrap items-center gap-1 break-words rounded bg-base-200 px-2 py-0.5 [overflow-wrap:anywhere]">
               {t.team_id === p.home_team_id ? p.home_short_name || p.home_team_name : p.away_short_name || p.away_team_name}
               {t.quarter ? ` · Q${t.quarter}` : ''}
               {(t.quantity ?? 1)>1 ? ` · ${t.quantity} TD` : ''}
@@ -140,8 +133,8 @@ export const Partido = ({ p }: { p: PartidoPublico }) => {
           ))}
         </div>
       )}
-      <Link to={`/partido/${p.id}`} className="mt-3 block text-center text-xs font-semibold text-primary">{p.status === 'LIVE' ? 'Ver partido en vivo' : 'Ver partido'}</Link>
-    </Card>
+      <Link to={`/partido/${p.id}`} className="mt-3 flex min-h-11 items-center justify-center border-t border-base-300 text-xs font-semibold text-primary hover:bg-base-200">{p.status === 'LIVE' ? 'Ver partido en vivo' : 'Ver partido'}</Link>
+    </article>
   );
 };
 

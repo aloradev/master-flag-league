@@ -16,16 +16,17 @@ export interface TablaPublica {
 /** G / E / P en el color del resultado: cinco casillas leen mejor que un texto. */
 const Forma = ({ form }: { form: ('W' | 'D' | 'L')[] }) => {
   if (form.length === 0) return <span className="text-base-content/30">—</span>;
-  const estilo = { W: 'bg-success/80', D: 'bg-warning/80', L: 'bg-error/70' };
+  const estilo = { W: 'bg-success/15', D: 'bg-warning/20', L: 'bg-error/15' };
   const letra = { W: 'G', D: 'E', L: 'P' };
   return (
-    <span className="flex gap-0.5">
+    <span role="img" aria-label={`Últimos resultados: ${form.map(result => ({ W: 'Ganado', D: 'Empatado', L: 'Perdido' })[result]).join(', ')}`} className="flex gap-1">
       {form.map((r, i) => (
         <span
           key={i}
           title={{ W: 'Ganado', D: 'Empatado', L: 'Perdido' }[r]}
-          className={`inline-flex size-4 items-center justify-center rounded-[3px]
-                      text-[9px] font-bold text-base-100 ${estilo[r]}`}
+          aria-hidden="true"
+          className={`inline-flex size-5 items-center justify-center rounded-[3px]
+                      text-[11px] font-bold text-base-content ${estilo[r]}`}
         >
           {letra[r]}
         </span>
@@ -95,7 +96,7 @@ export default function TablaPublicaPage() {
           </Card>
           {conEquipos.map((g) => (
             <section key={g.category.id}>
-              <h2 className="mb-3 flex items-center gap-3 text-xl font-black uppercase tracking-tight">
+              <h2 className="mb-3 flex flex-wrap items-center gap-3 text-lg font-bold">
                 {g.category.color && (
                   <span
                     className="h-7 w-1.5 rounded-full"
@@ -103,66 +104,60 @@ export default function TablaPublicaPage() {
                     aria-hidden
                   />
                 )}
-                {g.category.name}
+                <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">{g.category.name}</span>
                 <span className="ml-auto text-xs font-medium normal-case tracking-normal text-base-content/60">{g.rows.length} equipos</span>
               </h2>
 
-              {/* En 390 px no caben nueve columnas. En lugar de encogerlas o
-                  dejar que la tabla se mueva de lado —donde lo primero que
-                  se sale de la pantalla es PTS, justo lo que la gente
-                  abre a ver—, se eligen columnas por prioridad, con los
-                  mismos cortes que la tabla de la aplicación. */}
-              <div className="space-y-2 sm:hidden">
-                {g.rows.map((f) => <Card key={f.team_id} className={`mfl-mobile-standing p-3 ${f.position <= 3 ? `mfl-podium-${f.position}` : ''}`}>
-                  <div className="flex items-center gap-3"><span className="mfl-rank-badge text-lg font-black text-primary">{f.position}</span><TeamCrest name={f.team_name} shortName={f.short_name} logoUrl={f.logo_url} className="size-10" /><div className="min-w-0 flex-1"><Link to={`/equipos/${f.team_id}`} className="link block truncate font-bold">{f.team_name}</Link><p className="text-xs text-base-content/60">{f.played} JJ · {f.wins} JG · {f.draws} JE · {f.losses} JP</p></div><span className="text-right"><strong className="block text-lg tabular">{f.point_diff > 0 ? '+' : ''}{f.point_diff}</strong><small className="text-[10px] uppercase text-base-content/50">DIF</small></span></div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 border-t border-base-300/60 pt-2 text-center text-xs"><span><b className="block tabular text-sm">{f.points_for}</b>PF</span><span><b className="block tabular text-sm">{f.points_against}</b>PC</span><span><b className="block tabular text-sm">{f.form.map((r) => r === 'W' ? 'G' : r === 'D' ? 'E' : 'P').join(' ') || '—'}</b>FORMA</span></div>
-                </Card>)}
-              </div>
-              <Card className="hidden overflow-x-auto sm:block">
-                <table className="table table-sm public-standings">
-                  <thead className="bg-primary/10 text-xs uppercase text-base-content/80">
+              <div className="public-standings-scroll" role="region" aria-label={`Posiciones de ${g.category.name}`} tabIndex={0}>
+                <table className="public-standings">
+                  <caption className="sr-only">{g.category.name} · {season.name}</caption>
+                  <colgroup><col className="standing-rank-column" /><col className="standing-team-column" />{Array.from({ length: 7 }, (_, index) => <col key={index} className="standing-number-column" />)}<col /></colgroup>
+                  <thead>
                     <tr>
-                      <th className="w-8 text-center">#</th>
-                      <th>Equipo</th>
-                      <th className="hidden text-center sm:table-cell" title="Juegos jugados">JJ</th>
-                      <th className="hidden text-center sm:table-cell" title="Ganados">G</th>
-                      <th className="hidden text-center sm:table-cell" title="Empatados">E</th>
-                      <th className="hidden text-center sm:table-cell" title="Perdidos">P</th>
-                      <th className="text-center" title="Diferencia: puntos a favor menos puntos en contra">DIF</th>
-                      <th className="hidden text-center lg:table-cell">Últimos</th>
+                      <th scope="col" className="standing-rank" title="Posición">#</th>
+                      <th scope="col" className="standing-team">Equipo</th>
+                      <th scope="col" title="Juegos jugados">JJ</th>
+                      <th scope="col" title="Ganados">G</th>
+                      <th scope="col" title="Empatados">E</th>
+                      <th scope="col" title="Perdidos">P</th>
+                      <th scope="col" title="Puntos a favor">PF</th>
+                      <th scope="col" title="Puntos en contra">PC</th>
+                      <th scope="col" title="Diferencia: puntos a favor menos puntos en contra">DIF</th>
+                      <th scope="col" className="standing-form">Últimos</th>
                     </tr>
                   </thead>
                   <tbody>
                     {g.rows.map((f) => (
                       <tr key={f.team_id} className={`mfl-standing-row ${f.position <= 3 ? `mfl-podium-${f.position}` : ''}`}>
-                        <td className="tabular text-center text-lg font-black text-primary"><span className="mfl-rank-badge">{f.position}</span></td>
-                        <td>
-                          <div className="flex items-center gap-2">
+                        <td className="standing-rank tabular font-bold"><span className="mfl-rank-badge">{f.position}</span></td>
+                        <th scope="row" className="standing-team">
+                          <div className="flex min-w-0 items-center gap-2">
                             <TeamCrest
                               name={f.team_name}
                               shortName={f.short_name}
                               logoUrl={f.logo_url}
-                              className="size-9"
+                              className="size-8 shrink-0"
                             />
-                            <Link to={`/equipos/${f.team_id}`} className="link min-w-0 truncate font-medium">{f.team_name}</Link>
-                            <span className="sm:hidden text-[11px] text-base-content/55">{f.played} JJ · {f.wins}G · {f.draws}E · {f.losses}P · DIF {f.point_diff > 0 ? '+' : ''}{f.point_diff}</span>
+                            <Link to={`/equipos/${f.team_id}`} className="link min-w-0 break-words font-semibold [overflow-wrap:anywhere]">{f.team_name}</Link>
                           </div>
-                        </td>
-                        <td className="tabular hidden text-center sm:table-cell">{f.played}</td>
-                        <td className="tabular hidden text-center sm:table-cell">{f.wins}</td>
-                        <td className="tabular hidden text-center sm:table-cell">{f.draws}</td>
-                        <td className="tabular hidden text-center sm:table-cell">{f.losses}</td>
-                        <td className="tabular text-center">
+                        </th>
+                        <td className="tabular">{f.played}</td>
+                        <td className="tabular font-semibold">{f.wins}</td>
+                        <td className="tabular">{f.draws}</td>
+                        <td className="tabular">{f.losses}</td>
+                        <td className="tabular">{f.points_for}</td>
+                        <td className="tabular">{f.points_against}</td>
+                        <td className="tabular">
                           <span className={f.point_diff > 0 ? 'text-success font-bold' : f.point_diff < 0 ? 'text-error' : ''}>{f.point_diff > 0 ? `+${f.point_diff}` : f.point_diff}</span>
                         </td>
-                        <td className="hidden lg:table-cell">
+                        <td className="standing-form">
                           <Forma form={f.form} />
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </Card><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={[]} table={{ headers: ['POS','EQUIPO','JJ','JG','JE','JP','PF','PC','DIF'], rows: g.rows.map(row => [String(row.position), row.team_name, String(row.played), String(row.wins), String(row.draws), String(row.losses), String(row.points_for), String(row.points_against), String(row.point_diff)]) }} filename={`mfl-posiciones-${g.category.id}`} url={`${window.location.origin}/tabla`} /></div>
+              </div><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={[]} table={{ headers: ['POS','EQUIPO','JJ','JG','JE','JP','PF','PC','DIF'], rows: g.rows.map(row => [String(row.position), row.team_name, String(row.played), String(row.wins), String(row.draws), String(row.losses), String(row.points_for), String(row.points_against), String(row.point_diff)]) }} filename={`mfl-posiciones-${g.category.id}`} url={`${window.location.origin}/tabla`} /></div>
             </section>
           ))}
         </div>

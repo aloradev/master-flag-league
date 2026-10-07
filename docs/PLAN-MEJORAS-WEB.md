@@ -1,6 +1,6 @@
 # Plan de mejoras web
 
-Actualizado: 6 de octubre de 2026.
+Actualizado: 7 de octubre de 2026.
 
 1. Implementado localmente: carga de Jornada y Tabla con espera limitada a 30 segundos, errores comprensibles y reintento. Jornada funciona aunque falle la consulta de scrimmages. Pendiente comprobar el despliegue actualizado.
 2. Implementado localmente: inicio con partidos en vivo y proximos, resultados de la ultima jornada terminada y resumen de posiciones por categoria. Pendiente publicar.
@@ -60,3 +60,40 @@ Regresion aprobada: Inicio, Jornada, Tabla, Estadisticas, equipos, partidos, jug
 Commit sugerido para mejoras 11 y 12: `feat: agrega metadatos sociales favoritos y avisos locales`
 
 Estado de la lista: mejoras 1 a 12 implementadas localmente. Queda pendiente el despliegue y la comprobacion final en produccion; favoritos y avisos son locales, no un sistema push.
+
+## Segunda pasada UI
+
+1. Implementado localmente: encabezados publicos compactos, titulos de 24 px en movil y 32 px en escritorio, menor espacio vertical y separador discreto. Se conserva el H1 y los metadatos; Compartir queda junto al titulo y se adapta al espacio disponible. La portada conserva su composicion.
+2. Implementado localmente: Favoritos integrado como icono en la barra superior, sin fila adicional, con area tactil de 44 px, etiqueta accesible, tooltip, estado activo y contador de ancho fijo. Muestra 9+ cuando hay mas de nueve avisos, conservando el total para lectores de pantalla. Identidad abreviada MFL en movil y nombre completo en escritorio.
+3. Implementado localmente: tarjetas de partido compartidas por Inicio, Jornada y equipos con filas de local/visitante, escudos de tamano fijo, nombres completos y marcadores alineados. Hora y cancha mantienen su ubicacion e indican datos por confirmar. En vivo se distingue por texto y borde; los finales identifican al ganador y los partidos sin marcador muestran guiones, no ceros ficticios. Pendiente publicar.
+4. Implementado localmente: posiciones en una tabla responsive por categoria, con posicion y equipo fijos durante el desplazamiento horizontal. Cifras alineadas, PF/PC visibles en todos los tamanos mediante desplazamiento, filas alternas, nombres completos, cabeceras semanticas y ultimos resultados legibles con letras y etiquetas accesibles. La tabla es accesible por teclado y no desplaza horizontalmente toda la pagina. Pendiente publicar.
+5. Implementado localmente: filtros de Jornada y Estadisticas agrupados en una franja compacta, con contador de filtros activos y Limpiar filtros. La limpieza conserva la jornada y agrupacion, o la estadistica elegida, ademas de otros parametros del enlace. Controles tactiles de 44 px y disposicion de dos columnas en movil. Pendiente publicar.
+6. Implementado localmente: tarjetas sociales dentro de un panel Compartir tarjeta cerrado por defecto, con formato, paginacion, vista previa, descarga y compartir imagen en el mismo lugar. Teclado y apertura/cierre nativos; se libera la vista previa al cerrar y se invalida cuando cambian los datos. El enlace directo de compartir a WhatsApp se conserva. Pendiente publicar.
+7. Implementado localmente: avisos con tipo e icono para resultados, en vivo, horario/cancha y estado; grupos Sin leer y Leidos, contador, mayor contraste en nuevos y lectura individual por boton o al abrir el partido. Se conservan lectura masiva, borrado y avisos antiguos sin tipo. Las fechas invalidas del almacenamiento se descartan sin romper la pantalla. Pendiente publicar.
+8. Implementado localmente: consistencia de pantallas publicas mediante radios de 6/8 px, botones y controles de al menos 44 px, titulos de seccion y espaciados alineados, enlaces y estados de carga/vacio/error uniformes. Tema claro/oscuro, portada y administracion conservan su identidad; las reglas se limitan al marco publico. Pendiente publicar.
+
+Pruebas UI 1 y 2: compilacion, TypeScript y navegador en 320, 390, 640 y 1280 px, tema claro y oscuro, paginas publicas y portada, contador con 30 avisos, lectura y desaparicion del contador, acceso por teclado, enlaces, titulos largos y sesion iniciada. Comprobaciones de altura de la barra, areas tactiles, ausencia de solapamientos y desbordamientos. Capturas en .qa-artifacts; prueba nueva frontend/tests/compact-public-header.cjs.
+
+Regresion aprobada: Inicio, Jornada, Tabla, Estadisticas, equipos, partidos, perfiles, enlaces para compartir, tarjetas PNG, favoritos y avisos. Pendiente publicar estos ajustes visuales.
+
+Commit sugerido para UI 1 y 2: `style: compacta encabezados publicos e integra favoritos`
+
+Pruebas UI 3 y 4: compilacion y TypeScript; navegador en 320, 390, 640 y 1280 px, claro/oscuro, seis estados de partido, nombres largos, marcadores de tres cifras y escudos iguales. Tablas con cifras positivas/negativas, posicion y equipo fijos, ultimos cinco resultados completamente visibles al desplazar, acceso por teclado y enlaces a equipos. Capturas revisadas. Prueba nueva frontend/tests/match-standings-ui.cjs.
+
+Regresion UI 3 y 4 aprobada: Inicio, Jornada, Tabla, Estadisticas, equipos, perfiles, partidos, solicitudes, tarjetas PNG y cabeceras compactas con y sin sesion. Se actualizo la comprobacion del marcador pendiente para validar los dos guiones del nuevo diseno. Se conservaron los cambios locales de UI 1 y 2.
+
+Commit sugerido para UI 3 y 4: `style: unifica partidos y mejora tablas moviles`
+
+Pruebas UI 5 y 6: compilacion y TypeScript; navegador en 320, 390, 640 y 1280 px, claro/oscuro, contador de uno a tres filtros, limpieza desde resultados vacios, persistencia de enlaces al recargar y conservacion de agrupacion/metrica. Paneles cerrados inicialmente, apertura por teclado, limpieza e invalidacion de vistas previas e imagenes cuadradas de partidos, jugadores, posiciones y lideres. Prueba nueva frontend/tests/filters-share-ui.cjs. Las pruebas de tarjetas existentes abren ahora el panel antes de descargar.
+
+Regresion UI 5 y 6 aprobada: Inicio, Jornada, Tabla, Estadisticas, equipos, partidos, perfiles, solicitudes, tres formatos PNG y paginacion, cabeceras compactas y tablas con columnas fijas. Capturas revisadas; sin desbordamientos detectados. Se conservaron los cambios locales anteriores. Pendiente publicar.
+
+Commit sugerido para UI 5 y 6: `style: ordena filtros y agrupa opciones de compartir`
+
+Pruebas UI 7 y 8: compilacion y TypeScript; navegador en 320, 390, 640 y 1280 px, claro/oscuro, tipos de aviso y compatibilidad con antiguos, grupos nuevos/leidos, lectura individual, lectura al navegar, contador, persistencia, lectura masiva y borrado. Almacenamiento bloqueado y fecha invalida sin falsa confirmacion. Nombres largos, radios, areas tactiles, error de API y reintento. Prueba nueva frontend/tests/notices-consistency-ui.cjs; la prueba existente de favoritos comprueba tambien los tipos generados al cambiar un partido.
+
+Regresion UI 7 y 8 aprobada: favoritos y sincronizacion entre pestanas, Inicio, Jornada, Tabla, Estadisticas, equipos, partidos, perfiles, solicitudes, formatos PNG y paginacion, cabeceras con/sin sesion, columnas fijas, filtros y panel de compartir. Capturas claras/oscuras revisadas; sin desbordamientos detectados. Cambios locales anteriores conservados.
+
+Commit sugerido para UI 7 y 8: `style: jerarquiza avisos y unifica la interfaz publica`
+
+Estado de la segunda pasada UI: mejoras 1 a 8 implementadas localmente; pendiente desplegar y comprobar en produccion.

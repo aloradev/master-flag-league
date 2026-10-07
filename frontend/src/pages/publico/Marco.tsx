@@ -52,7 +52,7 @@ export const Marco = ({
   return (
     <div className="public-shell min-h-dvh bg-base-100"><PageMetadata title={seo?.title ?? (campaign ? undefined : titulo)} description={seo?.description ?? subtitulo} image={seo?.image} /><FavoriteObserver /><a href="#public-content" className="skip-link">Saltar al contenido</a>
       <header className="sticky top-0 z-20 border-b border-base-300 bg-base-100/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-2">
           <div className="flex min-w-0 items-center gap-2.5">
             <Link
               to="/"
@@ -60,17 +60,20 @@ export const Marco = ({
               title="Ir al inicio"
               className="shrink-0 rounded-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <Logo size="sm" className="size-12" />
+              <Logo size="sm" className="size-10" />
             </Link>
             <div className="min-w-0 leading-tight">
-              <p className="truncate text-sm font-bold">Master Flag League</p>
+              <p className="truncate text-sm font-bold"><span className="sm:hidden">MFL</span><span className="hidden sm:inline">Master Flag League</span></p>
               <p className="truncate text-xs text-base-content/50">Cancún</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            {acciones}
+            <Link to="/favoritos" aria-label="Favoritos" title={unread > 0 ? `Favoritos · ${unread} avisos sin leer` : 'Favoritos'} aria-current={pathname === '/favoritos' ? 'page' : undefined} className={`public-favorites-link relative inline-flex size-11 shrink-0 items-center justify-center rounded-field ${pathname === '/favoritos' ? 'bg-primary/10 text-primary' : 'text-base-content/70 hover:bg-base-200'}`}>
+              <IconInbox size={20} />
+              {unread > 0 && <span className="public-favorites-count" role="status" aria-label={`${unread} avisos sin leer`}>{unread > 9 ? '9+' : unread}</span>}
+            </Link>
             {user ? <Link to={homeFor(user.role)} className="btn btn-sm btn-primary">Mi espacio</Link> : <>
-              <Link to="/ingresar" className="inline-flex min-h-10 items-center rounded-field px-2 text-xs font-semibold text-base-content/70 hover:bg-base-200 sm:px-3 sm:text-sm">Ingresar</Link>
+              <Link to="/ingresar" className="inline-flex min-h-11 items-center rounded-field px-2 text-xs font-semibold text-base-content/70 hover:bg-base-200 sm:px-3 sm:text-sm">Ingresar</Link>
               <Link to="/registro" className="btn btn-sm btn-primary hidden px-2 text-xs sm:inline-flex sm:px-3 sm:text-sm">Crear cuenta</Link>
             </>}
             <ThemeToggle compact />
@@ -80,15 +83,16 @@ export const Marco = ({
         <nav aria-label="Navegación pública" className="mx-auto hidden max-w-6xl gap-1 px-3 pb-2 sm:flex">
           {links.map(link => <Link key={link.to} to={link.to} aria-current={link.active ? 'page' : undefined} className={pestana(link.active)}>{link.desktop}</Link>)}
         </nav>
-        <div className="mx-auto flex max-w-6xl justify-end px-4 pb-2"><Link to="/favoritos" aria-current={pathname === '/favoritos' ? 'page' : undefined} className="inline-flex min-h-9 items-center gap-2 text-xs font-semibold text-base-content/70"><IconInbox size={16} />Favoritos{unread > 0 && <span className="badge badge-primary badge-sm" aria-label={`${unread} avisos sin leer`}>{unread}</span>}</Link></div>
       </header>
 
-      <main id="public-content" tabIndex={-1} className={campaign ? 'mfl-campaign' : 'mx-auto max-w-5xl px-4 py-6'}>
-        {!campaign && <div className="public-page-heading mb-6">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-primary">MFL · Cancún</p>
-          <h1 className="mt-2 text-3xl font-black uppercase tracking-tight sm:text-5xl">{titulo}</h1>
-          {subtitulo && <p className="text-sm text-base-content/60">{subtitulo}</p>}
+      <main id="public-content" tabIndex={-1} className={campaign ? 'mfl-campaign' : 'mx-auto max-w-5xl px-4 py-4'}>
+        {!campaign && <div className="public-page-heading">
+          <div className="public-page-heading-copy"><h1>{titulo}</h1>
+            {subtitulo && <p>{subtitulo}</p>}
+          </div>
+          {acciones && <div className="public-page-actions">{acciones}</div>}
         </div>}
+        {campaign && acciones && <div className="mx-auto flex max-w-6xl flex-wrap gap-2 px-4 py-2">{acciones}</div>}
         {children}
       </main>
 

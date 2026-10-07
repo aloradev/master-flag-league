@@ -45,6 +45,7 @@ const base = process.env.QA_BASE_URL || 'http://127.0.0.1:5190';
       assert.equal(await page.getByRole('button', { name: 'Agregar a mi calendario', exact: true }).count(), 0);
       await capture('match-final');
       const imagePromise = page.waitForEvent('download');
+      await page.locator('.public-share-panel > summary').click();
       await page.getByRole('button', { name: 'Descargar tarjeta', exact: true }).click();
       assert.ok((await imagePromise).suggestedFilename().endsWith('.png'));
       assert.ok((await page.getByRole('link', { name: 'Compartir', exact: true }).getAttribute('href')).includes('demo_final'));

@@ -6,6 +6,7 @@ import { Alert, Card, EmptyState, Spinner } from '../../components/ui';
 import { Marco, BotonCompartir } from './Marco';
 import type { TablaPublica } from './Tabla';
 import { ShareCard } from '../../components/ShareCard';
+import { PublicFilters } from '../../components/PublicFilters';
 
 const METRICS = [
   { key: 'touchdowns', label: 'Touchdowns' },
@@ -55,9 +56,14 @@ export default function EstadisticasPublicas() {
     }, { replace: true });
   };
   const share = `${metric.label} · ${category || 'Todas las categorías'} · ${season?.name ?? 'Master Flag League'}\n${window.location.href}`;
+  const clearFilters = () => setParams(previous => {
+    const next = new URLSearchParams(previous);
+    next.delete('categoria'); next.delete('equipo');
+    return next;
+  }, { replace: true });
   return <Marco titulo="Estadísticas" subtitulo={season?.name} acciones={<BotonCompartir texto={share} />}>
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <PublicFilters label="Filtros de estadísticas" activeCount={[categoryId, teamId].filter(Boolean).length} onClear={clearFilters} threeColumns>
         <div className="min-w-0 text-sm font-semibold"><label htmlFor="stats-category">Categoría</label><select id="stats-category" className="select mt-1 w-full" value={categoryId} onChange={event => update('categoria', event.target.value)} disabled={!tabla.data}>
           <option value="">Todas las categorías</option>{tabla.data?.categories.map(group => <option key={group.category.id} value={group.category.id}>{group.category.name}</option>)}
         </select></div>
@@ -67,7 +73,7 @@ export default function EstadisticasPublicas() {
         <div className="min-w-0 text-sm font-semibold"><label htmlFor="stats-metric">Estadística</label><select id="stats-metric" className="select mt-1 w-full" value={metric.key} onChange={event => update('metrica', event.target.value)}>
           {METRICS.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
         </select></div>
-      </div>
+      </PublicFilters>
       <p className="text-sm text-base-content/65">Solo partidos oficiales terminados con estadísticas completas. Los partidos pendientes de captura y los scrimmages no cuentan.</p>
       {tabla.isLoading || (season && stats.isLoading) ? <Spinner label="Cargando estadísticas..." />
         : (tabla.isError && !tabla.data) || (stats.isError && !stats.data) ? <EmptyState
