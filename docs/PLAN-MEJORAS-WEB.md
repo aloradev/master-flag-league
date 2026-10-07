@@ -101,3 +101,28 @@ Estado de la segunda pasada UI: mejoras 1 a 8 implementadas localmente; pendient
 Correccion posterior de Inicio: retirada la altura porcentual de las tarjetas compartidas, que desbordaban su columna y se superponian con posiciones y la siguiente seccion. La prueba public-pages.cjs reproduce el fallo antes del arreglo y valida despues la contencion vertical, separacion de tarjetas y secciones en 320, 390, 470, 640, 768, 1024 y 1280 px; incluye regresion de Jornada y Tabla. Compilacion y TypeScript aprobados. Lista UI 1 a 8 conservada; correccion local pendiente de publicar.
 
 Commit sugerido: `fix: corrige superposicion de partidos en inicio`
+
+## Iteracion posterior a la auditoria de producto
+
+1. Implementado localmente: contraste de Inicio por tema. Nombres de Comunidad claros sobre tarjetas oscuras, resumen e invitacion legibles en claro, acentos de enlaces promocionales adaptados al fondo, titular amarillo con variante oscura en claro y texto blanco en la franja de categorias clara. Sin cambios de distribucion ni nuevas funciones. Pendiente publicar.
+2. Implementado localmente: cabecera de Inicio compacta con Master Flag League como titulo, arte promocional conservado, acceso principal Ver jornada y opciones de inscripcion/Busco equipo visibles. LeagueLive va inmediatamente despues de la identidad; la franja de categorias pasa debajo del bloque deportivo. Se retiran las alturas minimas de 650/780 px y el gran desplazamiento vertical de la imagen; las tarjetas y consultas compartidas no cambian. Pendiente publicar.
+3. Pendiente: balance esencial de posiciones visible sin scroll horizontal en movil.
+4. Pendiente: fecha y contexto correctos para resultados anteriores en Inicio.
+5. Pendiente: aclarar compartir enlace frente a compartir imagen y verificar capacidades reales del dispositivo.
+6. Pendiente: respaldo de avatar y escudo cuando falla una URL de imagen.
+7. Pendiente: reducir desplazamientos de contenido durante carga, sin alturas rigidas.
+8. Pendiente: validar descubrimiento de favoritos con jugadores antes de cambiar su acceso.
+9. Pendiente: validar rapidez para encontrar lideres y prioridad de controles en Estadisticas.
+10. Pendiente: cerrar validacion del artefacto desplegado, rutas y vistas previas sociales.
+
+Pruebas del punto 1: TypeScript y build aprobados. Nueva prueba frontend/tests/home-contrast.cjs: contraste de textos revisados, extremos de fondos degradados, geometria estable entre temas, enlaces a equipos y ausencia de overflow global en 320, 360, 390, 430, 640, 768, 1024 y 1280 px, claro/oscuro. Capturas de Comunidad revisadas en ambos temas. Regresion public-pages.cjs aprobada para Inicio/Jornada/Tabla, incluida contencion vertical, en siete anchos. Esto no certifica el contraste de toda la aplicacion ni sustituye pruebas en dispositivos reales.
+
+Commit sugerido para el punto 1: `fix: mejora contraste del inicio en tema claro`
+
+Pruebas del punto 2: TypeScript y build aprobados. Nueva prueba frontend/tests/home-entry.cjs en 320, 360, 390, 430, 640, 768, 1024 y 1280 px, claro/oscuro: marca y primer equipo visibles al entrar con viewport de 844 px, imagen cargada, enlaces a Jornada/registro/Busco equipo, controles tactiles, siete partidos, contencion de tarjetas y secciones. Casos adicionales en 320/1280: vacio, solo resultados, error/reintento, carga bloqueada, nombres largos, texto de cabecera ampliado y pantallas de poca altura. Primer partido en el fixture entre 536 y 596 px segun ancho, frente a aproximadamente 1290-1325 px moviles medidos en la auditoria con otros datos; las cifras dependen del contenido. No se promete mostrar el partido completo en cualquier telefono o con texto ampliado.
+
+Regresion del punto 2: home-contrast.cjs, public-pages.cjs y compact-public-header.cjs; contraste, navegacion, encabezados y contencion vertical conservados. Capturas moviles y de escritorio revisadas en ambos temas. No sustituye la validacion en dispositivos reales ni en produccion.
+
+Commit sugerido para el punto 2: `style: acerca la actividad de la liga al inicio`
+
+Estado: puntos 1 y 2 implementados localmente. No avanzar automaticamente al punto 3; pendiente publicar y validar en produccion.

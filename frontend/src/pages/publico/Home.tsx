@@ -32,24 +32,24 @@ export default function Home() {
         <div className="campaign-hero-shade" aria-hidden="true" />
         <div className="campaign-hero-content">
           <p className="campaign-eyebrow"><span /> CANCÚN, MÉXICO · FLAG FOOTBALL</p>
-          <h1>LA CANCHA<br />ES <em>TUYA.</em></h1>
-          <p className="campaign-hero-description">Tu equipo. Tu gente. Tu siguiente jugada.<br />Forma parte de Master Flag League.</p>
+          <h1>MASTER FLAG<br /><em>LEAGUE.</em></h1>
+          <p className="campaign-hero-description">La cancha es tuya. Tu equipo, tu gente y tu siguiente jugada.</p>
           <div className="campaign-actions">
-            <Link className="campaign-button campaign-button-yellow" to="/registro">Inscribe a tu equipo <span aria-hidden="true">↗</span></Link>
+            <Link className="campaign-button campaign-button-yellow" to="/jornada">Ver jornada <span aria-hidden="true">→</span></Link>
+            <Link className="campaign-button campaign-button-outline" to="/registro">Inscribe tu equipo <span aria-hidden="true">↗</span></Link>
             <Link className="campaign-button campaign-button-outline" to="/jugar">Busco equipo <span aria-hidden="true">→</span></Link>
-            <Link className="campaign-button campaign-button-outline" to="/jornada">Explora la liga <span aria-hidden="true">→</span></Link>
           </div>
-          <div className="campaign-hero-signature"><img src="/logo-96.webp" alt="" width="44" height="44" /><span>MASTER FLAG LEAGUE<br /><small>El juego nos une.</small></span></div>
         </div>
         <span className="campaign-art-credit">ARTE PROMOCIONAL MFL</span>
       </section>
+
+      <LeagueLive />
 
       <div className="campaign-strip" aria-label="Categorías con inscripción disponible">
         <span>UNA LIGA. TODA LA PASIÓN.</span>
         {categories.length ? categories.map(category => <span key={category}><i aria-hidden="true">✦</i> {category}</span>) : <span><i aria-hidden="true">✦</i> MASTER FLAG LEAGUE</span>}
       </div>
 
-      <LeagueLive />
       <section className="campaign-section" aria-labelledby="vive-liga">
         <div className="campaign-section-heading"><div><p className="campaign-eyebrow">DENTRO Y FUERA DE LA CANCHA</p><h2 id="vive-liga">VIVE CADA <em>JUGADA.</em></h2></div><p>La emoción sigue después del silbatazo.<br />Todo lo que pasa en tu liga, aquí.</p></div>
         <div className="campaign-destinations">
