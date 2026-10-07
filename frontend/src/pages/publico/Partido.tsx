@@ -10,6 +10,7 @@ import { ETIQUETA_PARTIDO } from '../../lib/competition';
 import type { PublicGame } from '../../lib/publicSports';
 import { Marco, BotonCompartir } from './Marco';
 import { fechaTexto } from '../../lib/format';
+import { DataFreshness } from '../../components/DataFreshness';
 
 export default function PartidoPublico() {
   const { id = '' } = useParams();
@@ -20,7 +21,7 @@ export default function PartidoPublico() {
     refetchInterval: query => query.state.data?.status === 'LIVE' ? 10000 : 60000,
   });
   if (consulta.isLoading) return <Marco titulo="Partido"><Spinner /></Marco>;
-  if (!consulta.data) return <Marco titulo="Partido"><EmptyState title={consulta.error instanceof ApiError && consulta.error.status === 404 ? 'Partido no disponible' : 'No se pudo cargar el partido'} description={consulta.error?.message} action={<button className="btn" onClick={() => void consulta.refetch()}>Reintentar</button>} /></Marco>;
+  if (!consulta.data) return <Marco titulo="Partido"><EmptyState title={consulta.error instanceof ApiError && consulta.error.status === 404 ? 'Partido no disponible' : 'No se pudo cargar el partido'} description={consulta.error?.message} action={consulta.error instanceof ApiError && consulta.error.status === 404 ? <Link to="/jornada" className="btn min-h-11">Ver jornada</Link> : <button className="btn" onClick={() => void consulta.refetch()}>Reintentar</button>} /></Marco>;
   const p = consulta.data;
   const final = p.status === 'FINISHED' || p.status === 'WALKOVER';
   const scored = (final || p.status === 'LIVE') && p.home_score != null && p.away_score != null;
@@ -42,6 +43,7 @@ export default function PartidoPublico() {
   return <Marco titulo={title} subtitulo={p.category_name} seo={{ title: `${p.home_team_name} ${score} ${p.away_team_name}`, description: `${status.texto} · ${p.category_name} · ${p.scheduled_date.slice(0, 10)} · ${p.scheduled_time || 'Hora por confirmar'} · ${p.field_name || 'Cancha por confirmar'}.` }} acciones={<BotonCompartir texto={message} />}>
     <div className="space-y-6">
       <FavoriteButton favorite={{ kind: 'game', id: p.id, name: `${p.home_team_name} vs ${p.away_team_name}` }} />
+      <DataFreshness label="Partido" query={consulta} />
       <nav aria-label="Volver a la jornada"><Link className="link text-sm" to={p.round_id ? `/jornada/${p.round_id}` : '/jornada'}>{p.round_number ? `Jornada ${p.round_number}` : 'Ver jornada'}</Link></nav>
       {consulta.isError && <Alert tone="warning">No se pudo actualizar el partido. Se muestra la última información recibida.</Alert>}
       {p.game_type === 'SCRIMMAGE' && <Alert tone="info">Scrimmage. No cuenta para posiciones ni rankings oficiales.</Alert>}

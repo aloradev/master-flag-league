@@ -162,3 +162,20 @@ Trabajo del punto 10: nueva deployed-readonly.cjs y tres ejecuciones sobre el si
 Commit sugerido para el punto 10: `test: documenta validacion de solo lectura del sitio publicado`
 
 Estado: puntos 1 a 7 y 9 implementados localmente. Punto 8 pendiente de prueba con cinco jugadores; punto 9 pendiente de medir rapidez con personas. Punto 10 parcialmente comprobado, con pendientes explicitados en el informe de despliegue; no se declara el sitio completamente validado ni todos los cambios publicados.
+
+## Mejoras adicionales de orientacion
+
+Lista independiente de la iteracion anterior, autorizadas 1 y 3.
+
+1. Implementado localmente: enlaces inexistentes con salida contextual. Equipo 404 ofrece Ver equipos, jugador 404 Ver estadisticas, partido/jornada explicita 404 Ver jornada. Jornada vigente sin publicar ofrece Ver equipos, sin enlazar a si misma. Errores temporales y de conexion conservan Reintentar. En jornada explicita fallida, los scrimmages disponibles ya no ocultan el aviso del enlace inexistente; se conservan debajo. No cambia la respuesta HTTP del servidor ni el funcionamiento de las fichas cargadas.
+2. Pendiente: mostrar actualidad de los datos y diferenciar consulta fallida, ultima informacion disponible y captura pendiente.
+3. Implementado localmente: categoria y equipo junto al titulo de ranking, vinculados semanticamente a la seccion. El contexto se conserva al cambiar metrica/recargar y se incluye en enlace compartido y subtitulo de imagen. Identificadores desconocidos se muestran como Categoria/Equipo no disponible, nunca como todos. Calculos, empates y filtros sin cambios.
+4. Pendiente: completar revision de texto ampliado y teclado.
+5. Pendiente: comprobar conservacion de filtros y desplazamiento al volver de perfiles.
+6. Pendiente: revisar consistencia de estados deportivos entre Inicio, Jornada y Partido.
+
+Pruebas adicionales 1 y 3: TypeScript y build aprobados. Nueva recovery-ranking-context.cjs en 320/390/640/1280, ambos temas: salidas 404 de cuatro fichas, destino y acceso con teclado, controles de 44 px, recuperacion de 503 y fallo de conexion, vigente sin publicar, error explicito junto a scrimmages, contexto de ranking con filtros/desconocidos/nombres largos, enlace compartido, recarga y limpieza sin perder metrica ni parametros ajenos. Capturas de 404 y ranking revisadas. Regresion public-statistics.cjs, public-team-match.cjs, public-player-round.cjs, filters-share-ui.cjs y statistics-priority.cjs; incluye vistas previas PNG y empates. Pendiente publicar y validar con personas/dispositivos reales.
+
+Commit sugerido para adicionales 1 y 3: `fix: orienta enlaces inexistentes y aclara alcance de rankings`
+
+Estado adicional: 1 y 3 implementados localmente; 2, 4, 5 y 6 pendientes. No avanzar automaticamente. Se mantienen los pendientes de validacion de la iteracion anterior.

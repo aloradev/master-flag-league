@@ -7,6 +7,7 @@ import { Alert, EmptyState, Spinner } from '../../components/ui';
 import { PlayerAvatar, TeamCrest } from '../../components/AuthImage';
 import { ShareCard } from '../../components/ShareCard';
 import { Marco, BotonCompartir } from './Marco';
+import { DataFreshness } from '../../components/DataFreshness';
 
 interface PublicPlayer {
   id: string; full_name: string; jersey_number: number | null; position: string | null;
@@ -29,7 +30,7 @@ export default function PublicPlayer() {
     refetchInterval: 60000,
   });
   if (player.isLoading) return <Marco titulo="Perfil de jugador"><Spinner /></Marco>;
-  if (!player.data) return <Marco titulo="Perfil de jugador"><EmptyState title={player.error instanceof ApiError && player.error.status === 404 ? 'Jugador no encontrado' : 'No pudimos cargar el perfil'} description={player.error?.message} action={<button className="btn" onClick={() => void player.refetch()}>Reintentar</button>} /></Marco>;
+  if (!player.data) return <Marco titulo="Perfil de jugador"><EmptyState title={player.error instanceof ApiError && player.error.status === 404 ? 'Jugador no encontrado' : 'No pudimos cargar el perfil'} description={player.error?.message} action={player.error instanceof ApiError && player.error.status === 404 ? <Link to="/estadisticas" className="btn min-h-11">Ver estadísticas</Link> : <button className="btn" onClick={() => void player.refetch()}>Reintentar</button>} /></Marco>;
   const p = player.data;
   const s = stats.data?.find(row => row.player_id === id);
   const games = Number(s?.games_played ?? 0);
@@ -42,6 +43,7 @@ export default function PublicPlayer() {
   return <Marco titulo={p.full_name} subtitulo={`${p.category_name} · ${p.season_name}`} seo={{ description: `${p.full_name} · ${p.team_name} · ${p.category_name}. Estadísticas y reconocimientos de temporada.`, image: p.avatar_url || undefined }} acciones={<BotonCompartir texto={`${p.full_name} · ${p.team_name}\n${url}`} />}>
     <div className="space-y-6">
       <FavoriteButton favorite={{ kind: 'player', id: p.id, name: p.full_name }} />
+      <DataFreshness label="Perfil" query={player} />
       {player.isError && <Alert tone="warning">No se pudo actualizar el perfil. Se muestra la última información recibida.</Alert>}
       <section aria-label="Identidad deportiva" className="flex flex-wrap items-center gap-5 border-b border-base-300 pb-6">
         <PlayerAvatar avatarUrl={p.avatar_url} name={p.full_name} jersey={p.jersey_number} size="lg" />
@@ -51,6 +53,7 @@ export default function PublicPlayer() {
       </section>
       <section aria-labelledby="player-season"><h2 id="player-season" className="text-xl font-bold">Temporada en números</h2>
         <p className="mt-2 text-sm text-base-content/60">Solo partidos oficiales terminados con estadísticas completas. Los encuentros pendientes de captura y scrimmages no cuentan.</p>
+        <DataFreshness label="Estadísticas del jugador" query={stats} />
         {stats.isLoading ? <Spinner label="Cargando estadísticas..." /> : stats.isError && !stats.data ? <EmptyState title="No se pudieron cargar las estadísticas" description={stats.error.message} action={<button className="btn" onClick={() => void stats.refetch()}>Reintentar estadísticas</button>} /> : <>
           {stats.isError && <Alert tone="warning">No se pudieron actualizar las estadísticas. Se muestran los últimos datos recibidos.</Alert>}
           {games === 0 && <p role="status" className="mt-4 text-sm">Todavía no hay partidos con estadísticas completas para este jugador.</p>}

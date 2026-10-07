@@ -7,6 +7,7 @@ import { Marco, BotonCompartir } from './Marco';
 import type { TablaPublica } from './Tabla';
 import { ShareCard } from '../../components/ShareCard';
 import { PublicFilters } from '../../components/PublicFilters';
+import { DataFreshness } from '../../components/DataFreshness';
 
 const METRICS = [
   { key: 'touchdowns', label: 'Touchdowns' },
@@ -47,6 +48,8 @@ export default function EstadisticasPublicas() {
   const rows = (stats.data ?? []).filter(player => (!teamId || player.team_id === teamId) && Number(player[metric.key]) > 0)
     .sort((a, b) => Number(b[metric.key]) - Number(a[metric.key]) || a.player_name.localeCompare(b.player_name, 'es'));
   const category = tabla.data?.categories.find(group => group.category.id === categoryId)?.category.name;
+  const teamName = teams.find(([id]) => id === teamId)?.[1];
+  const scope = `${categoryId ? category ?? 'Categoría no disponible' : 'Todas las categorías'} · ${teamId ? teamName ?? 'Equipo no disponible' : 'Todos los equipos'}`;
   const update = (key: string, value: string) => {
     setParams(previous => {
       const next = new URLSearchParams(previous);
@@ -55,7 +58,7 @@ export default function EstadisticasPublicas() {
       return next;
     }, { replace: true });
   };
-  const share = `${metric.label} · ${category || 'Todas las categorías'} · ${season?.name ?? 'Master Flag League'}\n${window.location.href}`;
+  const share = `${metric.label} · ${scope} · ${season?.name ?? 'Master Flag League'}\n${window.location.href}`;
   const clearFilters = () => setParams(previous => {
     const next = new URLSearchParams(previous);
     next.delete('categoria'); next.delete('equipo');
@@ -81,8 +84,8 @@ export default function EstadisticasPublicas() {
           action={<button className="btn btn-primary" onClick={() => void (tabla.isError ? tabla.refetch() : stats.refetch())}>Reintentar</button>}
         /> : <>
           {(stats.isError || tabla.isError) && <Alert tone="warning">No se pudieron actualizar todos los datos. Se muestra la última información recibida.</Alert>}
-          <section aria-labelledby="ranking-title">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 id="ranking-title" className="text-xl font-bold">Líderes en {metric.label.toLocaleLowerCase('es')}</h2><span className="text-xs text-base-content/60">{category || 'Todas las categorías'}</span></div>
+          <section aria-labelledby="ranking-title" aria-describedby="ranking-context">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 id="ranking-title" className="text-xl font-bold">Líderes en {metric.label.toLocaleLowerCase('es')}</h2><p id="ranking-context" className="min-w-0 break-words text-xs text-base-content/60 [overflow-wrap:anywhere]">{scope}</p></div>
             {!rows.length ? <EmptyState title="Aún no hay registros para este filtro" description="Los líderes aparecerán cuando se publiquen estadísticas completas de jugadores para esta categoría y equipo." /> : <Card className="overflow-hidden">
               <ol aria-label={`Ranking de ${metric.label}`} className="divide-y divide-base-300">
                 {rows.slice(0, 25).map((player, index) => {
@@ -97,7 +100,8 @@ export default function EstadisticasPublicas() {
             </Card>}
             {!!rows.length && <p className="mt-3 text-xs text-base-content/60">{Math.min(rows.length, 25)} de {rows.length} jugadores con registros. Los empates comparten posición.</p>}
             <p className="mt-3 text-sm text-base-content/65">Solo partidos oficiales terminados con estadísticas completas. Los partidos pendientes de captura y los scrimmages no cuentan.</p>
-            {!!rows.length && <div className="mt-5"><ShareCard title={`Líderes · ${metric.label}`} subtitle={`${category || 'Todas las categorías'} · ${season?.name ?? 'MFL'}`} lines={[]} table={{ headers: ['POS', 'JUGADOR', 'EQUIPO', metric.label], rows: rows.slice(0, 25).map(player => [String(rows.findIndex(item => Number(item[metric.key]) === Number(player[metric.key])) + 1), player.player_name, player.team_name, String(Number(player[metric.key]))]) }} filename={`mfl-lideres-${metric.key}`} url={window.location.href} /></div>}
+            <DataFreshness label="Estadísticas" query={stats} />
+            {!!rows.length && <div className="mt-5"><ShareCard title={`Líderes · ${metric.label}`} subtitle={`${scope} · ${season?.name ?? 'MFL'}`} lines={[]} table={{ headers: ['POS', 'JUGADOR', 'EQUIPO', metric.label], rows: rows.slice(0, 25).map(player => [String(rows.findIndex(item => Number(item[metric.key]) === Number(player[metric.key])) + 1), player.player_name, player.team_name, String(Number(player[metric.key]))]) }} filename={`mfl-lideres-${metric.key}`} url={window.location.href} /></div>}
           </section>
         </>}
     </div>

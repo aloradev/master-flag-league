@@ -1,5 +1,6 @@
 import { ShareCard } from '../../components/ShareCard';
 import { useQuery } from '@tanstack/react-query';
+import { DataFreshness } from '../../components/DataFreshness';
 import { Link } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api';
 import { Card, EmptyState, Spinner } from '../../components/ui';
@@ -44,7 +45,7 @@ export default function TablaPublicaPage() {
 
   if (consulta.isLoading) return <Marco titulo="Tabla general"><Spinner /></Marco>;
 
-  if (consulta.isError || !consulta.data) {
+  if (!consulta.data) {
     return (
       <Marco titulo="Tabla general">
         <EmptyState
@@ -79,6 +80,7 @@ export default function TablaPublicaPage() {
       subtitulo={season.name}
       acciones={conEquipos.length > 0 ? <BotonCompartir texto={mensaje} /> : undefined}
     >
+      <DataFreshness label="Posiciones" query={consulta} />
       {conEquipos.length === 0 ? (
         <EmptyState
           icon={<IconTrophy size={40} />}

@@ -6,6 +6,7 @@ import { TeamCrest } from './AuthImage';
 import { Partido, type JornadaPublica } from '../pages/publico/Jornada';
 import type { TablaPublica } from '../pages/publico/Tabla';
 import type { RoundStatus } from '../lib/competition';
+import { DataFreshness } from './DataFreshness';
 
 function LoadingLeague({ standings = false, label = 'Cargando datos de la liga...' }: { standings?: boolean; label?: string }) {
   return <div role="status" className="league-loading"><span className="sr-only">{label}</span>
@@ -83,11 +84,14 @@ export function LeagueLive() {
         </section>)}
         {!recientes.length && (cargandoResultados ? <LoadingLeague label="Consultando resultados..." /> : <p role="status" className="text-sm">{resultados.isError || calendario.isError ? 'No se pudieron consultar los resultados anteriores.' : 'Todavía no hay resultados publicados.'}</p>)}
         {(resultados.isError || calendario.isError) && <button className="btn btn-sm" onClick={() => void (calendario.isError ? calendario.refetch() : resultados.refetch())}>Reintentar resultados</button>}
+        <DataFreshness label="Jornada vigente" query={jornada} />
+        {resultados.data && ultima?.id !== jornada.data?.round.id && <DataFreshness label="Resultados anteriores" query={resultados} />}
       </div>
       <div className="min-w-0 space-y-4"><div className="flex items-center justify-between gap-3"><h3 className="text-lg font-bold">Posiciones por categoría</h3><Link className="link text-sm" to="/tabla">Ver tabla</Link></div>
         {estado(tabla)}
         {tabla.data && !groups.length && <p className="text-sm">Todavía no hay equipos en la tabla.</p>}
         {groups.map(group => <section key={group.category.id} className="border-t border-base-content/20 pt-3"><h4 className="mb-2 font-bold">{group.category.name}</h4><ol className="divide-y divide-base-content/15">{group.rows.slice(0, 3).map(team => <li key={team.team_id} className="flex min-w-0 items-center gap-3 py-3"><span className="w-5 shrink-0 font-bold">{team.position}</span><TeamCrest name={team.team_name} shortName={team.short_name} logoUrl={team.logo_url} className="size-9 shrink-0" /><Link to={`/equipos/${team.team_id}`} className="link min-w-0 flex-1 break-words text-sm font-semibold">{team.team_name}</Link><span className="shrink-0 text-right text-xs">{team.wins} G · {team.losses} P<br />DIF {team.point_diff > 0 ? '+' : ''}{team.point_diff}</span></li>)}</ol></section>)}
+        <DataFreshness label="Posiciones" query={tabla} />
       </div>
     </div>
     {(jornada.isError && jornada.data || tabla.isError && tabla.data) && <p role="status" className="mt-4 text-sm">No se pudieron actualizar todos los datos. Se muestra la última información recibida.</p>}

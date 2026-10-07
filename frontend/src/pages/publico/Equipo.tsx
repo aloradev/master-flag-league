@@ -8,6 +8,7 @@ import { PlayerAvatar, TeamCrest } from '../../components/AuthImage';
 import { fechaTexto } from '../../lib/format';
 import { Partido } from './Jornada';
 import { Marco, BotonCompartir } from './Marco';
+import { DataFreshness } from '../../components/DataFreshness';
 
 export default function EquipoPublico() {
   const { id = '' } = useParams();
@@ -16,7 +17,7 @@ export default function EquipoPublico() {
   const view = views.find(item => item.key === params.get('vista'))?.key ?? 'proximos';
   const query = useQuery({ queryKey: ['public-team', id], queryFn: ({ signal }) => api.get<PublicTeam>(`/public/teams/${encodeURIComponent(id)}`, signal), retry: false, refetchInterval: 60000 });
   if (query.isLoading) return <Marco titulo="Equipo"><Spinner /></Marco>;
-  if (!query.data) return <Marco titulo="Equipo"><EmptyState title={query.error instanceof ApiError && query.error.status === 404 ? 'Equipo no encontrado' : 'No pudimos cargar el equipo'} description={query.error?.message} action={<button className="btn" onClick={() => void query.refetch()}>Reintentar</button>} /></Marco>;
+  if (!query.data) return <Marco titulo="Equipo"><EmptyState title={query.error instanceof ApiError && query.error.status === 404 ? 'Equipo no encontrado' : 'No pudimos cargar el equipo'} description={query.error?.message} action={query.error instanceof ApiError && query.error.status === 404 ? <Link to="/tabla" className="btn min-h-11">Ver equipos</Link> : <button className="btn" onClick={() => void query.refetch()}>Reintentar</button>} /></Marco>;
   const { team, standing, roster, games } = query.data;
   const results = games.filter(game => game.status === 'FINISHED' || game.status === 'WALKOVER').sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date) || (b.scheduled_time ?? '').localeCompare(a.scheduled_time ?? ''));
   const upcoming = games.filter(game => ['LIVE', 'SCHEDULED', 'POSTPONED'].includes(game.status)).sort((a, b) => Number(b.status === 'LIVE') - Number(a.status === 'LIVE') || a.scheduled_date.localeCompare(b.scheduled_date) || (a.scheduled_time ?? '').localeCompare(b.scheduled_time ?? ''));
@@ -25,6 +26,7 @@ export default function EquipoPublico() {
   return <Marco titulo={team.name} subtitulo={`${team.category_name} · ${team.season_name}`} seo={{ description: `${team.name} · ${team.category_name} · ${team.season_name}. Plantilla, partidos y resultados.`, image: team.logo_url || undefined }} acciones={<BotonCompartir texto={message} />}>
     <div className="space-y-6">
       <FavoriteButton favorite={{ kind: 'team', id: team.id, name: team.name }} />
+      <DataFreshness label="Equipo" query={query} />
       {query.isError && <Alert tone="warning">No se pudo actualizar el equipo. Se muestra la última información recibida.</Alert>}
       <div className="flex items-center gap-4 border-b border-base-300 pb-5"><TeamCrest name={team.name} shortName={team.short_name} logoUrl={team.logo_url} color={team.color_primary ?? undefined} className="size-20 shrink-0" /><div><p className="font-bold">{team.category_name}</p><p className="text-sm text-base-content/60">{roster.length} jugadores en la plantilla pública</p></div></div>
       {standing ? <section aria-label="Resumen de temporada"><dl className="grid grid-cols-3 gap-y-4 sm:grid-cols-6">{[

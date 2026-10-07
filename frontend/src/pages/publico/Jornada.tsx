@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { DataFreshness } from '../../components/DataFreshness';
 import { useParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api';
@@ -174,11 +175,11 @@ export default function JornadaPublicaPage() {
   if (!consulta.data) {
     return (
       <Marco titulo="Jornada">
-        {!scrimmages.data?.length && <EmptyState
+        {(!scrimmages.data?.length || id) && <EmptyState
           icon={<IconFootball size={40} />}
-          title={consulta.error instanceof ApiError && consulta.error.status === 404 ? 'Todavía no hay jornada publicada' : 'No se pudo cargar la jornada'}
+          title={consulta.error instanceof ApiError && consulta.error.status === 404 ? id ? 'Jornada no encontrada' : 'Todavía no hay jornada publicada' : 'No se pudo cargar la jornada'}
           description={consulta.error?.message ?? 'Intenta nuevamente en un momento.'}
-          action={<button className="btn min-h-11" onClick={() => void consulta.refetch()}>Reintentar</button>}
+          action={consulta.error instanceof ApiError && consulta.error.status === 404 ? <Link to={id ? '/jornada' : '/tabla'} className="btn min-h-11">{id ? 'Ver jornada' : 'Ver equipos'}</Link> : <button className="btn min-h-11" onClick={() => void consulta.refetch()}>Reintentar</button>}
         />}
         {pruebas}
       </Marco>
@@ -212,6 +213,7 @@ export default function JornadaPublicaPage() {
     >
       {consulta.isError && <Alert tone="warning">Reconectando… Se muestran los últimos resultados recibidos.</Alert>}
       <JornadaAgenda data={consulta.data} />
+      <DataFreshness label="Jornada" query={consulta} />
       {pruebas}
     </Marco>
   );
