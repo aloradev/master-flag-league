@@ -1,6 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { Logo } from '../../components/Logo';
+import { PageMetadata } from '../../components/PageMetadata';
+import { FavoriteObserver } from '../../components/Favorites';
+import { useFavorites } from '../../lib/favorites';
+import { IconInbox } from '../../components/icons';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { useAuth, homeFor } from '../../store/auth';
 import { IconShield, IconFootball, IconTrophy, IconDashboard, IconUsers } from '../../components/icons';
@@ -19,15 +23,19 @@ export const Marco = ({
   acciones,
   children,
   campaign = false,
+  seo,
 }: {
   titulo: string;
   subtitulo?: string;
   acciones?: ReactNode;
   children: ReactNode;
   campaign?: boolean;
+  seo?: { title?: string; description?: string; image?: string };
 }) => {
   const { pathname } = useLocation();
   const { user } = useAuth();
+  const { notices } = useFavorites();
+  const unread = notices.filter(notice => !notice.read).length;
   const links = [
     { to: '/', label: 'Inicio', desktop: 'La liga', icon: IconShield, active: pathname === '/' },
     { to: '/jornada', label: 'Jornada', desktop: 'Partidos', icon: IconFootball, active: pathname.startsWith('/jornada') || pathname.startsWith('/partido/') },
@@ -42,7 +50,7 @@ export const Marco = ({
     }`;
 
   return (
-    <div className="public-shell min-h-dvh bg-base-100"><a href="#public-content" className="skip-link">Saltar al contenido</a>
+    <div className="public-shell min-h-dvh bg-base-100"><PageMetadata title={seo?.title ?? (campaign ? undefined : titulo)} description={seo?.description ?? subtitulo} image={seo?.image} /><FavoriteObserver /><a href="#public-content" className="skip-link">Saltar al contenido</a>
       <header className="sticky top-0 z-20 border-b border-base-300 bg-base-100/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -72,6 +80,7 @@ export const Marco = ({
         <nav aria-label="Navegación pública" className="mx-auto hidden max-w-6xl gap-1 px-3 pb-2 sm:flex">
           {links.map(link => <Link key={link.to} to={link.to} aria-current={link.active ? 'page' : undefined} className={pestana(link.active)}>{link.desktop}</Link>)}
         </nav>
+        <div className="mx-auto flex max-w-6xl justify-end px-4 pb-2"><Link to="/favoritos" aria-current={pathname === '/favoritos' ? 'page' : undefined} className="inline-flex min-h-9 items-center gap-2 text-xs font-semibold text-base-content/70"><IconInbox size={16} />Favoritos{unread > 0 && <span className="badge badge-primary badge-sm" aria-label={`${unread} avisos sin leer`}>{unread}</span>}</Link></div>
       </header>
 
       <main id="public-content" tabIndex={-1} className={campaign ? 'mfl-campaign' : 'mx-auto max-w-5xl px-4 py-6'}>

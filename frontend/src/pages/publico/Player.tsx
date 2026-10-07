@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
+import { FavoriteButton } from '../../components/Favorites';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type { PlayerStat } from '../../lib/competition';
@@ -38,8 +39,9 @@ export default function PublicPlayer() {
   ];
   const awards = [['MVP ofensivos', Number(s?.offensive_mvps ?? 0)], ['MVP defensivos', Number(s?.defensive_mvps ?? 0)]] as const;
   const url = `${window.location.origin}/jugador/${p.id}`;
-  return <Marco titulo={p.full_name} subtitulo={`${p.category_name} · ${p.season_name}`} acciones={<BotonCompartir texto={`${p.full_name} · ${p.team_name}\n${url}`} />}>
+  return <Marco titulo={p.full_name} subtitulo={`${p.category_name} · ${p.season_name}`} seo={{ description: `${p.full_name} · ${p.team_name} · ${p.category_name}. Estadísticas y reconocimientos de temporada.`, image: p.avatar_url || undefined }} acciones={<BotonCompartir texto={`${p.full_name} · ${p.team_name}\n${url}`} />}>
     <div className="space-y-7">
+      <FavoriteButton favorite={{ kind: 'player', id: p.id, name: p.full_name }} />
       {player.isError && <Alert tone="warning">No se pudo actualizar el perfil. Se muestra la última información recibida.</Alert>}
       <section aria-label="Identidad deportiva" className="flex flex-wrap items-center gap-5 border-b border-base-300 pb-6">
         <PlayerAvatar avatarUrl={p.avatar_url} name={p.full_name} jersey={p.jersey_number} size="lg" />

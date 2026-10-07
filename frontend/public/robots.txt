@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /equipo/
+Disallow: /arbitro
+Disallow: /scrimmage/
+Disallow: /restablecer
+Disallow: /favoritos
+
+Sitemap: https://master-flag-league.vercel.app/sitemap.xml

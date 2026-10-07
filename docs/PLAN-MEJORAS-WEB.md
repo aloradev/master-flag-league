@@ -12,8 +12,8 @@ Actualizado: 6 de octubre de 2026.
 8. Implementado localmente: jornada con fecha, horario, canchas, resumen, selector de jornadas publicadas, filtros de categoria/cancha/estado, agrupacion por horario/categoria/cancha y encuentro en vivo o proximo destacado. Enlaces compartidos conservan jornada y filtros. Los touchdowns suman cantidades y los partidos programados no muestran un falso 0-0. Pendiente publicar frontend.
 9. Implementado localmente: /jugar con solicitud Busco equipo, consentimiento, validacion, confirmacion y reintentos sin duplicados. Bandeja privada /admin/interesados con contactos y estados, acceso administrativo y aislamiento por liga. Pendiente publicar frontend, API y migracion de base de datos.
 10. Implementado localmente: tarjetas PNG para partidos, jugadores, posiciones y lideres; formatos cuadrado, vertical e historia, vista previa, descarga y compartir cuando el dispositivo lo permite. Incluyen identidad de equipos, paginacion y ajuste de textos largos. Pendiente publicar frontend.
-11. Pendiente: titulos, descripciones y vistas previas por pagina.
-12. Pendiente: favoritos y avisos.
+11. Implementado localmente: titulos y descripciones por pagina, canonical sin parametros, Open Graph y Twitter con imagen; equipos, jugadores y partidos usan identidad y resultados publicos. Funcion de Vercel entrega metadatos en el HTML inicial sin depender de JavaScript, con escape HTML, imagenes seguras, espera limitada y respuestas 404/503 sin indexar fallos. Sitemap, robots y exclusion de rutas privadas. Pendiente desplegar frontend y verificar las vistas previas en produccion.
+12. Implementado localmente: favoritos de equipos, jugadores y partidos sin cuenta, persistencia local y sincronizacion entre pestanas. Avisos voluntarios dentro de la web para cambios de horario/cancha, inicio y resultados de equipos y partidos seguidos; lectura, borrado, silencio y control de duplicados. No envia push ni avisos con la pagina cerrada; no sincroniza dispositivos. Pendiente publicar frontend.
 
 ## Verificacion de produccion
 
@@ -50,3 +50,13 @@ Pruebas de mejoras 9 y 10: API con PostgreSQL temporal, consentimiento obligator
 Prueba nueva: `node tests/interest-social.cjs` desde frontend, con QA_PLAYWRIGHT_PATH configurado. Vista previa aislada en el puerto 5191 mediante QA_PREVIEW_PORT=5191 al iniciar la prueba del backend con --preview.
 
 Commit sugerido para mejoras 9 y 10: `feat: agrega busqueda de equipo y tarjetas para redes sociales`
+
+Pruebas de mejoras 11 y 12: HTML inicial de la funcion de Vercel con API simulada, titulos, Open Graph, canonical, estados programados sin falso marcador, escape HTML, imagenes seguras y errores 404/503. Navegador con API local en 320, 390 y 1280 px: favoritos persistentes, avisos de inicio/resultado/horario, ausencia de avisos iniciales y duplicados, desactivacion/reactivacion, lectura y borrado, sincronizacion entre pestanas, metadatos privados sin tokens, almacenamiento corrupto o bloqueado y ausencia de desbordamientos. Capturas revisadas. Pendiente comprobar el enrutamiento de Vercel y el cache de las plataformas sociales despues del despliegue.
+
+Pruebas nuevas desde frontend: `node tests/metadata-server.mjs` despues de compilar y `node tests/favorites-metadata.cjs` con QA_PLAYWRIGHT_PATH configurado y la API temporal en el puerto 5191.
+
+Regresion aprobada: Inicio, Jornada, Tabla, Estadisticas, equipos, partidos, jugadores, solicitudes y tarjetas sociales. Compilacion de produccion y TypeScript aprobados. La funcion de metadatos utiliza VITE_API_URL en Vercel (misma direccion de la API que el cliente; por defecto https://mfl-api.onrender.com), y solo consulta endpoints publicos.
+
+Commit sugerido para mejoras 11 y 12: `feat: agrega metadatos sociales favoritos y avisos locales`
+
+Estado de la lista: mejoras 1 a 12 implementadas localmente. Queda pendiente el despliegue y la comprobacion final en produccion; favoritos y avisos son locales, no un sistema push.

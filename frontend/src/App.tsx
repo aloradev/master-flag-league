@@ -1,4 +1,6 @@
 import Registration from './pages/Registration';
+import Favoritos from './pages/publico/Favoritos';
+import { PrivateMetadata } from './components/PageMetadata';
 import { RouteExperience } from './components/RouteExperience';
 import PublicHome from './pages/publico/Home';
 import { useEffect, useMemo, useState } from 'react';
@@ -113,6 +115,7 @@ const App = () => {
   return (
     <BrowserRouter>
       <RouteExperience />
+      <PrivateMetadata />
       {offline && <div role="status" className="fixed inset-x-0 top-0 z-50 bg-warning px-3 py-2 text-center text-xs font-medium text-warning-content">Sin conexión. Se muestran los últimos datos disponibles; las acciones requieren internet.</div>}
       <Routes><Route path="/" element={<PublicHome />} /><Route path="/registro" element={<Registration />} />
         <Route path="/ingresar" element={<Login />} />
@@ -130,6 +133,7 @@ const App = () => {
         <Route path="/estadisticas" element={<EstadisticasPublicas />} />
         <Route path="/equipos/:id" element={<EquipoPublico />} />
         <Route path="/jugar" element={<Jugar />} />
+        <Route path="/favoritos" element={<Favoritos />} />
         <Route path="/jugador/:id" element={<PublicPlayer />} />
         <Route path="/partido/:id" element={<PartidoPublico />} />
         <Route path="/scrimmage/:id" element={<ScrimmageEntry />} />

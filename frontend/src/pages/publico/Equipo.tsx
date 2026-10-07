@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { FavoriteButton } from '../../components/Favorites';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api';
 import type { PublicTeam } from '../../lib/publicSports';
@@ -21,8 +22,9 @@ export default function EquipoPublico() {
   const upcoming = games.filter(game => ['LIVE', 'SCHEDULED', 'POSTPONED'].includes(game.status)).sort((a, b) => Number(b.status === 'LIVE') - Number(a.status === 'LIVE') || a.scheduled_date.localeCompare(b.scheduled_date) || (a.scheduled_time ?? '').localeCompare(b.scheduled_time ?? ''));
   const selectedGames = view === 'resultados' ? results : upcoming;
   const message = `${team.name} · ${team.category_name}\n${team.season_name}\n${window.location.href}`;
-  return <Marco titulo={team.name} subtitulo={`${team.category_name} · ${team.season_name}`} acciones={<BotonCompartir texto={message} />}>
+  return <Marco titulo={team.name} subtitulo={`${team.category_name} · ${team.season_name}`} seo={{ description: `${team.name} · ${team.category_name} · ${team.season_name}. Plantilla, partidos y resultados.`, image: team.logo_url || undefined }} acciones={<BotonCompartir texto={message} />}>
     <div className="space-y-6">
+      <FavoriteButton favorite={{ kind: 'team', id: team.id, name: team.name }} />
       {query.isError && <Alert tone="warning">No se pudo actualizar el equipo. Se muestra la última información recibida.</Alert>}
       <div className="flex items-center gap-4 border-b border-base-300 pb-5"><TeamCrest name={team.name} shortName={team.short_name} logoUrl={team.logo_url} color={team.color_primary ?? undefined} className="size-20 shrink-0" /><div><p className="font-bold">{team.category_name}</p><p className="text-sm text-base-content/60">{roster.length} jugadores en la plantilla pública</p></div></div>
       {standing ? <section aria-label="Resumen de temporada"><dl className="grid grid-cols-3 gap-y-4 sm:grid-cols-6">{[

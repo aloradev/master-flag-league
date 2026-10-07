@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
+import { FavoriteButton } from '../../components/Favorites';
 import { useQuery } from '@tanstack/react-query';
 import { ShareCard } from '../../components/ShareCard';
 import { CalendarActions } from '../../components/CalendarActions';
@@ -38,8 +39,9 @@ export default function PartidoPublico() {
     const className = 'flex min-w-0 flex-col items-center gap-2 text-center';
     return p.game_type === 'SCRIMMAGE' ? <div className={className}>{content}</div> : <Link className={`${className} hover:text-primary`} to={`/equipos/${p[`${side}_team_id`]}`}>{content}</Link>;
   };
-  return <Marco titulo={title} subtitulo={p.category_name} acciones={<BotonCompartir texto={message} />}>
+  return <Marco titulo={title} subtitulo={p.category_name} seo={{ title: `${p.home_team_name} ${score} ${p.away_team_name}`, description: `${status.texto} · ${p.category_name} · ${p.scheduled_date.slice(0, 10)} · ${p.scheduled_time || 'Hora por confirmar'} · ${p.field_name || 'Cancha por confirmar'}.` }} acciones={<BotonCompartir texto={message} />}>
     <div className="space-y-7">
+      <FavoriteButton favorite={{ kind: 'game', id: p.id, name: `${p.home_team_name} vs ${p.away_team_name}` }} />
       <nav aria-label="Volver a la jornada"><Link className="link text-sm" to={p.round_id ? `/jornada/${p.round_id}` : '/jornada'}>{p.round_number ? `Jornada ${p.round_number}` : 'Ver jornada'}</Link></nav>
       {consulta.isError && <Alert tone="warning">No se pudo actualizar el partido. Se muestra la última información recibida.</Alert>}
       {p.game_type === 'SCRIMMAGE' && <Alert tone="info">Scrimmage. No cuenta para posiciones ni rankings oficiales.</Alert>}

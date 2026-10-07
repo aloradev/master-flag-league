@@ -1,9 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": { "api/page.mjs": { "includeFiles": "dist/index.html" } },
   "rewrites": [
+    { "source": "/", "destination": "/api/page?path=/" },
+    { "source": "/:page(jornada|tabla|estadisticas|jugar|registro|favoritos)", "destination": "/api/page?path=/:page" },
+    { "source": "/:page(equipos|jugador|partido|jornada)/:id", "destination": "/api/page?path=/:page/:id" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
+    {
+      "source": "/:page(admin|equipo|arbitro|scrimmage|ingresar|recuperar|restablecer|cambiar-contrasena|jornadas|posiciones|rankings|power-ranking|historial|playoffs|favoritos)/:rest*",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
     {
       "source": "/assets/(.*)",
       "headers": [
