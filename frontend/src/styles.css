@@ -464,6 +464,11 @@ h1, h2, h3 {
 .skip-link:focus { transform:translateY(0); }
 .league-live h2 { font-size:32px; letter-spacing:0; overflow-wrap:anywhere; }
 .league-live .campaign-section-heading { align-items:center; }
+.public-bottom-nav { height:calc(64px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px); }
+@media (max-width:639px) {
+  .public-shell { padding-bottom:calc(80px + env(safe-area-inset-bottom, 0px)); }
+  .public-bottom-nav a { min-height:64px; }
+}
 main:focus { outline:none; }
 :where(a,button,input,select,textarea,summary):focus-visible { outline:2px solid var(--color-primary); outline-offset:3px; }
 .ux-steps { display:flex; gap:8px; padding:12px 0; }

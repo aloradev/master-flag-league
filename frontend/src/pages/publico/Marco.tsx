@@ -3,14 +3,15 @@ import type { ReactNode } from 'react';
 import { Logo } from '../../components/Logo';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { useAuth, homeFor } from '../../store/auth';
+import { IconShield, IconFootball, IconTrophy, IconDashboard, IconUsers } from '../../components/icons';
 
 /**
  * Marco de las pantallas públicas.
  *
  * Sin navegación de la aplicación y sin nada que sugiera una sesión: quien
  * abre esto llegó por un enlace pegado en un grupo de WhatsApp y casi
- * siempre desde el celular, a veces en la cancha. Solo el escudo, las dos
- * pestañas que importan y el botón de compartir.
+ * siempre desde el celular, a veces en la cancha. Comparte navegación
+ * de escritorio y accesos inferiores con espacio para el área segura móvil.
  */
 export const Marco = ({
   titulo,
@@ -27,7 +28,13 @@ export const Marco = ({
 }) => {
   const { pathname } = useLocation();
   const { user } = useAuth();
-  const enJornada = pathname.startsWith('/jornada');
+  const links = [
+    { to: '/', label: 'Inicio', desktop: 'La liga', icon: IconShield, active: pathname === '/' },
+    { to: '/jornada', label: 'Jornada', desktop: 'Partidos', icon: IconFootball, active: pathname.startsWith('/jornada') || pathname.startsWith('/partido/') },
+    { to: '/tabla', label: 'Tabla', desktop: 'Posiciones', icon: IconTrophy, active: pathname === '/tabla' },
+    { to: '/estadisticas', label: 'Stats', desktop: 'Estadísticas', icon: IconDashboard, active: pathname === '/estadisticas' || pathname.startsWith('/jugador/') },
+    { to: '/registro', label: 'Jugar', desktop: 'Jugar', icon: IconUsers, active: pathname === '/registro' },
+  ];
 
   const pestana = (activa: boolean) =>
     `mfl-toque flex-1 rounded-field px-3 py-2 text-center text-sm font-medium ${
@@ -35,7 +42,7 @@ export const Marco = ({
     }`;
 
   return (
-    <div className="min-h-dvh bg-base-100"><a href="#public-content" className="skip-link">Saltar al contenido</a>
+    <div className="public-shell min-h-dvh bg-base-100"><a href="#public-content" className="skip-link">Saltar al contenido</a>
       <header className="sticky top-0 z-20 border-b border-base-300 bg-base-100/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -56,19 +63,14 @@ export const Marco = ({
             {acciones}
             {user ? <Link to={homeFor(user.role)} className="btn btn-sm btn-primary">Mi espacio</Link> : <>
               <Link to="/ingresar" className="inline-flex min-h-10 items-center rounded-field px-2 text-xs font-semibold text-base-content/70 hover:bg-base-200 sm:px-3 sm:text-sm">Ingresar</Link>
-              <Link to="/registro" className="btn btn-sm btn-primary px-2 text-xs sm:px-3 sm:text-sm">Crear cuenta</Link>
+              <Link to="/registro" className="btn btn-sm btn-primary hidden px-2 text-xs sm:inline-flex sm:px-3 sm:text-sm">Crear cuenta</Link>
             </>}
             <ThemeToggle compact />
           </div>
         </div>
 
-        <nav className="mx-auto flex max-w-6xl gap-1 px-3 pb-2"><Link to="/" className={pestana(pathname === '/')}>La liga</Link>
-          <Link to="/jornada" className={pestana(enJornada)}>
-            Partidos
-          </Link>
-          <Link to="/tabla" className={pestana(pathname === '/tabla')}>
-            Posiciones
-          </Link>
+        <nav aria-label="Navegación pública" className="mx-auto hidden max-w-6xl gap-1 px-3 pb-2 sm:flex">
+          {links.map(link => <Link key={link.to} to={link.to} aria-current={link.active ? 'page' : undefined} className={pestana(link.active)}>{link.desktop}</Link>)}
         </nav>
       </header>
 
@@ -99,6 +101,9 @@ export const Marco = ({
           Acceso para encargados y árbitros
         </Link>
       </footer>
+      <nav aria-label="Navegación pública móvil" className="public-bottom-nav fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-base-300 bg-base-100 sm:hidden">
+        {links.map(({ to, label, icon: Icon, active }) => <Link key={to} to={to} aria-label={label === 'Stats' ? 'Estadísticas' : label} aria-current={active ? 'page' : undefined} className={`flex min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-semibold ${active ? 'bg-primary/10 text-primary' : 'text-base-content/65'}`}><Icon size={21} /><span>{label}</span></Link>)}
+      </nav>
     </div>
   );
 };

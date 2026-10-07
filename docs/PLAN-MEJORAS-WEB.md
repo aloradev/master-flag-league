@@ -4,8 +4,8 @@ Actualizado: 6 de octubre de 2026.
 
 1. Implementado localmente: carga de Jornada y Tabla con espera limitada a 30 segundos, errores comprensibles y reintento. Jornada funciona aunque falle la consulta de scrimmages. Pendiente comprobar el despliegue actualizado.
 2. Implementado localmente: inicio con partidos en vivo y proximos, resultados de la ultima jornada terminada y resumen de posiciones por categoria. Pendiente publicar.
-3. Pendiente: navegacion publica en celular.
-4. Pendiente: estadisticas y lideres publicos.
+3. Implementado localmente: barra inferior movil con Inicio, Jornada, Tabla, Stats y Jugar; estados activos, navegacion de escritorio y espacio seguro inferior. Los perfiles de jugadores conservan la navegacion publica. Pendiente publicar.
+4. Implementado localmente: /estadisticas sin cuenta, filtros de categoria, equipo y nueve metricas; enlaces compartibles, posiciones empatadas y acceso a perfiles. Usa el acceso publico existente y solo datos de partidos oficiales con estadisticas completas. Pendiente publicar.
 5. Pendiente: mejorar la pagina de cada partido.
 6. Pendiente: perfiles publicos de equipos.
 7. Pendiente: mejorar los perfiles de jugadores.
@@ -29,4 +29,6 @@ El 6 de octubre la version publicada contiene la direccion correcta de la API de
 
 Para revisar contra la API remota en desarrollo, definir `API_PROXY_TARGET=https://mfl-api.onrender.com` y dejar `VITE_API_URL` vacio. El proxy de desarrollo evita el bloqueo de origen local; la configuracion de produccion no cambia.
 
-Commit sugerido: `fix: estabiliza consultas publicas y muestra actividad de la liga en inicio`
+Pruebas de mejoras 3 y 4: acceso anonimo, navegacion publica y perfiles, filtros, enlaces compartidos, empates, registros vacios, errores y reintento en 320, 390 y 1280 px. Regresion de inicio, jornada y tabla en 390 y 1280 px.
+
+Commit sugerido para mejoras 3 y 4: `feat: agrega navegacion movil y estadisticas publicas`
