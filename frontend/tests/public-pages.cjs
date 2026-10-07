@@ -22,7 +22,7 @@ const round = { season, round: { id: 'current', number: 3, scheduled_date: '2026
         const endpoint = new URL(route.request().url()).pathname;
         let data = [];
         if (endpoint.endsWith('/public/round')) data = round;
-        if (endpoint.endsWith('/public/round/previous')) data = { ...round, round: { ...round.round, id: 'previous' }, games: [{ ...game, id: 'final', status: 'FINISHED' }] };
+        if (endpoint.endsWith('/public/round/previous')) data = { ...round, round: { ...round.round, id: 'previous', number: 2, scheduled_date: '2026-10-03' }, games: [{ ...game, id: 'final', status: 'FINISHED' }] };
         if (endpoint.endsWith('/public/rounds')) data = { season, rounds: [{ id: 'previous', status: 'FINISHED', scheduled_date: '2026-10-03' }] };
         if (endpoint.endsWith('/public/standings')) data = { season, categories: [{ category: { id: 'mixed', name: 'Mixto' }, rows: [team] }] };
         return route.fulfill({ json: { success: true, data } });
@@ -47,7 +47,7 @@ const round = { season, round: { id: 'current', number: 3, scheduled_date: '2026
                 if (child.getBoundingClientRect().bottom > box.bottom + 1) errors.push('Card content outside border');
               }
             }
-            const columns = cards[0].parentElement.parentElement.children;
+            const columns = section.querySelector(':scope > .grid').children;
             const left = columns[0].getBoundingClientRect();
             const right = columns[1].getBoundingClientRect();
             if (right.left < left.right - 1 && right.top < left.bottom - 1) errors.push('Standings overlap matches');

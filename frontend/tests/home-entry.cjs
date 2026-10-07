@@ -67,7 +67,7 @@ async function geometry(page) {
         let data = [];
         if (endpoint.endsWith('/public/round')) data = { ...round, games: state === 'empty' ? [] : state === 'final' ? [{ ...game, status: 'FINISHED' }] : [game, ...Array.from({ length: 3 }, (_, i) => ({ ...game, id: `next-${i}`, status: 'SCHEDULED', home_score: null, away_score: null }))] };
         if (endpoint.endsWith('/public/rounds')) data = { season, rounds: state === 'full' ? [{ id: 'entry-previous', status: 'FINISHED', scheduled_date: '2026-10-03' }] : [] };
-        if (endpoint.endsWith('/public/round/entry-previous')) data = { ...round, games: Array.from({ length: 3 }, (_, i) => ({ ...game, id: `result-${i}`, status: 'FINISHED' })) };
+        if (endpoint.endsWith('/public/round/entry-previous')) data = { ...round, round: { ...round.round, id: 'entry-previous', number: 2, scheduled_date: '2026-10-03' }, games: Array.from({ length: 3 }, (_, i) => ({ ...game, id: `result-${i}`, status: 'FINISHED' })) };
         if (endpoint.endsWith('/public/standings')) data = { season, categories: [{ category: { id: 'mixed', name: 'Mixto' }, rows: [team] }] };
         if (endpoint.endsWith('/public/registration-options')) data = [{ category_id: 'mixed', category_name: 'Mixto' }, { category_id: 'women', category_name: 'Femenil' }];
         if (state === 'long' && Array.isArray(data.games)) data.games = data.games.map(game => ({ ...game, home_team_name: 'Halcones'.repeat(9), away_team_name: 'Aztecas'.repeat(9), field_name: 'Cancha con nombre extendido '.repeat(3) }));

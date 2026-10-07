@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchProtectedBlob, documentPath, mediaUrl } from '../lib/api';
 import { IconDocument } from './icons';
@@ -217,6 +217,14 @@ export const AuthImage = ({ fileUrl, alt, mimeType, className = '', thumbnail }:
  *
  * AuthImage sigue existiendo, pero solo para las identificaciones.
  */
+function IdentityImage({ src, alt, className, fallback, dimension }: {
+  src: string; alt: string; className: string; fallback: ReactNode; dimension?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+  return failed ? fallback : <img src={src} alt={alt} width={dimension} height={dimension}
+    loading="lazy" decoding="async" className={className} onError={() => setFailed(true)} />;
+}
+
 export const PlayerAvatar = ({
   avatarUrl,
   name,
@@ -239,27 +247,16 @@ export const PlayerAvatar = ({
     .join('')
     .toUpperCase();
 
-  if (resolved) {
-    return (
-      <img
-        src={resolved}
-        alt={name}
-        width={80}
-        height={80}
-        loading="lazy"
-        decoding="async"
-        className={`${dimension} shrink-0 rounded-full bg-base-300 object-cover`}
-      />
-    );
-  }
-
-  return (
+  const fallback = (
     <div
+      role="img" aria-label={name}
       className={`${dimension} flex shrink-0 items-center justify-center rounded-full bg-base-300 text-sm font-semibold text-base-content/60`}
     >
       {jersey != null ? <span className="tabular">{jersey}</span> : initials}
     </div>
   );
+  return resolved ? <IdentityImage key={resolved} src={resolved} alt={name} dimension={80}
+    className={`${dimension} shrink-0 rounded-full bg-base-300 object-cover`} fallback={fallback} /> : fallback;
 };
 
 /** Logo del equipo, o sus iniciales cuando aún no tiene uno. */
@@ -278,24 +275,15 @@ export const TeamCrest = ({
 }) => {
   const resolved = mediaUrl(logoUrl);
 
-  if (resolved) {
-    return (
-      <img
-        src={resolved}
-        alt={name}
-        loading="lazy"
-        decoding="async"
-        className={`${className} shrink-0 rounded-box object-contain`}
-      />
-    );
-  }
-
-  return (
+  const fallback = (
     <div
+      role="img" aria-label={name}
       className={`${className} flex shrink-0 items-center justify-center rounded-box text-sm font-bold text-white`}
       style={{ backgroundColor: color ?? '#1f2937' }}
     >
       {shortName ?? name.slice(0, 3).toUpperCase()}
     </div>
   );
+  return resolved ? <IdentityImage key={resolved} src={resolved} alt={name}
+    className={`${className} shrink-0 rounded-box object-contain`} fallback={fallback} /> : fallback;
 };

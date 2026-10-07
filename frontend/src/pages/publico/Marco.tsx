@@ -121,21 +121,4 @@ export const Marco = ({
   );
 };
 
-/**
- * Compartir a WhatsApp.
- *
- * Es un enlace `wa.me`, no la API de Meta: abre WhatsApp en el teléfono de
- * quien lo toca con el mensaje ya escrito, sin costo por mensaje, sin
- * plantillas que aprobar y sin exigir un negocio constituido. En
- * escritorio abre WhatsApp Web.
- */
-export const BotonCompartir = ({ texto }: { texto: string }) => (
-  <a
-    href={`https://wa.me/?text=${encodeURIComponent(texto)}`}
-    target="_blank"
-    rel="noreferrer"
-    className="btn btn-sm btn-primary"
-  >
-    Compartir
-  </a>
-);
+export { ShareLink as BotonCompartir } from '../../components/ShareLink';

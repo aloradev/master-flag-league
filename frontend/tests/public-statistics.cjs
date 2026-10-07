@@ -43,7 +43,7 @@ const players = [player, { ...player, player_id: 'two', player_name: 'Beatriz Ju
       await page.getByLabel('Equipo', { exact: true }).selectOption('first');
       assert.equal(await page.getByRole('list', { name: 'Ranking de Intercepciones' }).locator('li').count(), 2);
       assert.ok(page.url().includes('equipo=first'));
-      assert.ok(decodeURIComponent(await page.getByRole('link', { name: 'Compartir', exact: true }).getAttribute('href')).includes('equipo=first'));
+      assert.ok(decodeURIComponent(await page.locator('.public-link-share a').getAttribute('href')).includes('equipo=first'));
       await fs.mkdir(path.resolve(__dirname, '../../.qa-artifacts'), { recursive: true });
       await page.screenshot({ path: path.resolve(__dirname, `../../.qa-artifacts/statistics-${width}.png`), fullPage: true, animations: 'disabled', timeout: 15000 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);

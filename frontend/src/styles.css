@@ -154,6 +154,14 @@ body {
 .public-standings .standing-form > span { justify-content:flex-end; gap:2px; }
 .public-standings .standing-form > span > span { width:16px; }
 .public-standings .mfl-podium-1 .mfl-rank-badge { color:var(--color-base-content); box-shadow:none; }
+.standing-mobile-balance { display:none; }
+@media (max-width:639px) {
+  .standing-mobile-balance { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px 6px; margin-top:10px; }
+  .standing-mobile-balance > div { display:flex; flex-wrap:wrap; align-items:baseline; gap:0 4px; min-width:0; }
+  .standing-mobile-balance dt { font-size:11px; font-weight:400; color:color-mix(in oklch,var(--color-base-content) 70%,transparent); overflow-wrap:anywhere; }
+  .standing-mobile-balance dd { font-size:12px; font-weight:700; overflow-wrap:anywhere; }
+  .standing-balance-difference { grid-column:span 2; }
+}
 @media (min-width:640px) {
   .public-standings-scroll { --standing-team-width:200px; --standing-form-width:136px; }
   .public-standings .standing-form { padding-inline:8px; }
@@ -480,6 +488,11 @@ h1, h2, h3 {
 .public-page-heading h1 { font-size:24px; line-height:1.2; font-weight:800; letter-spacing:0; overflow-wrap:anywhere; }
 .public-page-heading-copy > p { margin-top:6px; font-size:14px; line-height:1.5; color:color-mix(in oklch,var(--color-base-content) 65%,transparent); overflow-wrap:anywhere; }
 .public-page-actions { display:flex; flex-wrap:wrap; gap:8px; max-width:100%; }
+.public-link-share { max-width:100%; }
+.public-link-share .btn { min-height:44px; }
+.public-link-share > summary { list-style:none; }
+.public-link-share > summary::-webkit-details-marker { display:none; }
+.public-link-share-options { display:flex; flex-direction:column; align-items:stretch; gap:8px; max-width:280px; padding-top:8px; overflow-wrap:anywhere; }
 .public-shell { --radius-box:8px; --radius-field:6px; --radius-selector:6px; }
 .public-shell .btn { min-height:44px; height:auto; padding-block:10px; font-size:13px; line-height:1.3; font-weight:600; letter-spacing:0; }
 .public-shell .btn-square { width:44px; height:44px; padding:0; }
@@ -518,6 +531,9 @@ h1, h2, h3 {
 .public-filters-grid .select { min-width:0; height:44px; min-height:44px; margin-top:4px; font-size:13px; }
 .public-filters-grid > div { min-width:0; }
 .public-filters-three > :last-child { grid-column:1 / -1; }
+.public-stats-filters .public-filters-grid > :first-child { grid-column:1 / -1; }
+.public-stats-filters .public-filters-grid > :last-child { grid-column:auto; }
+@media (min-width:640px) { .public-stats-filters .public-filters-grid > :first-child { grid-column:auto; } }
 .public-share-panel { min-width:0; border-block:1px solid var(--color-base-300); }
 .public-share-panel > summary { display:flex; align-items:center; gap:8px; min-height:48px; padding:10px 0; list-style:none; font-size:13px; font-weight:600; cursor:pointer; }
 .public-share-panel > summary::-webkit-details-marker { display:none; }
@@ -573,6 +589,8 @@ h1, h2, h3 {
 .league-live h2 { font-size:32px; letter-spacing:0; overflow-wrap:anywhere; }
 .league-live .campaign-section-heading { align-items:center; }
 .league-live { padding-top:24px; }
+.league-loading-line { display:block; height:12px; border-radius:4px; background:var(--color-base-300); }
+.league-loading-match { padding:16px 12px 0; border:1px solid var(--color-base-300); border-radius:8px; }
 .league-live .campaign-section-heading { margin-bottom:16px; }
 @media (max-width:700px) { .league-live h2 { font-size:24px; margin-top:8px; } }
 .public-bottom-nav { height:calc(64px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px); }

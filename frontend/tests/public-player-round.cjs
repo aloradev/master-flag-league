@@ -72,7 +72,7 @@ const data = { season: { id: 'season_2026', name: 'Temporada 2026', year: 2026 }
       await page.getByLabel('Estado', { exact: true }).selectOption('FINISHED');
       await page.locator('a[href="/partido/final"]').waitFor();
       assert.equal(await page.locator('a[href="/partido/live"]').count(), 0);
-      const share = decodeURIComponent(await page.getByRole('link', { name: 'Compartir', exact: true }).getAttribute('href'));
+      const share = decodeURIComponent(await page.locator('.public-link-share a').getAttribute('href'));
       const sharedRound = new URL(share.split('Jornada: ')[1]);
       assert.equal(sharedRound.pathname, '/jornada/r1');
       assert.equal(sharedRound.searchParams.get('estado'), 'FINISHED');

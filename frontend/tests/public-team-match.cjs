@@ -48,7 +48,7 @@ const base = process.env.QA_BASE_URL || 'http://127.0.0.1:5190';
       await page.locator('.public-share-panel > summary').click();
       await page.getByRole('button', { name: 'Descargar tarjeta', exact: true }).click();
       assert.ok((await imagePromise).suggestedFilename().endsWith('.png'));
-      assert.ok((await page.getByRole('link', { name: 'Compartir', exact: true }).getAttribute('href')).includes('demo_final'));
+      assert.ok((await page.locator('.public-link-share a').getAttribute('href')).includes('demo_final'));
       // Live polling, pending statistics and unavailable pages are independent states.
       const actual = await page.request.get(base + '/api/v1/public/games/demo_final').then(response => response.json());
       await page.route('**/public/games/demo_final', route => route.fulfill({ json: { ...actual, data: { ...actual.data, status: 'LIVE', statistics_status: 'PENDING' } } }));

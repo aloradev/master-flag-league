@@ -63,18 +63,17 @@ export default function EstadisticasPublicas() {
   }, { replace: true });
   return <Marco titulo="Estadísticas" subtitulo={season?.name} acciones={<BotonCompartir texto={share} />}>
     <div className="space-y-5">
-      <PublicFilters label="Filtros de estadísticas" activeCount={[categoryId, teamId].filter(Boolean).length} onClear={clearFilters} threeColumns>
+      <div className="public-stats-filters"><PublicFilters label="Filtros de estadísticas" activeCount={[categoryId, teamId].filter(Boolean).length} onClear={clearFilters} threeColumns>
+        <div className="min-w-0 text-sm font-semibold"><label htmlFor="stats-metric">Estadística</label><select id="stats-metric" className="select mt-1 w-full" value={metric.key} onChange={event => update('metrica', event.target.value)}>
+          {METRICS.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
+        </select></div>
         <div className="min-w-0 text-sm font-semibold"><label htmlFor="stats-category">Categoría</label><select id="stats-category" className="select mt-1 w-full" value={categoryId} onChange={event => update('categoria', event.target.value)} disabled={!tabla.data}>
           <option value="">Todas las categorías</option>{tabla.data?.categories.map(group => <option key={group.category.id} value={group.category.id}>{group.category.name}</option>)}
         </select></div>
         <div className="min-w-0 text-sm font-semibold"><label htmlFor="stats-team">Equipo</label><select id="stats-team" className="select mt-1 w-full" value={teamId} onChange={event => update('equipo', event.target.value)} disabled={stats.isPending}>
           <option value="">Todos los equipos</option>{teams.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
         </select></div>
-        <div className="min-w-0 text-sm font-semibold"><label htmlFor="stats-metric">Estadística</label><select id="stats-metric" className="select mt-1 w-full" value={metric.key} onChange={event => update('metrica', event.target.value)}>
-          {METRICS.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
-        </select></div>
-      </PublicFilters>
-      <p className="text-sm text-base-content/65">Solo partidos oficiales terminados con estadísticas completas. Los partidos pendientes de captura y los scrimmages no cuentan.</p>
+      </PublicFilters></div>
       {tabla.isLoading || (season && stats.isLoading) ? <Spinner label="Cargando estadísticas..." />
         : (tabla.isError && !tabla.data) || (stats.isError && !stats.data) ? <EmptyState
           title={tabla.error instanceof ApiError && tabla.error.status === 404 ? 'Todavía no hay temporada activa' : 'No pudimos cargar las estadísticas'}
@@ -97,6 +96,7 @@ export default function EstadisticasPublicas() {
               </ol>
             </Card>}
             {!!rows.length && <p className="mt-3 text-xs text-base-content/60">{Math.min(rows.length, 25)} de {rows.length} jugadores con registros. Los empates comparten posición.</p>}
+            <p className="mt-3 text-sm text-base-content/65">Solo partidos oficiales terminados con estadísticas completas. Los partidos pendientes de captura y los scrimmages no cuentan.</p>
             {!!rows.length && <div className="mt-5"><ShareCard title={`Líderes · ${metric.label}`} subtitle={`${category || 'Todas las categorías'} · ${season?.name ?? 'MFL'}`} lines={[]} table={{ headers: ['POS', 'JUGADOR', 'EQUIPO', metric.label], rows: rows.slice(0, 25).map(player => [String(rows.findIndex(item => Number(item[metric.key]) === Number(player[metric.key])) + 1), player.player_name, player.team_name, String(Number(player[metric.key]))]) }} filename={`mfl-lideres-${metric.key}`} url={window.location.href} /></div>}
           </section>
         </>}

@@ -140,6 +140,18 @@ export default function TablaPublicaPage() {
                             />
                             <Link to={`/equipos/${f.team_id}`} className="link min-w-0 break-words font-semibold [overflow-wrap:anywhere]">{f.team_name}</Link>
                           </div>
+                          {/* Las columnas completas ya anuncian estos datos a lectores de pantalla. */}
+                          <dl className="standing-mobile-balance" aria-hidden="true">
+                            {[
+                              ['JJ', f.played, 'Juegos jugados'],
+                              ['G', f.wins, 'Ganados'],
+                              ['E', f.draws, 'Empatados'],
+                              ['P', f.losses, 'Perdidos'],
+                              ['DIF', f.point_diff > 0 ? `+${f.point_diff}` : f.point_diff, 'Diferencia de puntos'],
+                            ].map(([label, value, title]) => <div key={label} className={label === 'DIF' ? 'standing-balance-difference' : undefined}>
+                              <dt title={String(title)}>{label}</dt><dd className="tabular">{value}</dd>
+                            </div>)}
+                          </dl>
                         </th>
                         <td className="tabular">{f.played}</td>
                         <td className="tabular font-semibold">{f.wins}</td>
