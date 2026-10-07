@@ -1,0 +1,86 @@
+const { chromium } = require(process.env.QA_PLAYWRIGHT_PATH || 'playwright');
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const base = process.env.QA_BASE_URL || 'http://127.0.0.1:5190';
+const fieldName = 'Cancha principal con nombre largo';
+const game = { id: 'live', status: 'LIVE', category_name: 'Mixto', category_color: null, home_team_id: 'demo_home', away_team_id: 'demo_away', home_team_name: 'Halcones Demo', away_team_name: 'Aztecas Demo', home_short_name: 'HAL', away_short_name: 'AZT', home_logo_url: null, away_logo_url: null, home_color: null, away_color: null, home_score: 12, away_score: 6, scheduled_time: '19:00', field_name: 'Campo 1', touchdowns: [{ quantity: 2, team_id: 'demo_home', created_at: '2026-10-10' }] };
+const rounds = [{ id: 'r1', number: 1, name: 'Jornada de prueba', scheduled_date: '2026-10-10', status: 'IN_PROGRESS' }, { id: 'r2', number: 2, name: 'Jornada anterior', scheduled_date: '2026-10-03', status: 'FINISHED' }];
+const data = { season: { id: 'season_2026', name: 'Temporada 2026', year: 2026 }, round: rounds[0], games: [game, { ...game, id: 'next', status: 'SCHEDULED', scheduled_time: '20:00', home_score: 0, away_score: 0, category_name: 'Femenil', field_name: fieldName, touchdowns: [] }, { ...game, id: 'final', status: 'WALKOVER', scheduled_time: '18:00', touchdowns: [{ quantity: 4, team_id: 'demo_away', created_at: '2026-10-10' }] }], byes: [{ team_id: 'bye', team_name: 'Equipo en descanso', category_name: 'Mixto' }] };
+
+(async () => {
+  const browser = await chromium.launch({ headless: true, channel: 'msedge' });
+  try {
+    for (const width of [320, 390, 1280]) {
+      const page = await browser.newPage({ viewport: { width, height: 844 }, acceptDownloads: true });
+      page.setDefaultTimeout(15000);
+      page.setDefaultNavigationTimeout(15000);
+      const errors = [];
+      page.on('pageerror', error => errors.push(error.message));
+      const capture = async name => {
+        const overflow = await page.evaluate(() => [...document.querySelectorAll('main *')].filter(element => element.getBoundingClientRect().right > innerWidth + 1).map(element => ({ tag: element.tagName, text: element.textContent.slice(0, 60), width: element.getBoundingClientRect().width })).slice(0, 10));
+        assert.deepEqual(overflow, [], `${name} overflows at ${width}: ${JSON.stringify(overflow)}`);
+        await fs.mkdir(path.resolve(__dirname, '../../.qa-artifacts'), { recursive: true });
+        await page.screenshot({ path: path.resolve(__dirname, `../../.qa-artifacts/${name}-${width}.png`), fullPage: true, animations: 'disabled', timeout: 15000 });
+      };
+      await page.goto(base + '/jugador/demo_player', { waitUntil: 'domcontentloaded' });
+      await page.getByRole('heading', { name: 'Andrea Demo', exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'Promedios por partido con estadísticas', exact: true }).waitFor();
+      assert.equal(await page.locator('dt').filter({ hasText: 'MVP ofensivos' }).locator('..').locator('dd').textContent(), '1');
+      await capture('player-profile');
+      const download = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Descargar tarjeta', exact: true }).click();
+      assert.ok((await download).suggestedFilename().endsWith('.png'));
+      await page.getByRole('link', { name: 'Ver equipo Halcones Demo', exact: true }).click();
+      await page.getByRole('heading', { name: 'Halcones Demo', exact: true }).waitFor();
+      let failStats = true;
+      await page.route('**/public/statistics/players?**', route => failStats ? route.fulfill({ status: 503, json: { success: false, error: 'Datos temporalmente no disponibles' } }) : route.continue());
+      await page.goto(base + '/jugador/demo_player', { waitUntil: 'domcontentloaded' });
+      await page.getByRole('heading', { name: 'Andrea Demo', exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Reintentar estadísticas', exact: true }).waitFor();
+      assert.equal(await page.getByText('Jugador no encontrado', { exact: true }).count(), 0);
+      failStats = false;
+      await page.getByRole('button', { name: 'Reintentar estadísticas', exact: true }).click();
+      await page.getByRole('heading', { name: 'Reconocimientos', exact: true }).waitFor();
+      await page.unroute('**/public/statistics/players?**');
+      await page.route('**/public/statistics/players?**', route => route.fulfill({ json: { success: true, data: [] } }));
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.getByText('Todavía no hay partidos con estadísticas completas para este jugador.', { exact: true }).waitFor();
+      assert.ok(!(await page.locator('main').innerText()).includes('NaN'));
+      await page.unroute('**/public/statistics/players?**');
+      await page.route('**/public/round**', route => {
+        const pathname = new URL(route.request().url()).pathname;
+        return route.fulfill({ json: { success: true, data: pathname.endsWith('/rounds') ? { season: data.season, rounds } : pathname.endsWith('/r2') ? { ...data, round: rounds[1], games: [{ ...game, status: 'FINISHED' }] } : data } });
+      });
+      await page.route('**/public/scrimmages', route => route.fulfill({ json: { success: true, data: [] } }));
+      await page.goto(base + '/jornada', { waitUntil: 'domcontentloaded' });
+      await page.getByRole('heading', { name: 'Jornada de prueba', exact: true }).waitFor();
+      assert.equal(await page.locator('dt').filter({ hasText: 'Touchdowns' }).locator('..').locator('dd').textContent(), '6');
+      await page.getByRole('heading', { name: 'Ahora en la cancha', exact: true }).waitFor();
+      assert.ok((await page.locator('a[href="/partido/next"]').locator('..').innerText()).includes('vs'));
+      await capture('round-agenda');
+      await page.getByLabel('Agrupar por', { exact: true }).selectOption('categoria');
+      await page.getByRole('heading', { name: 'Mixto', exact: true }).waitFor();
+      await page.getByLabel('Categoría', { exact: true }).selectOption('Femenil');
+      assert.equal(await page.locator('a[href="/partido/live"]').count(), 0);
+      await page.getByLabel('Agrupar por', { exact: true }).selectOption('cancha');
+      await page.getByRole('heading', { name: fieldName, exact: true }).waitFor();
+      await capture('round-filtered');
+      await page.getByLabel('Estado', { exact: true }).selectOption('LIVE');
+      await page.getByRole('button', { name: 'Limpiar filtros', exact: true }).click();
+      await page.getByLabel('Estado', { exact: true }).selectOption('FINISHED');
+      await page.locator('a[href="/partido/final"]').waitFor();
+      assert.equal(await page.locator('a[href="/partido/live"]').count(), 0);
+      const share = decodeURIComponent(await page.getByRole('link', { name: 'Compartir', exact: true }).getAttribute('href'));
+      assert.ok(share.includes('/jornada/r1?estado=FINISHED'));
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.locator('a[href="/partido/final"]').waitFor();
+      await page.getByLabel('Jornada publicada', { exact: true }).selectOption('r2');
+      await page.getByRole('heading', { name: 'Jornada anterior', exact: true }).waitFor();
+      assert.ok(!page.url().includes('estado='));
+      assert.deepEqual(errors, []);
+      console.log(`PASS ${width}px: perfil, promedios, MVP, PNG, equipo, error independiente, cero datos; jornada, filtros, agrupación, fechas, empates y cantidades.`);
+      await page.close();
+    }
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

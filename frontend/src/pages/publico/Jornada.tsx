@@ -8,6 +8,7 @@ import { TeamCrest } from '../../components/AuthImage';
 import { ETIQUETA_PARTIDO, type GameStatus, type RoundStatus } from '../../lib/competition';
 import { fechaTexto } from '../../lib/format';
 import { Marco, BotonCompartir } from './Marco';
+import { JornadaAgenda } from '../../components/JornadaAgenda';
 
 export interface PartidoPublico {
   statistics_status?: 'PENDING' | 'COMPLETE';
@@ -80,11 +81,11 @@ const Equipo = ({
 
 export const Partido = ({ p }: { p: PartidoPublico }) => {
   const etiqueta = ETIQUETA_PARTIDO[p.status];
-  const conMarcador = p.home_score != null && p.away_score != null;
+  const conMarcador = ['LIVE', 'FINISHED', 'WALKOVER'].includes(p.status) && p.home_score != null && p.away_score != null;
 
   return (
-    <Card className={`p-3 transition-shadow ${p.status === 'LIVE' ? 'border-error/60 shadow-lg shadow-error/10' : ''}`}>
-      <div className="mb-2 flex items-center justify-between gap-2 text-xs text-base-content/60">
+    <Card className={`min-w-0 p-3 transition-shadow ${p.status === 'LIVE' ? 'border-error/60 shadow-lg shadow-error/10' : ''}`}>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-base-content/60">
         <span className="flex min-w-0 items-center gap-1.5">
           {p.category_color && (
             <span
@@ -98,7 +99,7 @@ export const Partido = ({ p }: { p: PartidoPublico }) => {
         </span>
         <span className="flex shrink-0 items-center gap-2">
           {p.scheduled_time && <span className="tabular font-medium">{p.scheduled_time}</span>}
-          {p.field_name && <span className="truncate">{p.field_name}</span>}
+          {p.field_name && <span className="max-w-32 break-words">{p.field_name}</span>}
           <span className={`badge badge-sm ${etiqueta.tono} ${p.status === 'LIVE' ? 'animate-pulse' : ''}`}>{etiqueta.texto}</span>
         </span>
       </div>
@@ -191,15 +192,13 @@ export default function JornadaPublicaPage() {
     );
   }
 
-  const { round, games, byes } = consulta.data;
+  const { round, games } = consulta.data;
   const fecha = fechaTexto(round.scheduled_date, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
   });
   const titulo = round.name || `Jornada ${round.number}`;
-  const enVivo = games.filter((p) => p.status === 'LIVE');
-  const touchdowns = games.reduce((total, p) => total + (p.touchdowns?.length ?? 0), 0);
 
   const mensaje =
     `${titulo} — ${fecha}\n\n` +
@@ -210,7 +209,7 @@ export default function JornadaPublicaPage() {
           `${p.field_name ? ` · ${p.field_name}` : ''}`
       )
       .join('\n') +
-    `\n\nDetalle y tabla: ${window.location.origin}/jornada`;
+    `\n\nJornada: ${window.location.origin}/jornada/${round.id}${window.location.search}`;
 
   return (
     <Marco
@@ -219,40 +218,7 @@ export default function JornadaPublicaPage() {
       acciones={<BotonCompartir texto={mensaje} />}
     >
       {consulta.isError && <Alert tone="warning">Reconectando… Se muestran los últimos resultados recibidos.</Alert>}
-      <Card className="grid grid-cols-3 gap-2 bg-primary/5 p-3 text-center">
-        <div><p className="text-lg font-black tabular">{games.length}</p><p className="text-[11px] text-base-content/60">Partidos</p></div>
-        <div><p className={`text-lg font-black tabular ${enVivo.length ? 'text-error' : ''}`}>{enVivo.length}</p><p className="text-[11px] text-base-content/60">En vivo</p></div>
-        <div><p className="text-lg font-black tabular">{touchdowns}</p><p className="text-[11px] text-base-content/60">Touchdowns</p></div>
-      </Card>
-      {games.length === 0 ? (
-        <Alert tone="info">Esta jornada todavía no tiene partidos.</Alert>
-      ) : (
-        <div className="space-y-2">
-          {games.map((p) => (
-            <Partido key={p.id} p={p} />
-          ))}
-        </div>
-      )}
-
-      {byes.length > 0 && (
-        <section className="mt-5">
-          <h2 className="mb-2 text-sm font-semibold text-base-content/70">Descansan</h2>
-          <Card className="divide-y divide-base-300">
-            {byes.map((b) => (
-              <div key={b.team_id} className="flex items-center gap-2 px-3 py-2">
-                <TeamCrest
-                  name={b.team_name}
-                  shortName={b.short_name}
-                  logoUrl={b.logo_url}
-                  className="size-7"
-                />
-                <span className="min-w-0 flex-1 truncate text-sm">{b.team_name}</span>
-                <span className="shrink-0 text-xs text-base-content/50">{b.category_name}</span>
-              </div>
-            ))}
-          </Card>
-        </section>
-      )}
+      <JornadaAgenda data={consulta.data} />
       {pruebas}
     </Marco>
   );

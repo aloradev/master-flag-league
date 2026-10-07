@@ -8,8 +8,8 @@ Actualizado: 6 de octubre de 2026.
 4. Implementado localmente: /estadisticas sin cuenta, filtros de categoria, equipo y nueve metricas; enlaces compartibles, posiciones empatadas y acceso a perfiles. Usa el acceso publico existente y solo datos de partidos oficiales con estadisticas completas. Pendiente publicar.
 5. Implementado localmente: pagina de partido con marcador por estado, ganador, fecha y sede, enlaces a equipos y jornada, estadisticas individuales del encuentro, MVP publicados, touchdowns, calendario y tarjeta PNG. Pendiente publicar frontend y API.
 6. Implementado localmente: /equipos/:id con escudo, posicion y balance de temporada, plantilla aprobada, resultados y proximos encuentros; enlaces desde inicio, tabla y partidos. El acceso publico excluye datos de encargados, jugadores pendientes, jornadas en borrador y scrimmages. Pendiente publicar frontend y API.
-7. Pendiente: mejorar los perfiles de jugadores.
-8. Pendiente: organizar la jornada como evento.
+7. Implementado localmente: perfil con identidad deportiva, dorsal, posicion, enlace al equipo, estadisticas ofensivas y defensivas, promedios por partido con estadisticas, reconocimientos MVP y tarjeta PNG. Los fallos de estadisticas permiten reintentar sin ocultar el perfil. Pendiente publicar frontend; usa los datos publicos de la API de mejoras anteriores.
+8. Implementado localmente: jornada con fecha, horario, canchas, resumen, selector de jornadas publicadas, filtros de categoria/cancha/estado, agrupacion por horario/categoria/cancha y encuentro en vivo o proximo destacado. Enlaces compartidos conservan jornada y filtros. Los touchdowns suman cantidades y los partidos programados no muestran un falso 0-0. Pendiente publicar frontend.
 9. Pendiente: recorrido Quiero jugar / Busco equipo.
 10. Pendiente: imagenes para redes sociales.
 11. Pendiente: titulos, descripciones y vistas previas por pagina.
@@ -38,3 +38,9 @@ Pruebas de mejoras 5 y 6: API HTTP con PostgreSQL temporal en memoria, permisos 
 Ejecutar `node tests/public-team-match.mjs` desde backend despues de compilar. Para una vista previa aislada con datos de prueba: `node tests/public-team-match.mjs --preview`; abre el puerto 5190 y sirve frontend/dist. Las pruebas de navegador estan en frontend/tests/public-team-match.cjs.
 
 Commit sugerido para mejoras 5 y 6: `feat: mejora partidos y agrega perfiles publicos de equipos`
+
+Pruebas de mejoras 7 y 8: compilacion y TypeScript; navegador en 320, 390 y 1280 px, perfil con API local temporal, promedios, MVP, descarga PNG, enlace al equipo, error independiente de estadisticas, reintento y ausencia de datos. Jornada con filtros combinados, agrupacion, cambio de jornada, persistencia de filtros, enlaces compartidos, incomparecencias, cantidades de touchdowns y horarios sin marcador. Capturas revisadas sin desbordamientos. Regresion de Inicio, Jornada, Tabla, Estadisticas, equipos y partidos.
+
+Prueba nueva: `node tests/public-player-round.cjs` desde frontend, con QA_PLAYWRIGHT_PATH configurado y la vista previa aislada del backend en el puerto 5190.
+
+Commit sugerido para mejoras 7 y 8: `feat: renueva perfiles de jugadores y organiza jornadas publicas`
