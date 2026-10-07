@@ -124,7 +124,7 @@ body {
 .mfl-podium-1 .mfl-rank-badge { background:color-mix(in oklch, var(--color-accent) 24%, transparent); color:var(--color-accent-content); box-shadow:0 0 0 2px color-mix(in oklch, var(--color-accent) 45%, transparent); }
 .mfl-podium-2 .mfl-rank-badge { background:color-mix(in oklch, #94a3b8 22%, transparent); }
 .mfl-podium-3 .mfl-rank-badge { background:color-mix(in oklch, #b77945 22%, transparent); }
-.public-match-card { min-width:0; height:100%; padding:12px 12px 0; border:1px solid var(--color-base-300); border-radius:8px; background:var(--color-base-100); }
+.public-match-card { min-width:0; padding:12px 12px 0; border:1px solid var(--color-base-300); border-radius:8px; background:var(--color-base-100); }
 .public-match-live { border-left:4px solid var(--color-error); }
 .public-match-heading { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; padding-bottom:10px; border-bottom:1px solid var(--color-base-300); font-size:12px; color:color-mix(in oklch,var(--color-base-content) 75%,transparent); }
 .public-match-heading > span:first-child { flex:1 1 100px; overflow-wrap:anywhere; }

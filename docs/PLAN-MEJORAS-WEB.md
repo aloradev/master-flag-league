@@ -97,3 +97,7 @@ Regresion UI 7 y 8 aprobada: favoritos y sincronizacion entre pestanas, Inicio, 
 Commit sugerido para UI 7 y 8: `style: jerarquiza avisos y unifica la interfaz publica`
 
 Estado de la segunda pasada UI: mejoras 1 a 8 implementadas localmente; pendiente desplegar y comprobar en produccion.
+
+Correccion posterior de Inicio: retirada la altura porcentual de las tarjetas compartidas, que desbordaban su columna y se superponian con posiciones y la siguiente seccion. La prueba public-pages.cjs reproduce el fallo antes del arreglo y valida despues la contencion vertical, separacion de tarjetas y secciones en 320, 390, 470, 640, 768, 1024 y 1280 px; incluye regresion de Jornada y Tabla. Compilacion y TypeScript aprobados. Lista UI 1 a 8 conservada; correccion local pendiente de publicar.
+
+Commit sugerido: `fix: corrige superposicion de partidos en inicio`

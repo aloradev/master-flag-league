@@ -12,7 +12,7 @@ const round = { season, round: { id: 'current', number: 3, scheduled_date: '2026
 (async () => {
   const browser = await chromium.launch({ headless: true, channel: 'msedge' });
   try {
-    for (const width of [390, 1280]) {
+    for (const width of [320, 390, 470, 640, 768, 1024, 1280]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
       page.setDefaultTimeout(15000);
       page.setDefaultNavigationTimeout(15000);
@@ -33,10 +33,33 @@ const round = { season, round: { id: 'current', number: 3, scheduled_date: '2026
         await page.getByText(team.team_name, { exact: true }).and(page.locator(':visible')).first().waitFor();
         if (url === '/') {
           await page.locator('a[href="/partido/final"]').waitFor();
+          const layoutErrors = await page.locator('.league-live').evaluate(section => {
+            const errors = [];
+            const cards = [...section.querySelectorAll('.public-match-card')];
+            for (const card of cards) {
+              const box = card.getBoundingClientRect();
+              const parent = card.parentElement.getBoundingClientRect();
+              if (box.bottom > parent.bottom + 1) errors.push('Card outside its column');
+              if (box.bottom > section.getBoundingClientRect().bottom + 1) errors.push('Card outside league section');
+              const next = card.nextElementSibling;
+              if (next && box.bottom > next.getBoundingClientRect().top + 1) errors.push('Card overlaps next sibling');
+              for (const child of card.children) {
+                if (child.getBoundingClientRect().bottom > box.bottom + 1) errors.push('Card content outside border');
+              }
+            }
+            const columns = cards[0].parentElement.parentElement.children;
+            const left = columns[0].getBoundingClientRect();
+            const right = columns[1].getBoundingClientRect();
+            if (right.left < left.right - 1 && right.top < left.bottom - 1) errors.push('Standings overlap matches');
+            if (section.nextElementSibling.getBoundingClientRect().top < section.getBoundingClientRect().bottom - 1) errors.push('Following section overlaps league');
+            return errors;
+          });
+          assert.deepEqual(layoutErrors, [], `Home vertical layout ${width}`);
           await page.locator('#liga-hoy').scrollIntoViewIfNeeded();
         }
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `Overflow: ${url} ${width}`);
         await fs.mkdir(path.resolve(__dirname, '../../.qa-artifacts'), { recursive: true });
+        if (url === '/') await page.locator('.league-live').screenshot({ path: path.resolve(__dirname, `../../.qa-artifacts/home-layout-${width}.png`), animations: 'disabled' });
         await page.screenshot({ path: path.resolve(__dirname, `../../.qa-artifacts/public-${width}-${url === '/' ? 'home' : url.slice(1)}.png`), fullPage: url !== '/', timeout: 15000, animations: 'disabled' });
       }
       assert.deepEqual(errors, []);
@@ -59,6 +82,6 @@ const round = { season, round: { id: 'current', number: 3, scheduled_date: '2026
     await page.getByRole('button', { name: 'Reintentar', exact: true }).click();
     await page.getByText('Todavía no se juega nada', { exact: true }).waitFor();
     await page.close();
-    console.log('OK: Home, Jornada y Tabla; 390/1280 px; resultados previos; scrimmages fallidos; recuperación tras error; sin errores de React ni desbordamiento.');
+    console.log('OK: Home, Jornada y Tabla; 320/390/470/640/768/1024/1280 px; contencion vertical de tarjetas y secciones; resultados previos; scrimmages fallidos; recuperacion tras error; sin errores de React ni desbordamiento.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
