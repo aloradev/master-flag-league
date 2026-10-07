@@ -45,6 +45,7 @@ export default function AdminDashboard() {
       <nav aria-label="Tareas frecuentes" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Link to="/admin/validacion" className="btn btn-outline">Validar jugadores</Link>
         <Link to="/admin/equipos" className="btn btn-outline">Gestionar equipos</Link>
+        <Link to="/admin/interesados" className="btn btn-outline">Jugadores interesados</Link>
         <Link to="/admin/jornadas" className="btn btn-outline">Organizar jornadas</Link>
         <Link to="/jornadas" className="btn btn-outline">Ver calendario</Link>
         {user?.role === 'SUPER_ADMIN' && <Link to="/admin/ligas" className="btn btn-primary">Ligas y nombre</Link>}

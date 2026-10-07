@@ -6,12 +6,19 @@ import { PGlite } from '@electric-sql/pglite';
 import pool from '../dist/config/database.js';
 import routes from '../dist/routes/index.js';
 import { errorHandler } from '../dist/middleware/errorHandler.js';
+import { generateAccessToken } from '../dist/utils/jwt.js';
+import { randomUUID } from 'node:crypto';
+import bcrypt from 'bcryptjs';
 
 // All fixtures live in memory; no credentials or league database are used.
 const db = new PGlite();
 await db.exec(await readFile(new URL('../src/db/migrations.sql', import.meta.url), 'utf8'));
 await db.exec(await readFile(new URL('../src/db/seed.sql', import.meta.url), 'utf8'));
 pool.query = (sql, params) => db.query(sql, params);
+process.env.JWT_SECRET = 'isolated-interest-test-secret-only';
+await db.query(`INSERT INTO users(id,league_id,email,password_hash,name,role_id) VALUES
+  ('demo_admin','league_cancun','admin@demo.invalid',$1,'Admin Demo','role_super_admin'),
+  ('demo_manager','league_cancun','manager@demo.invalid',$1,'Manager Demo','role_team_manager')`, [await bcrypt.hash('Demo2026League', 10)]);
 await db.exec(`
   INSERT INTO teams(id,season_id,category_id,name,short_name) VALUES
     ('demo_home','season_2026','cat_varonil_2026','Halcones Demo','HAL'),
@@ -43,7 +50,7 @@ const app = express();
 app.use(express.json());
 app.use('/api/v1', routes);
 app.use(errorHandler);
-const server = app.listen(process.argv.includes('--preview') ? 5190 : 0, '127.0.0.1');
+const server = app.listen(process.argv.includes('--preview') ? Number(process.env.QA_PREVIEW_PORT || 5190) : 0, '127.0.0.1');
 await new Promise(resolve => server.once('listening', resolve));
 const base = `http://127.0.0.1:${server.address().port}`;
 const get = async path => { const response = await fetch(base + '/api/v1' + path); return { status: response.status, ...await response.json() }; };
@@ -75,6 +82,30 @@ try {
   const profile = await get('/public/players/demo_player');
   assert.equal(profile.data.season_id, 'season_2026');
   assert.equal(profile.data.team_id, 'demo_home');
+  const send = async (path, body, token, method = 'POST') => {
+    const response = await fetch(base + '/api/v1' + path, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
+    return { status: response.status, ...await response.json() };
+  };
+  const interest = { requestId: randomUUID(), name: 'Jugador Interesado', email: 'jugador@demo.invalid', phone: '+529981234567', category: 'Por definir', experience: 'NEW', availability: 'Sábados', consent: true };
+  assert.equal((await send('/public/player-interest', { ...interest, consent: false })).status, 400);
+  assert.equal((await send('/public/player-interest', interest)).status, 201);
+  assert.equal((await send('/public/player-interest', interest)).status, 201);
+  assert.equal((await db.query('SELECT COUNT(*)::int AS total FROM player_interests')).rows[0].total, 1);
+  assert.equal((await get('/admin/player-interest')).status, 401);
+  const token = role => generateAccessToken({ id: role === 'TEAM_MANAGER' ? 'demo_manager' : 'demo_admin', role, leagueId: 'league_cancun', name: 'Demo', email: 'demo@demo.invalid', sessionVersion: 0 });
+  const adminToken = token('SUPER_ADMIN');
+  const adminList = await fetch(base + '/api/v1/admin/player-interest', { headers: { Authorization: `Bearer ${adminToken}` } }).then(response => response.json());
+  assert.equal(adminList.data[0].email, interest.email);
+  const prospectId = adminList.data[0].id;
+  assert.equal((await send(`/admin/player-interest/${prospectId}`, { status: 'CONTACTED' }, token('TEAM_MANAGER'), 'PUT')).status, 403);
+  assert.equal((await send(`/admin/player-interest/${prospectId}`, { status: 'INVALID' }, adminToken, 'PUT')).status, 400);
+  assert.equal((await send(`/admin/player-interest/${prospectId}`, { status: 'CONTACTED' }, adminToken, 'PUT')).status, 200);
+  const otherLeagueToken = generateAccessToken({ id: 'demo_admin', role: 'SUPER_ADMIN', leagueId: 'another-league', name: 'Demo', email: 'demo@demo.invalid', sessionVersion: 0 });
+  assert.equal((await send(`/admin/player-interest/${prospectId}`, { status: 'CLOSED' }, otherLeagueToken, 'PUT')).status, 404);
+  for (let index = 0; index < 2; index++) assert.equal((await send('/public/player-interest', { ...interest, requestId: randomUUID() })).status, 201);
+  assert.equal((await send('/public/player-interest', { ...interest, requestId: randomUUID() })).status, 429);
+  await db.query("DELETE FROM player_interests WHERE email='jugador@demo.invalid'");
+  console.log('PASS: solicitudes públicas, consentimiento, reintentos idempotentes, límite por correo, bandeja privada, roles y aislamiento entre ligas.');
   console.log('PASS: perfiles y partidos públicos sin sesión; plantilla aprobada; jornadas privadas y scrimmages excluidos; posiciones, MVP, cantidades, anulaciones y estadísticas pendientes.');
   if (process.argv.includes('--preview')) {
     const root = fileURLToPath(new URL('../../frontend/dist/', import.meta.url));

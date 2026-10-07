@@ -697,3 +697,20 @@ CREATE TABLE IF NOT EXISTS game_stat_batches (
   result JSONB NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS player_interests (
+  id VARCHAR(36) PRIMARY KEY,
+  request_id UUID NOT NULL UNIQUE,
+  league_id VARCHAR(36) NOT NULL REFERENCES leagues(id),
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  phone VARCHAR(30),
+  category VARCHAR(80) NOT NULL,
+  experience VARCHAR(20) NOT NULL CHECK (experience IN ('NEW','CASUAL','EXPERIENCED')),
+  availability VARCHAR(300) NOT NULL DEFAULT '',
+  status VARCHAR(20) NOT NULL DEFAULT 'NEW' CHECK (status IN ('NEW','CONTACTED','CLOSED')),
+  consent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS player_interests_league_status ON player_interests(league_id,status,created_at);

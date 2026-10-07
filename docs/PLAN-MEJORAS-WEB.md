@@ -10,8 +10,8 @@ Actualizado: 6 de octubre de 2026.
 6. Implementado localmente: /equipos/:id con escudo, posicion y balance de temporada, plantilla aprobada, resultados y proximos encuentros; enlaces desde inicio, tabla y partidos. El acceso publico excluye datos de encargados, jugadores pendientes, jornadas en borrador y scrimmages. Pendiente publicar frontend y API.
 7. Implementado localmente: perfil con identidad deportiva, dorsal, posicion, enlace al equipo, estadisticas ofensivas y defensivas, promedios por partido con estadisticas, reconocimientos MVP y tarjeta PNG. Los fallos de estadisticas permiten reintentar sin ocultar el perfil. Pendiente publicar frontend; usa los datos publicos de la API de mejoras anteriores.
 8. Implementado localmente: jornada con fecha, horario, canchas, resumen, selector de jornadas publicadas, filtros de categoria/cancha/estado, agrupacion por horario/categoria/cancha y encuentro en vivo o proximo destacado. Enlaces compartidos conservan jornada y filtros. Los touchdowns suman cantidades y los partidos programados no muestran un falso 0-0. Pendiente publicar frontend.
-9. Pendiente: recorrido Quiero jugar / Busco equipo.
-10. Pendiente: imagenes para redes sociales.
+9. Implementado localmente: /jugar con solicitud Busco equipo, consentimiento, validacion, confirmacion y reintentos sin duplicados. Bandeja privada /admin/interesados con contactos y estados, acceso administrativo y aislamiento por liga. Pendiente publicar frontend, API y migracion de base de datos.
+10. Implementado localmente: tarjetas PNG para partidos, jugadores, posiciones y lideres; formatos cuadrado, vertical e historia, vista previa, descarga y compartir cuando el dispositivo lo permite. Incluyen identidad de equipos, paginacion y ajuste de textos largos. Pendiente publicar frontend.
 11. Pendiente: titulos, descripciones y vistas previas por pagina.
 12. Pendiente: favoritos y avisos.
 
@@ -44,3 +44,9 @@ Pruebas de mejoras 7 y 8: compilacion y TypeScript; navegador en 320, 390 y 1280
 Prueba nueva: `node tests/public-player-round.cjs` desde frontend, con QA_PLAYWRIGHT_PATH configurado y la vista previa aislada del backend en el puerto 5190.
 
 Commit sugerido para mejoras 7 y 8: `feat: renueva perfiles de jugadores y organiza jornadas publicas`
+
+Pruebas de mejoras 9 y 10: API con PostgreSQL temporal, consentimiento obligatorio, solicitudes idempotentes, limites por correo, permisos administrativos y aislamiento por liga. Navegador en 320, 390 y 1280 px: envio real a la API local, gestion de estados, vistas previas y descargas PNG en 1080x1080, 1080x1350 y 1080x1920, tablas paginadas y ausencia de desbordamientos. Imagenes descargadas revisadas visualmente. Datos de prueba, sin enviar solicitudes a produccion.
+
+Prueba nueva: `node tests/interest-social.cjs` desde frontend, con QA_PLAYWRIGHT_PATH configurado. Vista previa aislada en el puerto 5191 mediante QA_PREVIEW_PORT=5191 al iniciar la prueba del backend con --preview.
+
+Commit sugerido para mejoras 9 y 10: `feat: agrega busqueda de equipo y tarjetas para redes sociales`

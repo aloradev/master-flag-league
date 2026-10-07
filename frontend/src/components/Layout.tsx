@@ -45,6 +45,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { to: '/power-ranking', label: 'Power Ranking', Icon: IconTrophy },
     { to: '/historial', label: 'Historial', Icon: IconTrophy },
     { to: '/admin/usuarios', label: 'Usuarios', Icon: IconUsers },
+    { to: '/admin/interesados', label: 'Jugadores interesados', Icon: IconUsers },
     { to: '/admin/arbitros', label: 'Árbitros', Icon: IconUsers },
     { to: '/admin/scrimmages', label: 'Scrimmages', Icon: IconFootball },
     { to: '/admin/temporada', label: 'Temporada y categorías', Icon: IconSettings },

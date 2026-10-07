@@ -36,7 +36,7 @@ export default function Home() {
           <p className="campaign-hero-description">Tu equipo. Tu gente. Tu siguiente jugada.<br />Forma parte de Master Flag League.</p>
           <div className="campaign-actions">
             <Link className="campaign-button campaign-button-yellow" to="/registro">Inscribe a tu equipo <span aria-hidden="true">↗</span></Link>
-            <Link className="campaign-button campaign-button-outline" to="/ingresar">Ya tengo cuenta · Ingresar <span aria-hidden="true">→</span></Link>
+            <Link className="campaign-button campaign-button-outline" to="/jugar">Busco equipo <span aria-hidden="true">→</span></Link>
             <Link className="campaign-button campaign-button-outline" to="/jornada">Explora la liga <span aria-hidden="true">→</span></Link>
           </div>
           <div className="campaign-hero-signature"><img src="/logo-96.webp" alt="" width="44" height="44" /><span>MASTER FLAG LEAGUE<br /><small>El juego nos une.</small></span></div>
@@ -56,7 +56,7 @@ export default function Home() {
           {[
             { to: '/jornada', number: '01', title: 'DÍA DE PARTIDO', description: 'Horarios, sedes y resultados. Encuentra tu próxima cita en la cancha.', icon: IconFootball, tone: 'cyan', label: 'Ver partidos' },
             { to: '/tabla', number: '02', title: 'CADA PUNTO CUENTA', description: 'Sigue a tu equipo y consulta las posiciones de cada categoría.', icon: IconTrophy, tone: 'pink', label: 'Ver posiciones' },
-            { to: '/registro', number: '03', title: 'ARMA TU EQUIPO', description: 'Crea tu cuenta, inscribe a tu equipo y prepara tu plantilla.', icon: IconUsers, tone: 'yellow', label: 'Empezar registro' },
+            { to: '/jugar', number: '03', title: 'ENTRA AL JUEGO', description: 'Encuentra equipo o inscribe al tuyo en la liga.', icon: IconUsers, tone: 'yellow', label: 'Quiero jugar' },
           ].map(({ to, number, title, description, icon: Icon, tone, label }) => (
             <Link key={to} to={to} className={`campaign-destination campaign-${tone}`}>
               <div className="campaign-destination-top"><Icon size={38} /><span>{number}</span></div>

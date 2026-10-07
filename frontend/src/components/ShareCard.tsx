@@ -1,44 +1,42 @@
-import { useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { downloadFile } from '../lib/calendarExport';
+import { renderSocialCard, socialPages, type SocialCardData, type SocialFormat } from '../lib/socialCard';
 
-/** Tarjeta construida con datos públicos, sin capturar pantallas ni datos de sesión. */
-export function ShareCard({ title, subtitle, lines, filename, url, table }: { title: string; subtitle: string; lines: string[]; filename: string; url: string; table?: { headers: string[]; rows: string[][] } }) {
-  const [busy,setBusy] = useState(false);
-  const [error,setError] = useState('');
-  const pages = Array.from({length:Math.max(1,Math.ceil(lines.length/7))},(_,i)=>lines.slice(i*7,(i+1)*7));
-  const generate = async (page: number) => {
+export function ShareCard(props: SocialCardData & { filename: string }) {
+  const id = useId();
+  const [format, setFormat] = useState<SocialFormat>('portrait');
+  const [page, setPage] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [preview, setPreview] = useState('');
+  const pages = socialPages(props, format);
+  const selectedPage = Math.min(page, pages.count - 1);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  const generate = async (action: 'preview' | 'download' | 'share') => {
+    if (busy) return;
     setBusy(true); setError('');
     try {
-      const canvas=document.createElement('canvas'); canvas.width=table ? 1600 : 1080; canvas.height=table ? 1000 : 1350;
-      const ctx=canvas.getContext('2d'); if(!ctx) throw new Error('Tu navegador no permite generar la imagen.');
-      ctx.fillStyle='#081320'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle='#16dae1'; ctx.fillRect(0,0,canvas.width,18);
-      ctx.fillStyle='#ecff49'; ctx.fillRect(62,237,95,7);
-      const write=(text:string,x:number,y:number,size:number,color:string,maxWidth=950)=>{
-        ctx.fillStyle=color; ctx.font=`800 ${size}px Arial`;
-        while(ctx.measureText(text).width>maxWidth && size>16){size--;ctx.font=`800 ${size}px Arial`;}
-        ctx.fillText(text,x,y,maxWidth);
-      };
-      const logo=new Image(); logo.src='/logo-256.webp';
-      await logo.decode(); ctx.drawImage(logo,60,50,110,110);
-      write('MASTER FLAG LEAGUE',190,98,32,'#ffffff'); write('CANCÚN · FLAG FOOTBALL',190,140,20,'#16dae1');
-      write(title.toUpperCase(),60,225,52,'#ffffff'); write(subtitle,60,292,28,'#b6c7dc');
-      if (table) {
-        const left=60, top=350, rowH=62, widths=[90,400,110,110,110,110,150,150,150];
-        ctx.fillStyle='#ecff49'; ctx.fillRect(left,top,1420,rowH);
-        let x=left; table.headers.forEach((h,i)=>{ write(h,x+12,top+40,22,'#081320',widths[i]-24); x+=widths[i]; });
-        table.rows.forEach((row,i)=>{ const y=top+rowH+(i*rowH); ctx.fillStyle=i%2?'#101f32':'#16283d'; ctx.fillRect(left,y,1420,rowH-4); let px=left; row.forEach((value,j)=>{ write(value,px+12,y+39,22,'#ffffff',widths[j]-24); px+=widths[j]; }); });
-      } else pages[page].forEach((line,i)=>{
-        const top=340+i*115;
-        ctx.fillStyle=i%2?'#101f32':'#16283d';ctx.fillRect(60,top,960,98);
-        write(line,85,top+62,34,'#ffffff',910);
-      });
-      write('LA CANCHA ES TUYA.',60,1210,45,'#ecff49');
-      write(url,60,1263,20,'#b6c7dc');
-      write(`Datos al ${new Date().toLocaleString('es-MX',{timeZone:'America/Cancun'})} · ${page+1}/${pages.length}`,60,1310,17,'#8ea4bf');
-      const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('No se pudo crear la imagen.')),'image/png'));
-      downloadFile(blob,`${filename}-${page+1}.png`);
-    } catch(e){setError(e instanceof Error?e.message:'No se pudo descargar');} finally{setBusy(false);}
+      const blob = await renderSocialCard(props, format, selectedPage);
+      const filename = `${props.filename}-${format}-${selectedPage + 1}.png`;
+      if (action === 'preview') setPreview(URL.createObjectURL(blob));
+      else if (action === 'download') downloadFile(blob, filename);
+      else {
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: props.title });
+        else downloadFile(blob, filename);
+      }
+    } catch (cause) { if (!(cause instanceof DOMException && cause.name === 'AbortError')) setError(cause instanceof Error ? cause.message : 'No se pudo crear la imagen.'); }
+    finally { setBusy(false); }
   };
-  return <div className="space-y-2"><div className="flex flex-wrap gap-2">{pages.map((_,i)=><button key={i} disabled={busy} onClick={()=>void generate(i)} className="btn btn-sm btn-outline">{busy?'Generando…':`Descargar tarjeta${pages.length>1?` ${i+1}/${pages.length}`:''}`}</button>)}</div><p className="text-xs text-base-content/55">Imagen PNG para compartir en redes. Refleja los datos al descargarla.</p>{error && <p role="alert" className="text-sm text-error">{error}</p>}</div>;
+  return <div className="space-y-3">
+    <div className="flex flex-wrap items-end gap-3"><div><label htmlFor={`${id}-format`} className="text-xs font-semibold">Formato</label><select id={`${id}-format`} className="select select-sm mt-1 block" disabled={busy} value={format} onChange={event => { setFormat(event.target.value as SocialFormat); setPage(0); setPreview(''); }}><option value="portrait">Publicación · 1080 × 1350</option><option value="story">Historia · 1080 × 1920</option><option value="square">Cuadrado · 1080 × 1080</option></select></div>
+      {pages.count > 1 && <div><label htmlFor={`${id}-page`} className="text-xs font-semibold">Página</label><select id={`${id}-page`} className="select select-sm mt-1 block" disabled={busy} value={selectedPage} onChange={event => { setPage(Number(event.target.value)); setPreview(''); }}>{Array.from({ length: pages.count }, (_, index) => <option key={index} value={index}>{index + 1} de {pages.count}</option>)}</select></div>}
+      <button type="button" className="btn btn-sm btn-ghost" disabled={busy} onClick={() => void generate('preview')}>Vista previa</button>
+      <button type="button" className="btn btn-sm btn-outline" disabled={busy} onClick={() => void generate('download')}>Descargar tarjeta</button>
+      {typeof navigator.share === 'function' && <button type="button" className="btn btn-sm btn-primary" disabled={busy} onClick={() => void generate('share')}>Compartir imagen</button>}
+    </div>
+    {busy && <p role="status" className="text-xs">Generando imagen...</p>}
+    {preview && <div><img src={preview} alt={`Vista previa: ${props.title} · página ${selectedPage + 1}`} className="max-h-[65vh] max-w-full border border-base-300 object-contain" /><button type="button" className="btn btn-sm btn-ghost mt-2" onClick={() => setPreview('')}>Cerrar vista previa</button></div>}
+    {error && <p role="alert" className="text-sm text-error">{error}</p>}
+  </div>;
 }

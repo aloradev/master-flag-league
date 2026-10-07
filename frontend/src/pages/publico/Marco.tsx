@@ -33,7 +33,7 @@ export const Marco = ({
     { to: '/jornada', label: 'Jornada', desktop: 'Partidos', icon: IconFootball, active: pathname.startsWith('/jornada') || pathname.startsWith('/partido/') },
     { to: '/tabla', label: 'Tabla', desktop: 'Posiciones', icon: IconTrophy, active: pathname === '/tabla' || pathname.startsWith('/equipos/') },
     { to: '/estadisticas', label: 'Stats', desktop: 'Estadísticas', icon: IconDashboard, active: pathname === '/estadisticas' || pathname.startsWith('/jugador/') },
-    { to: '/registro', label: 'Jugar', desktop: 'Jugar', icon: IconUsers, active: pathname === '/registro' },
+    { to: '/jugar', label: 'Jugar', desktop: 'Jugar', icon: IconUsers, active: pathname === '/jugar' || pathname === '/registro' },
   ];
 
   const pestana = (activa: boolean) =>

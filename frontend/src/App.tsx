@@ -22,6 +22,8 @@ import JornadaPublica from './pages/publico/Jornada';
 import TablaPublica from './pages/publico/Tabla';
 import EstadisticasPublicas from './pages/publico/Estadisticas';
 import EquipoPublico from './pages/publico/Equipo';
+import Jugar from './pages/publico/Jugar';
+import PlayerInterest from './pages/admin/PlayerInterest';
 import MyTeam from './pages/manager/MyTeam';
 import PlayerForm from './pages/manager/PlayerForm';
 import PlayerDetail from './pages/manager/PlayerDetail';
@@ -127,6 +129,7 @@ const App = () => {
         <Route path="/tabla" element={<TablaPublica />} />
         <Route path="/estadisticas" element={<EstadisticasPublicas />} />
         <Route path="/equipos/:id" element={<EquipoPublico />} />
+        <Route path="/jugar" element={<Jugar />} />
         <Route path="/jugador/:id" element={<PublicPlayer />} />
         <Route path="/partido/:id" element={<PartidoPublico />} />
         <Route path="/scrimmage/:id" element={<ScrimmageEntry />} />
@@ -206,6 +209,7 @@ const App = () => {
           }
         >
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/interesados" element={<PlayerInterest />} />
           <Route path="/admin/validacion" element={<ValidationQueue />} />
           <Route path="/admin/equipos" element={<AdminTeams />} />
           <Route path="/admin/equipos/:id" element={<AdminTeamDetail />} />

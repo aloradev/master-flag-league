@@ -5,6 +5,7 @@ import type { PlayerStat } from '../../lib/competition';
 import { Alert, Card, EmptyState, Spinner } from '../../components/ui';
 import { Marco, BotonCompartir } from './Marco';
 import type { TablaPublica } from './Tabla';
+import { ShareCard } from '../../components/ShareCard';
 
 const METRICS = [
   { key: 'touchdowns', label: 'Touchdowns' },
@@ -90,6 +91,7 @@ export default function EstadisticasPublicas() {
               </ol>
             </Card>}
             {!!rows.length && <p className="mt-3 text-xs text-base-content/60">{Math.min(rows.length, 25)} de {rows.length} jugadores con registros. Los empates comparten posición.</p>}
+            {!!rows.length && <div className="mt-5"><ShareCard title={`Líderes · ${metric.label}`} subtitle={`${category || 'Todas las categorías'} · ${season?.name ?? 'MFL'}`} lines={[]} table={{ headers: ['POS', 'JUGADOR', 'EQUIPO', metric.label], rows: rows.slice(0, 25).map(player => [String(rows.findIndex(item => Number(item[metric.key]) === Number(player[metric.key])) + 1), player.player_name, player.team_name, String(Number(player[metric.key]))]) }} filename={`mfl-lideres-${metric.key}`} url={window.location.href} /></div>}
           </section>
         </>}
     </div>

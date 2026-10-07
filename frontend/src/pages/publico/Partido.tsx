@@ -75,7 +75,7 @@ export default function PartidoPublico() {
           </>}
       </section>
       {!!p.touchdowns?.length && <section aria-labelledby="match-td"><h2 id="match-td" className="mb-3 text-lg font-bold">Touchdowns registrados</h2><ol className="divide-y divide-base-300 text-sm">{p.touchdowns.map((event, index) => <li key={`${event.created_at}-${index}`} className="flex flex-wrap justify-between gap-2 py-2"><span>{event.team_id === p.home_team_id ? p.home_team_name : p.away_team_name}</span><span>{event.quantity ?? 1} TD{event.quarter ? ` · Periodo ${event.quarter}` : ''}</span></li>)}</ol></section>}
-      <ShareCard title={title} subtitle={`${p.category_name} · ${fechaTexto(p.scheduled_date)}`} lines={[p.home_team_name, score, p.away_team_name, `${p.scheduled_time || 'Hora por confirmar'} · ${p.field_name || 'Sede por confirmar'}`, status.texto]} filename={`mfl-partido-${p.id}`} url={`${window.location.origin}/partido/${p.id}`} />
+      <ShareCard title={title} subtitle={`${p.category_name} · ${fechaTexto(p.scheduled_date)}`} match={{ home: { name: p.home_team_name, score: scored ? p.home_score : null, logo: p.home_logo_url }, away: { name: p.away_team_name, score: scored ? p.away_score : null, logo: p.away_logo_url } }} lines={[p.home_team_name, score, p.away_team_name, `${p.scheduled_time || 'Hora por confirmar'} · ${p.field_name || 'Sede por confirmar'}`, status.texto]} filename={`mfl-partido-${p.id}`} url={`${window.location.origin}/partido/${p.id}`} />
     </div>
   </Marco>;
 }

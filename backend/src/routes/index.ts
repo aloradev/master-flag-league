@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { registrationStatus } from '../controllers/registration-status.controller.js';
 import * as onboarding from '../controllers/onboarding.controller.js';
 import { adminPending } from '../controllers/admin-pending.controller.js';
+import * as playerInterest from '../controllers/player-interest.controller.js';
 import { teamProgress, updateCompetitionEntry } from '../controllers/team-progress.controller.js';
 import { saveHistoricalResult } from '../controllers/historical-results.controller.js';
 import { updateHistoricalStatistics } from '../controllers/historical-statistics.controller.js';
@@ -39,6 +40,7 @@ const router = Router();
 // ══════════════════════════ PÚBLICO (sin sesión) ══════════════════════════
 router.post('/auth/login', auth.login);
 router.post('/auth/register', onboarding.register);
+router.post('/public/player-interest', playerInterest.submit);
 router.get('/public/registration-options', onboarding.options);
 router.post('/auth/refresh', auth.refresh);
 
@@ -127,6 +129,8 @@ router.get('/documents/:id/file', loadManagedTeams, documents.serveDocument);
 router.get('/admin/validation/queue', requireAdmin, validation.getValidationQueue);
 router.get('/admin/validation/stats', requireAdmin, validation.getValidationStats);
 router.get('/admin/pending', requireAdmin, adminPending);
+router.get('/admin/player-interest', requireAdmin, playerInterest.list);
+router.put('/admin/player-interest/:id', requireAdmin, playerInterest.update);
 router.post('/admin/players/:id/review', requireAdmin, validation.reviewPlayer);
 
 router.get('/admin/users', requireAdmin, users.listUsers);
