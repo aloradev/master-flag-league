@@ -51,6 +51,7 @@ router.get('/auth/reset-password/:token', auth.checkResetToken);
 router.post('/auth/reset-password', auth.resetPassword);
 router.get('/public/players/:id', players.getPublicPlayerProfile);
 router.get('/public/games/:id', publico.getPublicGame);
+router.get('/public/teams/:id', publico.getPublicTeam);
 
 // ── Jornada y tabla sin sesión ──
 // Es lo que se pega en el grupo de WhatsApp que los encargados ya tienen,

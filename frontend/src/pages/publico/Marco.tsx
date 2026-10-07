@@ -31,7 +31,7 @@ export const Marco = ({
   const links = [
     { to: '/', label: 'Inicio', desktop: 'La liga', icon: IconShield, active: pathname === '/' },
     { to: '/jornada', label: 'Jornada', desktop: 'Partidos', icon: IconFootball, active: pathname.startsWith('/jornada') || pathname.startsWith('/partido/') },
-    { to: '/tabla', label: 'Tabla', desktop: 'Posiciones', icon: IconTrophy, active: pathname === '/tabla' },
+    { to: '/tabla', label: 'Tabla', desktop: 'Posiciones', icon: IconTrophy, active: pathname === '/tabla' || pathname.startsWith('/equipos/') },
     { to: '/estadisticas', label: 'Stats', desktop: 'Estadísticas', icon: IconDashboard, active: pathname === '/estadisticas' || pathname.startsWith('/jugador/') },
     { to: '/registro', label: 'Jugar', desktop: 'Jugar', icon: IconUsers, active: pathname === '/registro' },
   ];

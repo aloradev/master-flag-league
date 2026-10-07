@@ -526,7 +526,7 @@ export const getPublicPlayerProfile = asyncHandler(async (req: AuthRequest, res:
             p.jersey_number, p.position, p.avatar_url,
             EXTRACT(YEAR FROM p.date_of_birth)::int AS birth_year,
             t.name AS team_name, t.logo_url AS team_logo, t.color_primary AS team_color,
-            c.name AS category_name, s.name AS season_name
+            c.name AS category_name, s.name AS season_name, p.season_id, p.team_id
      FROM players p
      JOIN teams t      ON t.id = p.team_id
      JOIN categories c ON c.id = p.category_id

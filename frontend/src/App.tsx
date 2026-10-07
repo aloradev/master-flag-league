@@ -21,6 +21,7 @@ import Restablecer from './pages/Restablecer';
 import JornadaPublica from './pages/publico/Jornada';
 import TablaPublica from './pages/publico/Tabla';
 import EstadisticasPublicas from './pages/publico/Estadisticas';
+import EquipoPublico from './pages/publico/Equipo';
 import MyTeam from './pages/manager/MyTeam';
 import PlayerForm from './pages/manager/PlayerForm';
 import PlayerDetail from './pages/manager/PlayerDetail';
@@ -125,6 +126,7 @@ const App = () => {
         <Route path="/jornada/:id" element={<JornadaPublica />} />
         <Route path="/tabla" element={<TablaPublica />} />
         <Route path="/estadisticas" element={<EstadisticasPublicas />} />
+        <Route path="/equipos/:id" element={<EquipoPublico />} />
         <Route path="/jugador/:id" element={<PublicPlayer />} />
         <Route path="/partido/:id" element={<PartidoPublico />} />
         <Route path="/scrimmage/:id" element={<ScrimmageEntry />} />

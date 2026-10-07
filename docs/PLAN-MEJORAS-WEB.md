@@ -6,8 +6,8 @@ Actualizado: 6 de octubre de 2026.
 2. Implementado localmente: inicio con partidos en vivo y proximos, resultados de la ultima jornada terminada y resumen de posiciones por categoria. Pendiente publicar.
 3. Implementado localmente: barra inferior movil con Inicio, Jornada, Tabla, Stats y Jugar; estados activos, navegacion de escritorio y espacio seguro inferior. Los perfiles de jugadores conservan la navegacion publica. Pendiente publicar.
 4. Implementado localmente: /estadisticas sin cuenta, filtros de categoria, equipo y nueve metricas; enlaces compartibles, posiciones empatadas y acceso a perfiles. Usa el acceso publico existente y solo datos de partidos oficiales con estadisticas completas. Pendiente publicar.
-5. Pendiente: mejorar la pagina de cada partido.
-6. Pendiente: perfiles publicos de equipos.
+5. Implementado localmente: pagina de partido con marcador por estado, ganador, fecha y sede, enlaces a equipos y jornada, estadisticas individuales del encuentro, MVP publicados, touchdowns, calendario y tarjeta PNG. Pendiente publicar frontend y API.
+6. Implementado localmente: /equipos/:id con escudo, posicion y balance de temporada, plantilla aprobada, resultados y proximos encuentros; enlaces desde inicio, tabla y partidos. El acceso publico excluye datos de encargados, jugadores pendientes, jornadas en borrador y scrimmages. Pendiente publicar frontend y API.
 7. Pendiente: mejorar los perfiles de jugadores.
 8. Pendiente: organizar la jornada como evento.
 9. Pendiente: recorrido Quiero jugar / Busco equipo.
@@ -32,3 +32,9 @@ Para revisar contra la API remota en desarrollo, definir `API_PROXY_TARGET=https
 Pruebas de mejoras 3 y 4: acceso anonimo, navegacion publica y perfiles, filtros, enlaces compartidos, empates, registros vacios, errores y reintento en 320, 390 y 1280 px. Regresion de inicio, jornada y tabla en 390 y 1280 px.
 
 Commit sugerido para mejoras 3 y 4: `feat: agrega navegacion movil y estadisticas publicas`
+
+Pruebas de mejoras 5 y 6: API HTTP con PostgreSQL temporal en memoria, permisos publicos, campos privados excluidos, plantilla aprobada, jornadas en borrador, scrimmages, cantidades de jugadas y anulaciones, estadisticas pendientes y MVP. Navegador en 320, 390 y 1280 px con la API local: plantilla y perfiles, resultados, marcador, calendario ICS, tarjeta PNG, estados en vivo y pendientes, errores y reintento. Capturas revisadas sin desbordamientos.
+
+Ejecutar `node tests/public-team-match.mjs` desde backend despues de compilar. Para una vista previa aislada con datos de prueba: `node tests/public-team-match.mjs --preview`; abre el puerto 5190 y sirve frontend/dist. Las pruebas de navegador estan en frontend/tests/public-team-match.cjs.
+
+Commit sugerido para mejoras 5 y 6: `feat: mejora partidos y agrega perfiles publicos de equipos`
