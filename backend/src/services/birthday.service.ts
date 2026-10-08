@@ -4,9 +4,9 @@ import { birthdayContent } from './email-template.service.js';
 
 /** Envía una felicitación por jugador y día; la clave evita duplicados al reiniciar Render. */
 export async function sendBirthdayGreetings(now = new Date()): Promise<number> {
-  const rows = await query<{ id: string; email: string; name: string }>(`SELECT id, email,
+  const rows = await query<{ id: string; email: string; name: string; status: string }>(`SELECT id, email, status,
     CONCAT_WS(' ', first_name, last_name_paternal) AS name
-    FROM players WHERE status = 'APPROVED' AND removed_at IS NULL AND email IS NOT NULL AND email <> ''
+    FROM players WHERE removed_at IS NULL AND email IS NOT NULL AND BTRIM(email) <> ''
       AND EXTRACT(MONTH FROM date_of_birth) = $1 AND EXTRACT(DAY FROM date_of_birth) = $2`,
     [now.getUTCMonth() + 1, now.getUTCDate()]);
   const date = now.toISOString().slice(0, 10);
@@ -15,7 +15,7 @@ export async function sendBirthdayGreetings(now = new Date()): Promise<number> {
     const accepted = await send({
       to: player.email,
       subject: '🎉 ¡Feliz cumpleaños, de parte de Master Flag League!',
-      body: birthdayContent(player.name),
+      body: birthdayContent(player.name, player.status !== 'APPROVED'),
       dedupeKey: `birthday:${player.id}:${date}`,
       expiresAt: new Date(now.getTime() + 20 * 3600_000),
     });

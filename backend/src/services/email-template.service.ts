@@ -28,10 +28,11 @@ export function renderEmail(title: string, content: string): string {
 </table></td></tr></table></body></html>`;
 }
 
-export function birthdayContent(name: string): string {
+export function birthdayContent(name: string, needsApproval = false): string {
   return `<p style="font-size:42px;margin:0 0 8px">🎉 🏈 🎂</p><p>¡Hoy celebramos contigo, <strong>${escapeHtml(name)}</strong>!</p>
   <p>La familia de Master Flag League te desea un cumpleaños lleno de alegría, salud y grandes momentos con las personas que quieres.</p>
   <div style="padding:20px;background:#fef9c3;border-left:4px solid #eab308;border-radius:8px;color:#713f12;font-size:19px;font-weight:bold">Que este nuevo año venga con nuevas metas, buenas jugadas y muchas razones para celebrar.</div>
   <p>Gracias por ser parte de nuestra comunidad. ¡Nos vemos en el campo!</p>
-  <p style="font-size:12px;color:#64748b">Recibes esta felicitación porque autorizaste los correos de cumpleaños en tu registro. Puedes pedir a tu manager o a administración que desactive esa opción.</p>`;
+  ${needsApproval ? '<p><strong>Te falta un paso para tener tu registro aprobado.</strong> Revisa con tu manager o con la administración qué está pendiente o requiere atención para completar el proceso.</p>' : ''}
+  <p style="font-size:12px;color:#64748b">Recibes esta felicitación por tu registro en Master Flag League. Para consultas sobre estos correos, contacta a la administración de tu liga.</p>`;
 }

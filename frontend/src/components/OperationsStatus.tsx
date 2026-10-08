@@ -30,7 +30,7 @@ export function OperationsStatus() {
         if (window.confirm('¿Procesar todos los correos pendientes? Puede enviar correos reales de todas las ligas, no solo felicitaciones de cumpleaños.')) process.mutate();
       }}>Procesar correos pendientes</Button>
       <Button loading={birthdays.isPending} disabled={process.isPending || status.isError || !data.workerEnabled || !data.emailApiConfigured} onClick={() => {
-        if (window.confirm('¿Preparar las felicitaciones de cumpleaños de hoy (fecha UTC)? Incluye jugadores aprobados de todas las ligas. El worker usa una cola compartida y también puede enviar otros correos pendientes.')) birthdays.mutate();
+        if (window.confirm('¿Preparar las felicitaciones de cumpleaños de hoy (fecha UTC)? Incluye jugadores con correo y sin baja de todas las ligas, aprobados o no. Los no aprobados recibirán un recordatorio sobre su registro. El worker usa una cola compartida y también puede enviar otros correos pendientes.')) birthdays.mutate();
       }}>Preparar correos de cumpleaños</Button>
       <Button tone="ghost" loading={status.isFetching} onClick={() => void status.refetch()}>Actualizar estado</Button>
       {process.isSuccess && <p className="text-sm">Procesamiento solicitado. El estado se actualizará automáticamente.</p>}
