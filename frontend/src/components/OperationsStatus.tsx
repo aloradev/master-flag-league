@@ -10,6 +10,7 @@ interface Operations {
 export function OperationsStatus() {
   const status = useQuery({ queryKey: ['operations'], queryFn: () => api.get<Operations>('/admin/operations'), refetchInterval: 60_000 });
   const process = useMutation({ mutationFn: () => api.post('/admin/operations/process-emails', {}), onSuccess: () => { void status.refetch(); } });
+  const birthdays = useMutation({ mutationFn: () => api.post<{ queued: number }>('/admin/operations/process-birthdays', {}), onSuccess: () => { void status.refetch(); } });
   const data = status.data;
   return <Card className="space-y-3 p-4">
     <h2 className="font-semibold">Estado operativo y correos</h2>
@@ -25,12 +26,17 @@ export function OperationsStatus() {
       <p className="text-xs">Aceptado por el proveedor no confirma entrega en la bandeja del destinatario. Los conteos son acumulados.</p>
       {data.stalled > 0 && <Alert tone="warning">{data.stalled} correos llevan más de 15 minutos pendientes.</Alert>}
       {data.recentFailures.map((failure) => <p key={failure.id} className="text-xs">{failure.last_error} · {failure.attempts} intentos · {new Date(failure.updated_at).toLocaleString('es-MX')}</p>)}
-      <Button loading={process.isPending} disabled={status.isError || !data.workerEnabled || !data.emailApiConfigured} onClick={() => {
+      <Button loading={process.isPending} disabled={birthdays.isPending || status.isError || !data.workerEnabled || !data.emailApiConfigured} onClick={() => {
         if (window.confirm('¿Procesar todos los correos pendientes? Puede enviar correos reales de todas las ligas, no solo felicitaciones de cumpleaños.')) process.mutate();
       }}>Procesar correos pendientes</Button>
+      <Button loading={birthdays.isPending} disabled={process.isPending || status.isError || !data.workerEnabled || !data.emailApiConfigured} onClick={() => {
+        if (window.confirm('¿Preparar las felicitaciones de cumpleaños de hoy (fecha UTC)? Incluye jugadores aprobados de todas las ligas. El worker usa una cola compartida y también puede enviar otros correos pendientes.')) birthdays.mutate();
+      }}>Preparar correos de cumpleaños</Button>
       <Button tone="ghost" loading={status.isFetching} onClick={() => void status.refetch()}>Actualizar estado</Button>
       {process.isSuccess && <p className="text-sm">Procesamiento solicitado. El estado se actualizará automáticamente.</p>}
       {process.error && <Alert tone="error">{process.error.message}</Alert>}
+      {birthdays.isSuccess && <p role="status" className="text-sm">Solicitud completada. Felicitaciones aceptadas para encolar: {birthdays.data.queued}. No confirma entrega ni destinatarios únicos.</p>}
+      {birthdays.error && <Alert tone="error">{birthdays.error.message}</Alert>}
     </>}
   </Card>;
 }

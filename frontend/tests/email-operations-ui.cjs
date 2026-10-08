@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
     for (const width of [390, 1280]) {
       const page = await browser.newPage({ viewport: { width, height: 844 } });
       await page.addInitScript(() => localStorage.setItem('mfl.token', 'fake-test-token'));
-      let enabled = false, configured = true, posts = 0, failing = false;
+      let enabled = false, configured = true, posts = 0, birthdayPosts = 0, failing = false;
       await page.route('**/api/v1/**', route => {
         const path = new URL(route.request().url()).pathname;
         let data = {};
@@ -17,12 +17,18 @@ const assert = require('node:assert/strict');
           posts++;
           if (failing) return route.fulfill({ status: 503, json: { success: false, error: 'Error simulado de procesamiento' } });
         }
+        if (path.endsWith('/process-birthdays')) {
+          birthdayPosts++;
+          if (failing) return route.fulfill({ status: 503, json: { success: false, error: 'Error simulado de cumpleaños' } });
+          data = { queued: 2 };
+        }
         return route.fulfill({ json: { success: true, data } });
       });
       const open = async () => { await page.goto('http://127.0.0.1:5191/admin/temporada'); await page.getByRole('button', { name: 'Procesar correos pendientes' }).waitFor(); };
       await open();
       const button = page.getByRole('button', { name: 'Procesar correos pendientes' });
       assert.equal(await button.isDisabled(), true);
+      assert.equal(await page.getByRole('button', { name: 'Preparar correos de cumpleaños' }).isDisabled(), true);
       await page.getByText(/Configura EMAIL_WORKER_ENABLED=true/).waitFor();
       enabled = true; configured = false;
       await open();
@@ -41,6 +47,20 @@ const assert = require('node:assert/strict');
       await button.click();
       await page.getByText('Error simulado de procesamiento').waitFor();
       assert.equal(posts, 2);
+      failing = false;
+      const birthdays = page.getByRole('button', { name: 'Preparar correos de cumpleaños' });
+      page.once('dialog', dialog => dialog.dismiss());
+      await birthdays.click();
+      assert.equal(birthdayPosts, 0);
+      page.once('dialog', dialog => { assert.ok(dialog.message().includes('cola compartida')); return dialog.accept(); });
+      await birthdays.click();
+      await page.getByRole('status').filter({ hasText: 'Felicitaciones aceptadas para encolar: 2.' }).waitFor();
+      assert.equal(birthdayPosts, 1);
+      assert.equal(posts, 2);
+      failing = true;
+      page.once('dialog', dialog => dialog.accept());
+      await birthdays.click();
+      await page.getByText('Error simulado de cumpleaños').waitFor();
       console.log(`PASS ${width}: pausa, proveedor ausente, cancelacion, confirmacion, solicitud y error; sin envios reales.`);
       await page.close();
     }

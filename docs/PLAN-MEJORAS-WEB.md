@@ -205,3 +205,7 @@ Implementado localmente en Temporada y categorias, panel Estado operativo y corr
 TypeScript y build aprobados. email-operations-ui.cjs aprobada en 390/1280: worker pausado, proveedor no configurado, cancelacion sin POST, confirmacion, respuesta correcta y error 503. Todas las solicitudes interceptadas; sin envios reales ni despliegue.
 
 Commit sugerido: `fix: confirma procesamiento manual y corrige estado de correos`
+
+Boton adicional Preparar correos de cumpleanos: usa exclusivamente POST /admin/operations/process-birthdays, confirma fecha UTC y alcance de todas las ligas, muestra queued como solicitudes aceptadas (no entregas ni destinatarios unicos) y errores. Bloqueado si falta worker/proveedor y durante procesamiento manual concurrente. La cola de envio sigue compartida; la confirmacion advierte que el worker puede enviar otros pendientes. El servicio actual no comprueba consentimiento; pendiente corregir antes de uso en produccion. Sin modificar backend ni enviar correos reales. Build y TypeScript aprobados; email-operations-ui.cjs ampliada y aprobada en 390/1280 para cancelacion, endpoint separado sin llamar process-emails, conteo y fallo 503 de cumpleanos.
+
+Commit sugerido: `feat: agrega accion de felicitaciones de cumpleanos en configuracion`
