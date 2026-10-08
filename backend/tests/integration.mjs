@@ -601,7 +601,7 @@ const run = async () => {
 
   const seasonUpdate = await call('PUT', `/admin/seasons/${seasonId}`, {
     token: adminToken,
-    body: { registrationDeadline: '2026-09-30', defaultStartTime: '20:00' },
+    body: { registrationDeadline: '2099-12-31', defaultStartTime: '20:00' },
   });
   check('Edita la temporada', seasonUpdate.status === 200);
 
@@ -736,7 +736,7 @@ const run = async () => {
     },
   });
   const player3Id = p3.body?.data?.id;
-  check('Registra un jugador para la prueba de imagen', p3.status === 201);
+  check('Registra un jugador para la prueba de imagen', p3.status === 201, JSON.stringify(p3.body));
 
   const fotoSubida = await uploadDoc(mgrToken, player3Id, 'PHOTO', fotoConGps, 'image/jpeg');
   check('Sube una fotografía JPEG de 900x1200', fotoSubida.status === 201,

@@ -213,3 +213,13 @@ Commit sugerido: `feat: agrega accion de felicitaciones de cumpleanos en configu
 Criterio de cumpleanos actualizado por solicitud: registros sin baja y con correo no vacio reciben felicitacion independientemente del estado. APPROVED recibe solo felicitacion; cualquier otro estado incluye recordatorio de revisar con manager/administracion lo pendiente para completar la aprobacion. Se conserva fecha UTC, clave diaria y vencimiento. El pie ya no afirma consentimiento inexistente ni ofrece una opcion de baja no implementada. Esta actualizacion sustituye el criterio anterior de solo aprobados; no implementa preferencias de correo. Confirmacion del boton ajustada. Backend compilado y birthday-greetings.mjs aprobada para cinco estados con transporte simulado; sin envios reales.
 
 Commit sugerido: `feat: felicita cumpleanos y recuerda registros sin aprobar`
+
+## Dependencias de seguridad antes de produccion
+
+2026-10-07: backend/package-lock.json actualizado dentro de los rangos existentes, sin force ni cambios de version mayor: multer 2.4.0, sharp 0.35.5 (librsvg 2.63.2) y proxy-addr 2.0.8, transitiva de Express. npm audit final: cero vulnerabilidades conocidas reportadas. No garantiza ausencia de todos los problemas de seguridad.
+
+Build aprobado. security-dependencies.mjs nueva: derivados WebP, dimensiones, imagen invalida, proxy de un salto, carga multipart en memoria y limite de archivo. audit-fixes.mjs aprobada. almacenamiento.mjs: 72 comprobaciones aprobadas tras aislar variables Cloudinary del .env local y desactivar worker. onboarding-isolated.mjs aprobada con PostgreSQL temporal: integracion 162 comprobaciones incluyendo autenticacion, documentos privados, fotos con EXIF, rechazo de imagen danada y logos; tambien competicion, edicion, publico (31 comprobaciones) y multi-liga. Fixture de integracion corregido: su fecha fija de cierre de registro habia vencido e impedia crear al jugador de prueba de imagen.
+
+Limitaciones: ejecutado en Windows, no en el Linux de Render ni contra Cloudinary real. npm aviso que no pudo retirar un binario antiguo bloqueado; procesos nuevos cargan Sharp corregido. Reiniciar instancias locales antiguas antes de usarlas. Durante competicion se observo aviso no fatal de auditoria por identificador mayor a varchar(36); pendiente revisar aparte. No se ejecutaron migraciones en produccion, envios reales, commit ni despliegue.
+
+Commit sugerido: `fix: actualiza dependencias vulnerables y valida regresiones del backend`
