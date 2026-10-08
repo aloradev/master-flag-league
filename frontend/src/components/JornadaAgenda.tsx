@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
-import type { RoundStatus } from '../lib/competition';
+import { ETIQUETA_PARTIDO, type RoundStatus } from '../lib/competition';
 import { fechaTexto } from '../lib/format';
 import { Alert, EmptyState } from './ui';
 import { PublicFilters } from './PublicFilters';
@@ -21,9 +21,9 @@ export function JornadaAgenda({ data }: { data: JornadaPublica }) {
   const fields = [...new Set(games.map(game => game.field_name || 'Cancha por confirmar'))].sort((a, b) => a.localeCompare(b, 'es'));
   const category = categories.includes(params.get('categoria') ?? '') ? params.get('categoria')! : '';
   const field = fields.includes(params.get('cancha') ?? '') ? params.get('cancha')! : '';
-  const status = ['LIVE', 'SCHEDULED', 'FINISHED', 'POSTPONED'].includes(params.get('estado') ?? '') ? params.get('estado')! : '';
+  const status = Object.hasOwn(ETIQUETA_PARTIDO, params.get('estado') ?? '') ? params.get('estado')! : '';
   const grouping = ['categoria', 'cancha'].includes(params.get('agrupar') ?? '') ? params.get('agrupar')! : 'horario';
-  const filtered = games.filter(game => (!category || game.category_name === category) && (!field || (game.field_name || 'Cancha por confirmar') === field) && (!status || game.status === status || status === 'FINISHED' && game.status === 'WALKOVER'))
+  const filtered = games.filter(game => (!category || game.category_name === category) && (!field || (game.field_name || 'Cancha por confirmar') === field) && (!status || game.status === status))
     .sort((a, b) => (a.scheduled_time || '99:99').localeCompare(b.scheduled_time || '99:99') || (a.field_name ?? '').localeCompare(b.field_name ?? '', 'es'));
   const groups = new Map<string, typeof games>();
   for (const game of filtered) {
@@ -62,7 +62,7 @@ export function JornadaAgenda({ data }: { data: JornadaPublica }) {
     <PublicFilters label="Filtros de la jornada" activeCount={activeCount} onClear={clearFilters}>
       <div className="min-w-0"><label htmlFor="round-category" className="text-xs font-semibold">Categoría</label><select id="round-category" className="select mt-1 w-full" value={category} onChange={event => update('categoria', event.target.value)}><option value="">Todas</option>{categories.map(name => <option key={name}>{name}</option>)}</select></div>
       <div className="min-w-0"><label htmlFor="round-field" className="text-xs font-semibold">Cancha</label><select id="round-field" className="select mt-1 w-full" value={field} onChange={event => update('cancha', event.target.value)}><option value="">Todas</option>{fields.map(name => <option key={name}>{name}</option>)}</select></div>
-      <div className="min-w-0"><label htmlFor="round-status" className="text-xs font-semibold">Estado</label><select id="round-status" className="select mt-1 w-full" value={status} onChange={event => update('estado', event.target.value)}><option value="">Todos</option><option value="LIVE">En vivo</option><option value="SCHEDULED">Programados</option><option value="FINISHED">Finalizados</option><option value="POSTPONED">Pospuestos</option></select></div>
+      <div className="min-w-0"><label htmlFor="round-status" className="text-xs font-semibold">Estado</label><select id="round-status" className="select mt-1 w-full" value={status} onChange={event => update('estado', event.target.value)}><option value="">Todos</option>{Object.entries(ETIQUETA_PARTIDO).map(([value, label]) => <option key={value} value={value}>{label.texto}</option>)}</select></div>
       <div className="min-w-0"><label htmlFor="round-group" className="text-xs font-semibold">Agrupar por</label><select id="round-group" className="select mt-1 w-full" value={grouping} onChange={event => update('agrupar', event.target.value)}><option value="horario">Horario</option><option value="categoria">Categoría</option><option value="cancha">Cancha</option></select></div>
     </PublicFilters>
     {featured && <section aria-labelledby="featured-match" className="border-l-4 border-primary pl-4"><h2 id="featured-match" className="text-sm font-bold text-primary">{featured.status === 'LIVE' ? 'Ahora en la cancha' : 'Próximo encuentro de esta jornada'}</h2><Link className="link mt-1 block break-words font-semibold" to={`/partido/${featured.id}`}>{featured.home_team_name} vs {featured.away_team_name}</Link><p className="mt-1 text-xs text-base-content/60">{featured.scheduled_time || 'Hora por confirmar'} · {featured.field_name || 'Cancha por confirmar'} · {featured.category_name}</p></section>}

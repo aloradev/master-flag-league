@@ -497,10 +497,13 @@ h1, h2, h3 {
 .public-shell .btn { min-height:44px; height:auto; padding-block:10px; font-size:13px; line-height:1.3; font-weight:600; letter-spacing:0; }
 .public-shell .btn-square { width:44px; height:44px; padding:0; }
 .public-shell .btn:has(> svg:only-child) { min-width:44px; }
-.public-shell .input, .public-shell .select { min-height:44px; font-size:14px; }
+.public-shell .input, .public-shell .select { height:auto; min-height:max(44px,calc(1.5em + 16px)); font-size:14px; }
 .public-shell main:not(.mfl-campaign) h2:not(.text-sm) { font-size:18px; line-height:1.35; font-weight:700; letter-spacing:0; overflow-wrap:anywhere; }
 .public-shell main:not(.mfl-campaign) h3 { letter-spacing:0; overflow-wrap:anywhere; }
 .public-shell main:not(.mfl-campaign) .link { text-underline-offset:3px; }
+.public-shell main dl dt { overflow-wrap:anywhere; }
+.public-player-metrics { grid-template-columns:repeat(auto-fit,minmax(min(100%,7em),1fr)); }
+.public-bottom-nav a > span { max-width:100%; overflow-wrap:anywhere; }
 .public-shell .ui-loading-state { padding:32px 16px; gap:12px; font-size:14px; }
 .public-shell .ui-empty-state { padding:32px 16px; gap:8px; overflow-wrap:anywhere; }
 .public-shell .ui-empty-state h3 { font-size:16px; line-height:1.4; font-weight:600; }
@@ -528,11 +531,12 @@ h1, h2, h3 {
 .public-filters { border-block:1px solid var(--color-base-300); padding-block:8px 14px; }
 .public-filters-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 12px; margin-bottom:8px; }
 .public-filters-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 12px; }
-.public-filters-grid .select { min-width:0; height:44px; min-height:44px; margin-top:4px; font-size:13px; }
+.public-filters-grid .select { min-width:0; height:auto; min-height:max(44px,calc(1.5em + 16px)); margin-top:4px; font-size:13px; }
 .public-filters-grid > div { min-width:0; }
 .public-filters-three > :last-child { grid-column:1 / -1; }
 .public-stats-filters .public-filters-grid > :first-child { grid-column:1 / -1; }
 .public-stats-filters .public-filters-grid > :last-child { grid-column:auto; }
+@media (max-width:639px) { .public-stats-filters .public-filters-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,8em),1fr)); } }
 @media (min-width:640px) { .public-stats-filters .public-filters-grid > :first-child { grid-column:auto; } }
 .public-share-panel { min-width:0; border-block:1px solid var(--color-base-300); }
 .public-share-panel > summary { display:flex; align-items:center; gap:8px; min-height:48px; padding:10px 0; list-style:none; font-size:13px; font-weight:600; cursor:pointer; }
@@ -542,7 +546,7 @@ h1, h2, h3 {
 .public-share-content { padding-bottom:16px; }
 .public-share-options { display:flex; flex-wrap:wrap; align-items:end; gap:12px; }
 .public-share-options > div:first-child { flex:1 1 230px; max-width:320px; }
-.public-share-options .select { max-width:100%; height:44px; min-height:44px; }
+.public-share-options .select { max-width:100%; height:auto; min-height:max(44px,calc(1.5em + 16px)); }
 @media (min-width:640px) {
   .public-filters-three { grid-template-columns:repeat(3,minmax(0,1fr)); }
   .public-filters-three > :last-child { grid-column:auto; }
@@ -593,10 +597,10 @@ h1, h2, h3 {
 .league-loading-match { padding:16px 12px 0; border:1px solid var(--color-base-300); border-radius:8px; }
 .league-live .campaign-section-heading { margin-bottom:16px; }
 @media (max-width:700px) { .league-live h2 { font-size:24px; margin-top:8px; } }
-.public-bottom-nav { height:calc(64px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px); }
+.public-bottom-nav { min-height:calc(4em + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px); }
 .public-page-heading h1 { overflow-wrap:anywhere; letter-spacing:0; }
 @media (max-width:639px) {
-  .public-shell { padding-bottom:calc(80px + env(safe-area-inset-bottom, 0px)); }
+  .public-shell { padding-bottom:calc(6em + env(safe-area-inset-bottom, 0px)); }
   .public-bottom-nav a { min-height:64px; }
 }
 main:focus { outline:none; }

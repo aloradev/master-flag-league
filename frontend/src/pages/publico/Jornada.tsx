@@ -122,7 +122,7 @@ export const Partido = ({ p }: { p: PartidoPublico }) => {
       </div>
       <dl className="public-match-details"><div><dt>Hora de Cancún</dt><dd className="tabular">{p.scheduled_time || 'Por confirmar'}</dd></div><div><dt>Cancha</dt><dd>{p.field_name || 'Por confirmar'}</dd></div></dl>
       {final && p.statistics_status === 'PENDING' && <p className="mt-2 text-xs text-warning">Estadísticas pendientes</p>}
-      {p.touchdowns?.length > 0 && (
+      {conMarcador && p.touchdowns?.length > 0 && (
         <div className="mt-3 border-t border-base-300 pt-2 text-xs text-base-content/70">
           <span className="font-semibold">Touchdowns:</span>{' '}
           {p.touchdowns.map((t, i) => (

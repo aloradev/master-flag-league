@@ -165,17 +165,43 @@ Estado: puntos 1 a 7 y 9 implementados localmente. Punto 8 pendiente de prueba c
 
 ## Mejoras adicionales de orientacion
 
-Lista independiente de la iteracion anterior, autorizadas 1 y 3.
+Lista independiente de la iteracion anterior, autorizadas 1 a 6.
 
 1. Implementado localmente: enlaces inexistentes con salida contextual. Equipo 404 ofrece Ver equipos, jugador 404 Ver estadisticas, partido/jornada explicita 404 Ver jornada. Jornada vigente sin publicar ofrece Ver equipos, sin enlazar a si misma. Errores temporales y de conexion conservan Reintentar. En jornada explicita fallida, los scrimmages disponibles ya no ocultan el aviso del enlace inexistente; se conservan debajo. No cambia la respuesta HTTP del servidor ni el funcionamiento de las fichas cargadas.
-2. Pendiente: mostrar actualidad de los datos y diferenciar consulta fallida, ultima informacion disponible y captura pendiente.
+2. Implementado localmente: ultima consulta correcta con fecha/hora de Cancun en Inicio, Jornada, Tabla, Estadisticas, Partido, Equipo y jugador (perfil y estadisticas separados). No es fecha de captura ni certifica que los datos deportivos sean recientes. Las consultas en curso y fallidas se distinguen sin sustituir la hora anterior; reintento cuando hay datos guardados. Tabla conserva la clasificacion ante un error de actualizacion. Avisos existentes de captura pendiente conservados.
 3. Implementado localmente: categoria y equipo junto al titulo de ranking, vinculados semanticamente a la seccion. El contexto se conserva al cambiar metrica/recargar y se incluye en enlace compartido y subtitulo de imagen. Identificadores desconocidos se muestran como Categoria/Equipo no disponible, nunca como todos. Calculos, empates y filtros sin cambios.
-4. Pendiente: completar revision de texto ampliado y teclado.
-5. Pendiente: comprobar conservacion de filtros y desplazamiento al volver de perfiles.
-6. Pendiente: revisar consistencia de estados deportivos entre Inicio, Jornada y Partido.
+4. Implementado localmente para las seis pantallas deportivas: texto al 200% simulado, teclado en compartir enlace/imagen, foco visible y salto al contenido. Se corrigen nombres/etiquetas del marcador, columnas de estadisticas individuales adaptadas a em, etiquetas de metricas, altura de selectores proporcional al texto, filtros de Estadisticas apilables y navegacion/reserva inferior que crecen con el texto. La ultima accion puede desplazarse por encima de la barra movil. No constituye certificacion WCAG de toda la aplicacion; pendiente zoom nativo, lector de pantalla y telefonos reales.
+5. Implementado localmente: posiciones por entrada del historial (hasta 100 en la sesion de la aplicacion), restauracion al volver/avanzar y espera de cambios de altura durante hasta cinco segundos. Se interrumpe ante rueda, toque o teclado para respetar la navegacion del usuario. Los filtros, metrica, agrupacion y pestaña existentes siguen en la URL; cambiar filtros no envia al inicio. Paginas nuevas mantienen el salto al inicio y foco en contenido. No guarda posiciones tras cerrar/recargar la aplicacion ni garantiza restauracion con cargas superiores a cinco segundos.
+6. Implementado localmente: Jornada usa las mismas etiquetas y estados de ETIQUETA_PARTIDO que las tarjetas compartidas por Inicio y la ficha Partido. Filtros explicitos para cancelado e incomparecencia; Final ya no agrupa silenciosamente incomparecencias. Partido cancelado tiene titulo propio. Programado, pospuesto y cancelado no muestran estadisticas pendientes de captura ni eventos antiguos como actividad actual; final con captura pendiente y datos provisionales en vivo mantienen sus avisos diferenciados. Sin cambiar estados ni reglas del servidor.
 
 Pruebas adicionales 1 y 3: TypeScript y build aprobados. Nueva recovery-ranking-context.cjs en 320/390/640/1280, ambos temas: salidas 404 de cuatro fichas, destino y acceso con teclado, controles de 44 px, recuperacion de 503 y fallo de conexion, vigente sin publicar, error explicito junto a scrimmages, contexto de ranking con filtros/desconocidos/nombres largos, enlace compartido, recarga y limpieza sin perder metrica ni parametros ajenos. Capturas de 404 y ranking revisadas. Regresion public-statistics.cjs, public-team-match.cjs, public-player-round.cjs, filters-share-ui.cjs y statistics-priority.cjs; incluye vistas previas PNG y empates. Pendiente publicar y validar con personas/dispositivos reales.
 
 Commit sugerido para adicionales 1 y 3: `fix: orienta enlaces inexistentes y aclara alcance de rankings`
 
-Estado adicional: 1 y 3 implementados localmente; 2, 4, 5 y 6 pendientes. No avanzar automaticamente. Se mantienen los pendientes de validacion de la iteracion anterior.
+Pruebas adicionales 2 y 4: TypeScript y build aprobados. freshness-accessibility.cjs en 320/390/1280, claro/oscuro: reloj controlado para consulta caducada, regreso a Tabla, peticion retenida, 503 con datos conservados y hora sin cambio, reintento correcto con nueva hora. Seis rutas con tipografia y altura de linea duplicadas: overflow global, recorte vertical de controles, filtros apilados, paneles con Enter/Tab, foco visible, salto al contenido y ultima accion accesible. Esto simula aumento de texto, no zoom nativo del navegador. Capturas revisadas. Regresion public-pages.cjs, public-team-match.cjs, filters-share-ui.cjs, statistics-priority.cjs y home-loading.cjs; se corrige en esta ultima la espera de consultas independientes tras un error inicial.
+
+Commit sugerido para adicionales 2 y 4: `fix: aclara vigencia de datos y mejora texto ampliado`
+
+Pruebas adicionales 5 y 6: TypeScript y build aprobados. navigation-status.cjs en 320/390/1280: volver/avanzar desde jugador, plantilla y desplazamiento restaurados, equipo/metrica/parametro ajeno y posicion del ranking conservados; filtros cancelado e incomparecencia disponibles y conservados al recargar junto a agrupacion. Seis estados en ficha, sin marcador ficticio ni captura pendiente para partidos no disputados y sin overflow. Regresion filters-share-ui.cjs y public-team-match.cjs aprobada. Las pruebas son de navegador automatizado, no equivalen a validacion en telefonos reales.
+
+Commit sugerido para adicionales 5 y 6: `fix: restaura contexto de navegacion y unifica estados deportivos`
+
+Estado adicional: 1 a 6 implementados localmente. Se mantienen los pendientes de validacion de la iteracion anterior, zoom nativo, lectores de pantalla y telefonos reales. Sin despliegue.
+
+## Validacion disponible sin dispositivo real
+
+2026-10-07: aprobadas api-resilience.mjs (respuesta HTML inesperada, red y tiempo limite), temporary-access.mjs (vencimiento temporal independiente de la sesion normal) y metadata-server.mjs (HTML inicial, Open Graph, canonical, escape, imagenes y errores HTTP). Pruebas aisladas, sin modificar produccion.
+
+public-pages.cjs ampliada y aprobada en 320/390/470/640/768/1024/1280 px para Inicio, Jornada y Tabla: salto al contenido por Enter, entrada con Tab y retorno con Shift+Tab, recuperacion tras error, contenido y contencion visual sin overflow ni errores JavaScript detectados. Datos ficticios interceptados en el navegador; no valida disponibilidad de la API real ni constituye una auditoria completa de accesibilidad. Servidor de vista previa limitado a 127.0.0.1:5191, no expuesto a la red.
+
+Pendientes: Safari en iPhone real, zoom nativo, lector de pantalla, prueba con jugadores y publicacion controlada. No se marcan completados por estas pruebas automatizadas.
+
+Commit sugerido: `test: amplia comprobaciones de teclado y documenta validacion local`
+
+## Procesamiento manual de correos
+
+Implementado localmente en Temporada y categorias, panel Estado operativo y correos (solo Super Administracion): boton existente de procesamiento con confirmacion del alcance global, bloqueo si worker/proveedor estan deshabilitados o el estado fallo, aviso de EMAIL_WORKER_ENABLED=true y reinicio del backend, actualizacion manual del estado. Corregidos campos de proveedor segun la API actual; ya no muestra Resend fijo. No activa variables de entorno desde el navegador, no encola cumpleanos por separado ni evita controles del servidor.
+
+TypeScript y build aprobados. email-operations-ui.cjs aprobada en 390/1280: worker pausado, proveedor no configurado, cancelacion sin POST, confirmacion, respuesta correcta y error 503. Todas las solicitudes interceptadas; sin envios reales ni despliegue.
+
+Commit sugerido: `fix: confirma procesamiento manual y corrige estado de correos`

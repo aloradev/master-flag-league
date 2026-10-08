@@ -58,6 +58,15 @@ const round = { season, round: { id: 'current', number: 3, scheduled_date: '2026
           await page.locator('#liga-hoy').scrollIntoViewIfNeeded();
         }
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `Overflow: ${url} ${width}`);
+        await page.locator('.skip-link').focus();
+        await page.keyboard.press('Enter');
+        assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'MAIN', `Skip link: ${url}`);
+        await page.keyboard.press('Tab');
+        assert.equal(await page.evaluate(() => document.activeElement === document.body), false, `Keyboard entry: ${url}`);
+        const firstControl = await page.evaluate(() => document.activeElement.outerHTML);
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Shift+Tab');
+        assert.equal(await page.evaluate(() => document.activeElement.outerHTML), firstControl, `Keyboard return: ${url}`);
         await fs.mkdir(path.resolve(__dirname, '../../.qa-artifacts'), { recursive: true });
         if (url === '/') await page.locator('.league-live').screenshot({ path: path.resolve(__dirname, `../../.qa-artifacts/home-layout-${width}.png`), animations: 'disabled' });
         await page.screenshot({ path: path.resolve(__dirname, `../../.qa-artifacts/public-${width}-${url === '/' ? 'home' : url.slice(1)}.png`), fullPage: url !== '/', timeout: 15000, animations: 'disabled' });
@@ -82,6 +91,6 @@ const round = { season, round: { id: 'current', number: 3, scheduled_date: '2026
     await page.getByRole('button', { name: 'Reintentar', exact: true }).click();
     await page.getByText('Todavía no se juega nada', { exact: true }).waitFor();
     await page.close();
-    console.log('OK: Home, Jornada y Tabla; 320/390/470/640/768/1024/1280 px; contencion vertical de tarjetas y secciones; resultados previos; scrimmages fallidos; recuperacion tras error; sin errores de React ni desbordamiento.');
+    console.log('OK: Home, Jornada y Tabla; 320/390/470/640/768/1024/1280 px; salto al contenido, Tab/Shift+Tab; contencion vertical de tarjetas y secciones; resultados previos; scrimmages fallidos; recuperacion tras error; sin errores de React ni desbordamiento.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

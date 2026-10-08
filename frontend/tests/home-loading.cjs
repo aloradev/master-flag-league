@@ -52,6 +52,7 @@ const base = process.env.QA_BASE_URL || 'http://127.0.0.1:5191';
       fail = true;
       await page.reload();
       await page.locator('.league-live').getByRole('button', { name: 'Reintentar', exact: true }).waitFor();
+      await page.locator('.league-loading').first().waitFor({ state: 'hidden' });
       assert.equal(await page.locator('.league-loading').count(), 0);
       fail = false;
       await page.locator('.league-live').getByRole('button', { name: 'Reintentar', exact: true }).click();

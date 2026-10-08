@@ -26,7 +26,7 @@ export default function PartidoPublico() {
   const final = p.status === 'FINISHED' || p.status === 'WALKOVER';
   const scored = (final || p.status === 'LIVE') && p.home_score != null && p.away_score != null;
   const status = ETIQUETA_PARTIDO[p.status];
-  const title = final ? 'Resultado final' : p.status === 'LIVE' ? 'Partido en vivo' : p.status === 'SCHEDULED' ? 'Próximo partido' : p.status === 'POSTPONED' ? 'Partido pospuesto' : 'Partido';
+  const title = final ? 'Resultado final' : p.status === 'LIVE' ? 'Partido en vivo' : p.status === 'SCHEDULED' ? 'Próximo partido' : p.status === 'POSTPONED' ? 'Partido pospuesto' : p.status === 'CANCELLED' ? 'Partido cancelado' : 'Partido';
   const score = scored ? `${p.home_score} - ${p.away_score}` : 'VS';
   const message = `${p.home_team_name} ${score} ${p.away_team_name}\n${status.texto} · ${fechaTexto(p.scheduled_date)}\n${window.location.origin}/partido/${p.id}`;
   const individual = p.players ?? [];
@@ -36,7 +36,7 @@ export default function PartidoPublico() {
   ];
   const teamSide = (side: 'home' | 'away') => {
     const name = p[`${side}_team_name`];
-    const content = <><TeamCrest name={name} shortName={p[`${side}_short_name`]} logoUrl={p[`${side}_logo_url`]} color={p[`${side}_color`] ?? undefined} className="size-16 shrink-0 sm:size-24" /><span className="break-words text-sm font-bold sm:text-lg">{name}</span><span className="text-xs text-base-content/55">{side === 'home' ? 'Local' : 'Visitante'}</span></>;
+    const content = <><TeamCrest name={name} shortName={p[`${side}_short_name`]} logoUrl={p[`${side}_logo_url`]} color={p[`${side}_color`] ?? undefined} className="size-16 max-w-full shrink-0 sm:size-24" /><span className="max-w-full break-words text-sm font-bold [overflow-wrap:anywhere] sm:text-lg">{name}</span><span className="max-w-full text-xs text-base-content/55 [overflow-wrap:anywhere]">{side === 'home' ? 'Local' : 'Visitante'}</span></>;
     const className = 'flex min-w-0 flex-col items-center gap-2 text-center';
     return p.game_type === 'SCRIMMAGE' ? <div className={className}>{content}</div> : <Link className={`${className} hover:text-primary`} to={`/equipos/${p[`${side}_team_id`]}`}>{content}</Link>;
   };
@@ -65,20 +65,20 @@ export default function PartidoPublico() {
         </dl><div className="mt-4"><CalendarActions game={{ ...p, scheduled_time: p.scheduled_time ?? '' }} /></div>
       </section>
       <section aria-labelledby="match-stats"><h2 id="match-stats" className="mb-3 text-lg font-bold">Estadísticas del partido</h2>
-        {p.statistics_status === 'PENDING' && p.status !== 'LIVE' ? <Alert tone="warning">{final ? 'Resultado confirmado. Estadísticas individuales pendientes de captura.' : 'Estadísticas individuales pendientes de captura.'}</Alert>
+        {p.status === 'CANCELLED' || p.status === 'POSTPONED' || p.status === 'SCHEDULED' ? <p className="text-sm text-base-content/60">{p.status === 'CANCELLED' ? 'Partido cancelado: no hay resultado deportivo confirmado.' : p.status === 'POSTPONED' ? 'Partido pospuesto: nueva fecha por confirmar.' : 'Las estadísticas estarán disponibles cuando comience el partido.'}</p> : p.statistics_status === 'PENDING' && p.status !== 'LIVE' ? <Alert tone="warning">{final ? 'Resultado confirmado. Estadísticas individuales pendientes de captura.' : 'Estadísticas individuales pendientes de captura.'}</Alert>
           : !individual.length ? <p className="text-sm text-base-content/60">Todavía no hay estadísticas individuales publicadas.</p> : <>
             {p.status === 'LIVE' && <p className="mb-3 text-xs text-base-content/60">Estadísticas provisionales del partido en curso.</p>}
             {mvps.some(item => item.player) && <dl className="mb-5 grid gap-4 sm:grid-cols-2">{mvps.filter(item => item.player).map(({ label, player }) => <div key={label} className="border-l-4 border-primary pl-3"><dt className="text-xs font-bold text-primary">{label}</dt><dd><Link className="link break-words font-semibold" to={`/jugador/${player!.player_id}`}>{player!.player_name}</Link></dd></div>)}</dl>}
             <ul className="divide-y divide-base-300">{individual.map(player => <li key={player.player_id} className="py-3">
               <Link className="link break-words font-semibold" to={`/jugador/${player.player_id}`}>{player.jersey_number != null ? `#${player.jersey_number} ` : ''}{player.player_name}</Link>
               <p className="text-xs text-base-content/60">{player.team_id === p.home_team_id ? p.home_team_name : p.away_team_name}</p>
-              <dl className="mt-2 grid grid-cols-3 gap-2 text-xs sm:grid-cols-5">{[
+              <dl className="public-player-metrics mt-2 grid gap-2 text-xs">{[
                 ['Touchdowns', player.touchdowns], ['Recepciones', player.receptions], ['Intercepciones', player.interceptions], ['Flags', player.flag_pulls], ['Pases defendidos', player.passes_defended],
               ].map(([label, value]) => <div key={label}><dt className="text-base-content/60">{label}</dt><dd className="text-lg font-bold tabular">{value}</dd></div>)}</dl>
             </li>)}</ul>
           </>}
       </section>
-      {!!p.touchdowns?.length && <section aria-labelledby="match-td"><h2 id="match-td" className="mb-3 text-lg font-bold">Touchdowns registrados</h2><ol className="divide-y divide-base-300 text-sm">{p.touchdowns.map((event, index) => <li key={`${event.created_at}-${index}`} className="flex flex-wrap justify-between gap-2 py-2"><span>{event.team_id === p.home_team_id ? p.home_team_name : p.away_team_name}</span><span>{event.quantity ?? 1} TD{event.quarter ? ` · Periodo ${event.quarter}` : ''}</span></li>)}</ol></section>}
+      {(final || p.status === 'LIVE') && !!p.touchdowns?.length && <section aria-labelledby="match-td"><h2 id="match-td" className="mb-3 text-lg font-bold">Touchdowns registrados</h2><ol className="divide-y divide-base-300 text-sm">{p.touchdowns.map((event, index) => <li key={`${event.created_at}-${index}`} className="flex flex-wrap justify-between gap-2 py-2"><span>{event.team_id === p.home_team_id ? p.home_team_name : p.away_team_name}</span><span>{event.quantity ?? 1} TD{event.quarter ? ` · Periodo ${event.quarter}` : ''}</span></li>)}</ol></section>}
       <ShareCard title={title} subtitle={`${p.category_name} · ${fechaTexto(p.scheduled_date)}`} match={{ home: { name: p.home_team_name, score: scored ? p.home_score : null, logo: p.home_logo_url }, away: { name: p.away_team_name, score: scored ? p.away_score : null, logo: p.away_logo_url } }} lines={[p.home_team_name, score, p.away_team_name, `${p.scheduled_time || 'Hora por confirmar'} · ${p.field_name || 'Sede por confirmar'}`, status.texto]} filename={`mfl-partido-${p.id}`} url={`${window.location.origin}/partido/${p.id}`} />
     </div>
   </Marco>;
