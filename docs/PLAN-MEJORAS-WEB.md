@@ -247,3 +247,21 @@ Commit sugerido: `fix: aplica criterio MFL de posiciones y señala desempates pe
 Explicacion de tabla y PNG: textos compartidos para criterio actual (menos derrotas primero), significado de PJ/JJ, PG/JG, empates, PP/JP, PC, PF y DIF; posiciones provisionales y equipos sin jugar. En sitio se distingue jornada de partido y se informa temporada regular oficial. Tabla publica incluye las tres leyendas en cada PNG cuadrado/publicacion/historia, con capacidad reducida para reservar espacio. Asterisco junto a posicion si hay sorteo pendiente. Tabla administrativa usa las mismas leyendas. No se cambia de nuevo el calculo a victorias ni porcentaje sin acuerdo explicito. Compilacion y pruebas de generacion de PNG en tres formatos aprobadas; solicitudes simuladas, sin publicaciones en redes.
 
 Commit sugerido: `feat: explica criterios y columnas en tablas e imagenes compartidas`
+
+Explicacion simplificada: texto profesional con menos abreviaturas para criterio, puntos recibidos/anotados y ejemplo de 1-0 por encima de 1-1. Sitio aclara que los puntos se comparan despues del record; leyenda compartida tambien actualiza PNG y tabla administrativa. Sin cambiar calculos. TypeScript/build aprobados.
+
+Decision posterior del organizador: no existe moneda ni sorteo. El empate restante queda pendiente de resolucion de la liga, con posicion provisional y bloqueo de generacion de playoffs. Esta decision sustituye las referencias anteriores a sorteo; leyenda del sitio/PNG y mensaje del servidor actualizados. No cambia el orden deportivo ni incorpora un mecanismo para registrar/aplicar una resolucion administrativa: ese flujo sigue pendiente.
+
+Commit sugerido: `fix: aclara que los desempates finales los resuelve la liga`
+
+## Posiciones basadas en IFAF (decision vigente)
+
+Sustituye el criterio anterior NFL FLAG por autorizacion del organizador. Base: porcentaje (G + E/2) / JJ. Desempates IFAF 3-1-4 y AR: porcentaje, DIF y PF entre empatados si todos se enfrentaron; despues DIF total y PF total. Cada paso divide grupos y el siguiente recalcula sobre los equipos aun empatados. No se usa mas victorias ni menos derrotas como paso adicional. Sin partidos al final (adaptacion MFL).
+
+Referencia verificada: IFAF Flag Football Rules 2023, https://daff.dk/wp-content/uploads/2023/06/IFAF-Flag-rules-2023.pdf, paginas 19 y 41. MFL sustituye expresamente la moneda por resolucion de la liga; no se presenta esta adaptacion como regla literal IFAF. Empates restantes provisionales y playoffs bloqueados; pendiente pantalla para registrar/aplicar la resolucion administrativa.
+
+Explicacion compartida en tabla publica, administrativa y PNG actualizada, incluida formula y ejemplo 100% frente a 50%. Jornadas 1/2 Mixto: Depredadores, Furia Nocturna, Alphas, Tochodrink, Bacardiacos, Aztecas. Se asume Aztecas/Aztecos como un equipo para este ejemplo; no se importaron datos reales.
+
+Lista: calculo IFAF implementado; explicaciones implementadas; pruebas automaticas de porcentaje, empates, directo de dos/tres, subgrupos, DIF/PF, jornadas 1/2 y ranking por categoria aprobadas; backend/frontend compilados. Pendiente validacion humana del reglamento de temporada y resolucion administrativa. Sin despliegue ni cambios en base real.
+
+Commit sugerido: `feat: aplica clasificacion IFAF y actualiza leyendas de posiciones`

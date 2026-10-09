@@ -97,7 +97,8 @@ export default function TablaPublicaPage() {
             </div>
             <p className="mt-2 text-xs text-base-content/60">{standingsNotes}</p>
             <p className="mt-2 text-xs text-base-content/60">{standingsLegend}</p>
-            <p className="mt-2 text-xs text-base-content/60">PJ cuenta partidos, no jornadas: un descanso no suma PJ. Solo cuentan resultados oficiales de temporada regular.</p>
+            <p className="mt-2 text-xs text-base-content/60">Ejemplo: una victoria sin derrotas equivale al 100%; una victoria y una derrota, al 50%. Anotar más no supera un porcentaje mayor. Los empates cuentan como media victoria. Los desempates se aplican por pasos a los equipos que sigan igualados.</p>
+            <p className="mt-2 text-xs text-base-content/60">Solo cuentan partidos oficiales de temporada regular. Los descansos no suman partidos jugados.</p>
           </Card>
           {conEquipos.map((g) => (
             <section key={g.category.id}>

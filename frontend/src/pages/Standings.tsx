@@ -182,7 +182,7 @@ export default function Standings() {
           </section>
         ))}
 
-      {conJuego && <p className="text-xs text-base-content/50">Orden: menos derrotas, más victorias, directo solo entre dos empatados, menos PC y más PF. Sin partidos al final. DIF y puntos de competición no ordenan.</p>}
+      {conJuego && <p className="text-xs text-base-content/50">{standingsNotes} Los puntos de competición no determinan las posiciones.</p>}
     </div>
   );
 }

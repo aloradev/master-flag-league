@@ -602,54 +602,45 @@ export const calcularPosiciones = async (
     };
   });
 
-  /**
-   * El desempate por enfrentamiento directo no se puede resolver en SQL
-   * con una sola pasada: depende de quiénes hayan quedado empatados, que
-   * es justo lo que se sabe al final. Así que el orden se termina aquí,
-   * con los criterios que la liga tenga configurados.
-   */
-  const directo = (a: typeof filas[0], b: typeof filas[0]): number => {
-    const deA = a.historial.filter((x) => x.rival === b.team_id);
-    if (deA.length === 0) return 0;
-    const gA = deA.filter((x) => x.pf > x.pa).length;
-    const gB = deA.filter((x) => x.pf < x.pa).length;
-    if (gA !== gB) return gB - gA;
-    return 0;
-  };
-
-  const criterio: Record<string, (a: typeof filas[0], b: typeof filas[0]) => number> = {
-    points: (a, b) => b.points - a.points,
-    wins: (a, b) => b.wins - a.wins,
-    point_diff: (a, b) => b.point_diff - a.point_diff,
-    points_for: (a, b) => b.points_for - a.points_for,
-    points_against: (a, b) => a.points_against - b.points_against,
-    head_to_head: directo,
-  };
-
-  // Directo solo dentro de un empate original de dos equipos de la misma categoria.
+  const porcentaje = (fila: typeof filas[0]) => (fila.wins + fila.draws / 2) / fila.played;
   const grupos = new Map<string, typeof filas>();
   for (const fila of filas) {
-    const clave = JSON.stringify([fila.category_id, fila.played > 0, fila.losses, fila.wins]);
+    const clave = JSON.stringify([fila.category_id, fila.played > 0, fila.played ? porcentaje(fila) : null]);
     grupos.set(clave, [...(grupos.get(clave) ?? []), fila]);
   }
   const pendientes = new Set<string>();
-  for (const grupo of grupos.values()) {
-    const comparar = (a: typeof filas[0], b: typeof filas[0]) =>
-      (a.played > 0 && grupo.length === 2 ? directo(a, b) : 0) ||
-      criterio.points_against(a, b) || criterio.points_for(a, b);
-    grupo.sort((a, b) => comparar(a, b) || a.team_name.localeCompare(b.team_name, 'es') || a.team_id.localeCompare(b.team_id));
-    for (let i = 1; i < grupo.length; i++) {
-      if (grupo[i].played > 0 && comparar(grupo[i - 1], grupo[i]) === 0) {
-        pendientes.add(grupo[i - 1].team_id);
-        pendientes.add(grupo[i].team_id);
-      }
+  const alfabetico = (a: typeof filas[0], b: typeof filas[0]) =>
+    a.team_name.localeCompare(b.team_name, 'es') || a.team_id.localeCompare(b.team_id);
+  // IFAF 3-1-4 / AR: cada paso divide el empate y el siguiente evalua los subgrupos.
+  const resolver = (grupo: typeof filas, paso = 0): typeof filas => {
+    if (grupo.length < 2) return grupo;
+    if (!grupo[0].played) return grupo.sort(alfabetico);
+    if (paso === 5) {
+      grupo.forEach(fila => pendientes.add(fila.team_id));
+      return grupo.sort(alfabetico);
     }
-  }
+    const ids = new Set(grupo.map(fila => fila.team_id));
+    const directos = grupo.map(fila => fila.historial.filter(partido => ids.has(partido.rival)));
+    const todosEnfrentados = grupo.every((fila, i) =>
+      grupo.every(rival => rival === fila || directos[i].some(partido => partido.rival === rival.team_id)));
+    if (paso < 3 && !todosEnfrentados) return resolver(grupo, 3);
+    const valores = grupo.map((fila, i) => {
+      const juegos = directos[i];
+      if (paso === 0) return juegos.reduce((suma, p) => suma + (p.pf > p.pa ? 1 : p.pf === p.pa ? 0.5 : 0), 0) / juegos.length;
+      if (paso === 1) return juegos.reduce((suma, p) => suma + p.pf - p.pa, 0);
+      if (paso === 2) return juegos.reduce((suma, p) => suma + p.pf, 0);
+      return paso === 3 ? fila.point_diff : fila.points_for;
+    });
+    const subgrupos = new Map<number, typeof filas>();
+    grupo.forEach((fila, i) => subgrupos.set(valores[i], [...(subgrupos.get(valores[i]) ?? []), fila]));
+    return [...subgrupos.entries()].sort(([a], [b]) => b - a)
+      .flatMap(([, subgrupo]) => resolver(subgrupo, paso + 1));
+  };
   const ordenadas = [...grupos.values()].sort((a, b) =>
     a[0].category_id.localeCompare(b[0].category_id) ||
     Number(b[0].played > 0) - Number(a[0].played > 0) ||
-    a[0].losses - b[0].losses || b[0].wins - a[0].wins
-  ).flat();
+    (a[0].played ? porcentaje(b[0]) - porcentaje(a[0]) : 0)
+  ).flatMap(grupo => resolver(grupo));
   const posiciones = new Map<string, number>();
   return ordenadas.map(({ historial: _h, ...fila }) => {
     const position = (posiciones.get(fila.category_id) ?? 0) + 1;
