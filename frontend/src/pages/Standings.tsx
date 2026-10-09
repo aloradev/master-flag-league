@@ -6,6 +6,7 @@ import { Alert, Card, EmptyState, Spinner } from '../components/ui';
 import { IconFootball } from '../components/icons';
 import { TeamCrest } from '../components/AuthImage';
 import { competition, type StandingRow } from '../lib/competition';
+import { standingsOrder, standingsLegend, standingsNotes } from '../lib/standingsExplanation';
 
 /** G / E / P en el color del resultado. Cinco casillas leen mejor que un texto. */
 const Forma = ({ form }: { form: ('W' | 'D' | 'L')[] }) => {
@@ -41,6 +42,7 @@ const Fila = ({ f, destacar }: { f: StandingRow; destacar: boolean }) => (
         />
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold leading-tight">{f.team_name}</span>
+          {f.tiebreak_pending && <span className="block text-xs text-warning">Desempate pendiente</span>}
           <span className="block text-[11px] text-base-content/50 sm:hidden">
             {f.played} JJ · {f.wins}G · {f.draws}E · {f.losses}P · DIF {f.point_diff >= 0 ? '+' : ''}{f.point_diff}
           </span>
@@ -128,10 +130,12 @@ export default function Standings() {
 
       <Card className="border-primary/20 bg-primary/5 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div><h2 className="font-bold">Sistema de puntuación</h2><p className="mt-1 text-sm text-base-content/70">Victoria <strong>3 pts</strong> · empate <strong>1 pt</strong> · derrota <strong>0 pts</strong>.</p></div>
-          <span className="badge badge-primary badge-outline">3–1–0</span>
+          <div><h2 className="font-bold">Criterio de posiciones</h2><p className="mt-1 text-sm text-base-content/70">Primero los equipos con partidos jugados. Después se compara el récord y los desempates.</p></div>
+          <span className="badge badge-primary badge-outline">Criterio MFL</span>
         </div>
-        <p className="mt-2 text-xs text-base-content/60">Desempates: victorias, diferencia, puntos a favor y enfrentamiento directo.</p>
+        <p className="mt-2 text-xs text-base-content/60">{standingsOrder}</p>
+        <p className="mt-2 text-xs text-base-content/60">{standingsLegend}</p>
+        <p className="mt-2 text-xs text-base-content/60">{standingsNotes}</p>
       </Card>
 
       {conJuego &&
@@ -178,7 +182,7 @@ export default function Standings() {
           </section>
         ))}
 
-      {conJuego && <p className="text-xs text-base-content/50">Orden: victorias, puntos a favor, puntos en contra, diferencia y enfrentamiento directo. El sistema de puntos queda desactivado por ahora.</p>}
+      {conJuego && <p className="text-xs text-base-content/50">Orden: menos derrotas, más victorias, directo solo entre dos empatados, menos PC y más PF. Sin partidos al final. DIF y puntos de competición no ordenan.</p>}
     </div>
   );
 }

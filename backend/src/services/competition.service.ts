@@ -505,6 +505,7 @@ export interface FilaPosiciones {
   /** Últimos cinco resultados, del más reciente al más antiguo. */
   form: ('W' | 'D' | 'L')[];
   position: number;
+  tiebreak_pending?: boolean;
 }
 
 /**
@@ -613,8 +614,7 @@ export const calcularPosiciones = async (
     const gA = deA.filter((x) => x.pf > x.pa).length;
     const gB = deA.filter((x) => x.pf < x.pa).length;
     if (gA !== gB) return gB - gA;
-    const difA = deA.reduce((s, x) => s + x.pf - x.pa, 0);
-    return -difA;
+    return 0;
   };
 
   const criterio: Record<string, (a: typeof filas[0], b: typeof filas[0]) => number> = {
@@ -626,20 +626,34 @@ export const calcularPosiciones = async (
     head_to_head: directo,
   };
 
-  // Formato clásico MFL: récord primero, después producción ofensiva y defensa.
-  // Los puntos quedan calculados para compatibilidad, pero no participan.
-  const criteriosActivos = ['wins', 'points_for', 'points_against', 'point_diff', 'head_to_head'];
-  filas.sort((a, b) => {
-    for (const nombre of criteriosActivos) {
-      const fn = criterio[nombre];
-      if (!fn) continue;
-      const d = fn(a, b);
-      if (d !== 0) return d;
+  // Directo solo dentro de un empate original de dos equipos de la misma categoria.
+  const grupos = new Map<string, typeof filas>();
+  for (const fila of filas) {
+    const clave = JSON.stringify([fila.category_id, fila.played > 0, fila.losses, fila.wins]);
+    grupos.set(clave, [...(grupos.get(clave) ?? []), fila]);
+  }
+  const pendientes = new Set<string>();
+  for (const grupo of grupos.values()) {
+    const comparar = (a: typeof filas[0], b: typeof filas[0]) =>
+      (a.played > 0 && grupo.length === 2 ? directo(a, b) : 0) ||
+      criterio.points_against(a, b) || criterio.points_for(a, b);
+    grupo.sort((a, b) => comparar(a, b) || a.team_name.localeCompare(b.team_name, 'es') || a.team_id.localeCompare(b.team_id));
+    for (let i = 1; i < grupo.length; i++) {
+      if (grupo[i].played > 0 && comparar(grupo[i - 1], grupo[i]) === 0) {
+        pendientes.add(grupo[i - 1].team_id);
+        pendientes.add(grupo[i].team_id);
+      }
     }
-    // Último recurso estable: el nombre. Sin esto, dos equipos idénticos
-    // cambiarían de lugar entre consultas y parecería un error.
-    return a.team_name.localeCompare(b.team_name, 'es');
+  }
+  const ordenadas = [...grupos.values()].sort((a, b) =>
+    a[0].category_id.localeCompare(b[0].category_id) ||
+    Number(b[0].played > 0) - Number(a[0].played > 0) ||
+    a[0].losses - b[0].losses || b[0].wins - a[0].wins
+  ).flat();
+  const posiciones = new Map<string, number>();
+  return ordenadas.map(({ historial: _h, ...fila }) => {
+    const position = (posiciones.get(fila.category_id) ?? 0) + 1;
+    posiciones.set(fila.category_id, position);
+    return { ...fila, position, tiebreak_pending: pendientes.has(fila.team_id) };
   });
-
-  return filas.map(({ historial: _h, ...fila }, i) => ({ ...fila, position: i + 1 }));
 };

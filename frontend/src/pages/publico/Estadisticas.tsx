@@ -85,6 +85,7 @@ export default function EstadisticasPublicas() {
         /> : <>
           {(stats.isError || tabla.isError) && <Alert tone="warning">No se pudieron actualizar todos los datos. Se muestra la última información recibida.</Alert>}
           <section aria-labelledby="ranking-title" aria-describedby="ranking-context">
+            <p role="status" aria-atomic="true" className="sr-only">{`Líderes en ${metric.label}: ${scope}. ${rows.length} jugadores con registros.`}</p>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 id="ranking-title" className="text-xl font-bold">Líderes en {metric.label.toLocaleLowerCase('es')}</h2><p id="ranking-context" className="min-w-0 break-words text-xs text-base-content/60 [overflow-wrap:anywhere]">{scope}</p></div>
             {!rows.length ? <EmptyState title="Aún no hay registros para este filtro" description="Los líderes aparecerán cuando se publiquen estadísticas completas de jugadores para esta categoría y equipo." /> : <Card className="overflow-hidden">
               <ol aria-label={`Ranking de ${metric.label}`} className="divide-y divide-base-300">

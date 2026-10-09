@@ -604,6 +604,7 @@ h1, h2, h3 {
   .public-bottom-nav a { min-height:64px; }
 }
 main:focus { outline:none; }
+.public-shell :where(a,button,input,select,textarea,summary,[tabindex]) { scroll-margin-block:10rem; }
 :where(a,button,input,select,textarea,summary):focus-visible { outline:2px solid var(--color-primary); outline-offset:3px; }
 .ux-steps { display:flex; gap:8px; padding:12px 0; }
 .ux-steps li { flex:1; border-bottom:3px solid var(--color-base-300); padding:10px 0; font-size:12px; font-weight:700; color:var(--color-base-content); }

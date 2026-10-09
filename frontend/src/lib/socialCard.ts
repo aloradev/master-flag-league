@@ -2,11 +2,12 @@ export type SocialFormat = 'portrait' | 'story' | 'square';
 export interface SocialCardData {
   title: string; subtitle: string; lines: string[]; url: string;
   table?: { headers: string[]; rows: string[][] };
+  tableNotes?: string[];
   match?: { home: { name: string; score: number | null; logo?: string | null }; away: { name: string; score: number | null; logo?: string | null } };
 }
 export const socialSize = (format: SocialFormat) => ({ width: 1080, height: format === 'story' ? 1920 : format === 'square' ? 1080 : 1350 });
 export const socialPages = (data: SocialCardData, format: SocialFormat) => {
-  const capacity = data.table ? Math.floor((socialSize(format).height - 570) / 64) : 7;
+  const capacity = data.table ? Math.max(1, Math.floor((socialSize(format).height - 570 - (data.tableNotes?.length ? 190 : 0)) / 64)) : 7;
   const count = data.table?.rows.length ?? data.lines.length;
   return { capacity, count: Math.max(1, Math.ceil(count / capacity)) };
 };
@@ -85,6 +86,11 @@ export async function renderSocialCard(data: SocialCardData, format: SocialForma
       let left = 56;
       row.forEach((value, column) => { if (column < weights.length) text(value, left + 8, y + 9, weights[column] * unit - 16, 48, 23); left += (weights[column] ?? 0) * unit; });
     });
+    if (data.tableNotes?.length) {
+      const noteY = footerY - 190;
+      ctx.fillStyle = '#e6f4f5'; ctx.fillRect(56, noteY, 968, 178);
+      data.tableNotes.slice(0, 3).forEach((note, index) => text(note, 72, noteY + 10 + index * 54, 936, 50, 20));
+    }
   } else if (data.match) {
     const { home, away } = data.match;
     await picture(home.logo, home.name, 180, 380, 150);

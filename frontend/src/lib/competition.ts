@@ -197,6 +197,7 @@ export interface StandingRow {
   streak: string;
   form: ('W' | 'D' | 'L')[];
   position: number;
+  tiebreak_pending?: boolean;
 }
 
 export interface StandingsGroup {

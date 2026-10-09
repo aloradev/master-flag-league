@@ -223,3 +223,27 @@ Build aprobado. security-dependencies.mjs nueva: derivados WebP, dimensiones, im
 Limitaciones: ejecutado en Windows, no en el Linux de Render ni contra Cloudinary real. npm aviso que no pudo retirar un binario antiguo bloqueado; procesos nuevos cargan Sharp corregido. Reiniciar instancias locales antiguas antes de usarlas. Durante competicion se observo aviso no fatal de auditoria por identificador mayor a varchar(36); pendiente revisar aparte. No se ejecutaron migraciones en produccion, envios reales, commit ni despliegue.
 
 Commit sugerido: `fix: actualiza dependencias vulnerables y valida regresiones del backend`
+
+## Continuacion 3, 4 y 5 (2026-10-09)
+
+3. Mejoras locales: avisos de filtros atomicos y con nombre de contexto para tecnologias de asistencia; resumen accesible de metrica, alcance y cantidad de resultados en Estadisticas; margen de desplazamiento de controles frente a barras fijas. TypeScript y build aprobados. public-pages.cjs ampliada y aprobada en siete anchos para Inicio/Jornada/Tabla: semantica del aviso de filtros, margen CSS, salto al contenido, Tab/Shift+Tab y regresiones. No certifica foco siempre visible con cualquier altura, zoom nativo ni comportamiento con VoiceOver. Pendiente prueba real.
+4. Protocolo con jugadores preparado en docs/VALIDACION-PRE-PRODUCCION.md: cuatro tareas, cinco participantes sugeridos, registro anonimo de tiempos/exito/errores. Sin participantes ni resultados; pendiente ejecucion humana.
+5. Lista de publicacion y reversion preparada en el mismo documento. No hay autorizacion explicita de despliegue; no se publico ni se enviaron correos. Pendiente Linux/Render, servicios externos y comprobacion posterior al despliegue acordado.
+
+Commit sugerido: `feat: mejora avisos accesibles y prepara validacion de produccion`
+
+## Criterio deportivo de posiciones
+
+Implementado localmente por acuerdo: equipos con PJ>0 primero; menos derrotas, mas victorias, enfrentamiento directo por record solo cuando el grupo original empatado en PG/PP tiene dos equipos de la misma categoria, menos PC, mas PF. DIF y puntos de competicion no ordenan. Sin partidos al final en orden alfabetico de presentacion. Ranking numerado por categoria; el calculo compartido alimenta Inicio, tablas, perfiles y seeds de playoffs. Equipos activos oficiales, resultados oficiales finalizados/incomparecencias de temporada regular; exclusions existentes sin cambios.
+
+Empates deportivos restantes llevan tiebreak_pending; el orden alfabetico es provisional y la tabla publica/administrativa lo indica. Generacion de playoffs bloqueada mientras exista empate pendiente en la categoria. No hay sorteo automatico ni pantalla para registrar su resultado: pendiente implementar resolucion administrativa antes de usar playoffs con empates. Empates de marcador siguen contados como E, sin inventar un porcentaje ni nuevos puntos.
+
+Referencia de orden: https://nflflag.com/events/rules, Tournament Play Format 5 (regional 2026-2027). La exclusion inicial de PJ=0 es adaptacion MFL, no regla universal atribuida a NFL FLAG. Configuracion antigua tiebreakers no gobierna este criterio acordado.
+
+Backend/frontend compilados. standings-criteria.mjs aprobada: PJ=0, derrotas, victorias, PC/PF, directo entre dos, triple sin directo, sorteo pendiente y numeracion por categoria; transporte SQL simulado sin datos reales. Regresion visual public-pages.cjs en siete anchos. Pendiente validar contra jornadas reales que proporcionara el usuario. Aviso de Node 20.18.2 inferior al minimo de Vite: usar runtime soportado para despliegue. Sin publicacion ni cambios en base real.
+
+Commit sugerido: `fix: aplica criterio MFL de posiciones y señala desempates pendientes`
+
+Explicacion de tabla y PNG: textos compartidos para criterio actual (menos derrotas primero), significado de PJ/JJ, PG/JG, empates, PP/JP, PC, PF y DIF; posiciones provisionales y equipos sin jugar. En sitio se distingue jornada de partido y se informa temporada regular oficial. Tabla publica incluye las tres leyendas en cada PNG cuadrado/publicacion/historia, con capacidad reducida para reservar espacio. Asterisco junto a posicion si hay sorteo pendiente. Tabla administrativa usa las mismas leyendas. No se cambia de nuevo el calculo a victorias ni porcentaje sin acuerdo explicito. Compilacion y pruebas de generacion de PNG en tres formatos aprobadas; solicitudes simuladas, sin publicaciones en redes.
+
+Commit sugerido: `feat: explica criterios y columnas en tablas e imagenes compartidas`

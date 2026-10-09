@@ -14,6 +14,11 @@ const round = { season, round: { id: 'current', number: 3, scheduled_date: '2026
   try {
     for (const width of [320, 390, 470, 640, 768, 1024, 1280]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.addInitScript(() => {
+        window.cardText = [];
+        const original = CanvasRenderingContext2D.prototype.fillText;
+        CanvasRenderingContext2D.prototype.fillText = function (...args) { window.cardText.push(args[0]); return original.apply(this, args); };
+      });
       page.setDefaultTimeout(15000);
       page.setDefaultNavigationTimeout(15000);
       const errors = [];
@@ -58,6 +63,26 @@ const round = { season, round: { id: 'current', number: 3, scheduled_date: '2026
           await page.locator('#liga-hoy').scrollIntoViewIfNeeded();
         }
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `Overflow: ${url} ${width}`);
+        assert.equal(await page.locator('.skip-link').evaluate(element => getComputedStyle(element).scrollMarginBlockStart), '160px');
+        if (url === '/jornada') {
+          const filterStatus = page.locator('.public-filters [role="status"]');
+          assert.equal(await filterStatus.getAttribute('aria-atomic'), 'true');
+          assert.ok((await filterStatus.textContent()).includes('Filtros de la jornada:'));
+        }
+        if (url === '/tabla' && width === 390) {
+          await page.locator('.public-share-panel > summary').click();
+          for (const format of ['square', 'portrait', 'story']) {
+            await page.getByLabel('Formato', { exact: true }).selectOption(format);
+            await page.evaluate(() => { window.cardText = []; });
+            const download = page.waitForEvent('download');
+            await page.getByRole('button', { name: 'Descargar tarjeta', exact: true }).click();
+            assert.ok((await download).suggestedFilename().endsWith('.png'));
+            const text = await page.evaluate(() => window.cardText.join(' '));
+            assert.ok(text.includes('Menos derrotas'));
+            assert.ok(text.includes('puntos en contra'));
+            assert.ok(text.includes('posición provisional'));
+          }
+        }
         await page.locator('.skip-link').focus();
         await page.keyboard.press('Enter');
         assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'MAIN', `Skip link: ${url}`);

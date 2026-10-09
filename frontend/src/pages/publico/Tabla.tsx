@@ -1,4 +1,5 @@
 import { ShareCard } from '../../components/ShareCard';
+import { standingsOrder, standingsLegend, standingsNotes } from '../../lib/standingsExplanation';
 import { useQuery } from '@tanstack/react-query';
 import { DataFreshness } from '../../components/DataFreshness';
 import { Link } from 'react-router-dom';
@@ -91,10 +92,12 @@ export default function TablaPublicaPage() {
         <div className="space-y-5">
           <Card className="border-primary/20 bg-primary/5 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><h2 className="font-bold">¿Cómo se ordena la tabla?</h2><p className="mt-1 text-sm text-base-content/70">Primero cuentan las <strong>victorias</strong>, después los puntos a favor y en contra.</p></div>
-              <span className="badge badge-primary badge-outline">Formato clásico</span>
+              <div><h2 className="font-bold">¿Cómo se ordena la tabla?</h2><p className="mt-1 text-sm text-base-content/70">{standingsOrder}</p></div>
+              <span className="badge badge-primary badge-outline">Criterio MFL</span>
             </div>
-            <p className="mt-2 text-xs text-base-content/60">El sistema de puntos queda desactivado por ahora. Los empates se resuelven con PF, PC, diferencia y enfrentamiento directo.</p>
+            <p className="mt-2 text-xs text-base-content/60">{standingsNotes}</p>
+            <p className="mt-2 text-xs text-base-content/60">{standingsLegend}</p>
+            <p className="mt-2 text-xs text-base-content/60">PJ cuenta partidos, no jornadas: un descanso no suma PJ. Solo cuentan resultados oficiales de temporada regular.</p>
           </Card>
           {conEquipos.map((g) => (
             <section key={g.category.id}>
@@ -142,6 +145,7 @@ export default function TablaPublicaPage() {
                             />
                             <Link to={`/equipos/${f.team_id}`} className="link min-w-0 break-words font-semibold [overflow-wrap:anywhere]">{f.team_name}</Link>
                           </div>
+                          {f.tiebreak_pending && <p className="text-xs text-warning">Desempate pendiente · posición provisional</p>}
                           {/* Las columnas completas ya anuncian estos datos a lectores de pantalla. */}
                           <dl className="standing-mobile-balance" aria-hidden="true">
                             {[
@@ -171,7 +175,7 @@ export default function TablaPublicaPage() {
                     ))}
                   </tbody>
                 </table>
-              </div><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={[]} table={{ headers: ['POS','EQUIPO','JJ','JG','JE','JP','PF','PC','DIF'], rows: g.rows.map(row => [String(row.position), row.team_name, String(row.played), String(row.wins), String(row.draws), String(row.losses), String(row.points_for), String(row.points_against), String(row.point_diff)]) }} filename={`mfl-posiciones-${g.category.id}`} url={`${window.location.origin}/tabla`} /></div>
+              </div><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={[]} tableNotes={[standingsOrder, standingsLegend, standingsNotes]} table={{ headers: ['POS','EQUIPO','JJ','JG','JE','JP','PF','PC','DIF'], rows: g.rows.map(row => [String(row.position) + (row.tiebreak_pending ? '*' : ''), row.team_name, String(row.played), String(row.wins), String(row.draws), String(row.losses), String(row.points_for), String(row.points_against), String(row.point_diff)]) }} filename={`mfl-posiciones-${g.category.id}`} url={`${window.location.origin}/tabla`} /></div>
             </section>
           ))}
         </div>
