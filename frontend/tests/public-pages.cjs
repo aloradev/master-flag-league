@@ -78,11 +78,11 @@ const round = { season, round: { id: 'current', number: 3, scheduled_date: '2026
             await page.getByRole('button', { name: 'Descargar tarjeta', exact: true }).click();
             assert.ok((await download).suggestedFilename().endsWith('.png'));
             const text = await page.evaluate(() => window.cardText.join(' '));
-            assert.ok(text.includes('Base IFAF'));
+            assert.ok(text.includes('IFAF:'));
             assert.ok(text.includes('puntos en contra'));
             assert.ok(text.includes('posición provisional'));
-            assert.ok(text.includes('resolución de la liga'));
-            assert.ok(!text.includes('sorteo'));
+            assert.ok(text.includes('lanzamiento de moneda'));
+            assert.ok(!text.includes('resolución de la liga'));
           }
         }
         await page.locator('.skip-link').focus();

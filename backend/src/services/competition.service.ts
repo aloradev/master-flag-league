@@ -616,6 +616,7 @@ export const calcularPosiciones = async (
     if (grupo.length < 2) return grupo;
     if (!grupo[0].played) return grupo.sort(alfabetico);
     if (paso === 5) {
+      // IFAF: moneda pendiente; el orden alfabetico solo presenta el empate, no lo resuelve.
       grupo.forEach(fila => pendientes.add(fila.team_id));
       return grupo.sort(alfabetico);
     }

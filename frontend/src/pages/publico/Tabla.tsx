@@ -93,7 +93,7 @@ export default function TablaPublicaPage() {
           <Card className="border-primary/20 bg-primary/5 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><h2 className="font-bold">¿Cómo se ordena la tabla?</h2><p className="mt-1 text-sm text-base-content/70">{standingsOrder}</p></div>
-              <span className="badge badge-primary badge-outline">Criterio MFL</span>
+              <span className="badge badge-primary badge-outline">Criterio IFAF</span>
             </div>
             <p className="mt-2 text-xs text-base-content/60">{standingsNotes}</p>
             <p className="mt-2 text-xs text-base-content/60">{standingsLegend}</p>
@@ -146,7 +146,7 @@ export default function TablaPublicaPage() {
                             />
                             <Link to={`/equipos/${f.team_id}`} className="link min-w-0 break-words font-semibold [overflow-wrap:anywhere]">{f.team_name}</Link>
                           </div>
-                          {f.tiebreak_pending && <p className="text-xs text-warning">Desempate pendiente · posición provisional</p>}
+                          {f.tiebreak_pending && <p className="text-xs text-warning">Moneda pendiente · posición provisional</p>}
                           {/* Las columnas completas ya anuncian estos datos a lectores de pantalla. */}
                           <dl className="standing-mobile-balance" aria-hidden="true">
                             {[

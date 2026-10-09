@@ -42,7 +42,7 @@ const Fila = ({ f, destacar }: { f: StandingRow; destacar: boolean }) => (
         />
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold leading-tight">{f.team_name}</span>
-          {f.tiebreak_pending && <span className="block text-xs text-warning">Desempate pendiente</span>}
+          {f.tiebreak_pending && <span className="block text-xs text-warning">Lanzamiento de moneda pendiente</span>}
           <span className="block text-[11px] text-base-content/50 sm:hidden">
             {f.played} JJ · {f.wins}G · {f.draws}E · {f.losses}P · DIF {f.point_diff >= 0 ? '+' : ''}{f.point_diff}
           </span>

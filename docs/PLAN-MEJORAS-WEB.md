@@ -265,3 +265,13 @@ Explicacion compartida en tabla publica, administrativa y PNG actualizada, inclu
 Lista: calculo IFAF implementado; explicaciones implementadas; pruebas automaticas de porcentaje, empates, directo de dos/tres, subgrupos, DIF/PF, jornadas 1/2 y ranking por categoria aprobadas; backend/frontend compilados. Pendiente validacion humana del reglamento de temporada y resolucion administrativa. Sin despliegue ni cambios en base real.
 
 Commit sugerido: `feat: aplica clasificacion IFAF y actualiza leyendas de posiciones`
+
+## IFAF sin sustituir el ultimo desempate
+
+Decision posterior del organizador: conservar el lanzamiento de moneda IFAF, no resolucion de la liga. Sustituye expresamente la adaptacion descrita arriba. Explicaciones del sitio, administracion y PNG indican porcentaje, porcentaje/DIF/PF entre empatados cuando todos se enfrentaron, DIF/PF totales y moneda. No cambian las posiciones deportivas de jornadas 1/2.
+
+El empate deportivo restante se marca como lanzamiento de moneda pendiente, con posicion provisional; no se lanza una moneda aleatoria en cada consulta. Playoffs conserva bloqueo con mensaje actualizado. Pendiente implementar registro persistente del resultado del lanzamiento desde administracion; esta entrega no permite aplicar ese resultado.
+
+Pruebas de calculo IFAF y estabilidad del empate aprobadas; compilaciones backend/frontend aprobadas. Lista vigente: calculo y explicacion completados; registro de moneda pendiente; despliegue no realizado.
+
+Commit sugerido: `fix: conserva desempate IFAF por moneda y actualiza explicacion`

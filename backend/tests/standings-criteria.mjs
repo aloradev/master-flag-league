@@ -50,8 +50,9 @@ try {
   rows = [row('b', 1, 1, 20, 20), row('a', 1, 1, 20, 20), row('z', 1, 0, 10, 0, [], 'other')];
   const tied = await calcularPosiciones('s');
   assert.ok(tied.filter(x => x.category_id === 'cat').every(x => x.tiebreak_pending));
+  assert.deepEqual((await calcularPosiciones('s')).map(x => x.team_id), tied.map(x => x.team_id));
   assert.equal(tied.find(x => x.team_id === 'z').position, 1);
   rows = [row('z', 0, 0, 0, 0), row('a', 0, 0, 0, 0)];
   assert.ok((await calcularPosiciones('s')).every(x => !x.tiebreak_pending));
-  console.log('PASS: porcentaje IFAF, empates, directo de dos y tres, DIF, PF, jornadas 1/2, resolucion pendiente y categorias.');
+  console.log('PASS: porcentaje IFAF, empates, directo de dos y tres, DIF, PF, jornadas 1/2, moneda pendiente sin azar automatico y categorias.');
 } finally { await pool.end(); }
