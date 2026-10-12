@@ -194,13 +194,14 @@ export default function SeasonConfig() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Inicio de temporada" hint="Actualiza la proyección; no cambia las fechas de partidos ya programados.">
-            <input type="date" className="input input-bordered w-full" value={dates.startDate} onChange={e => setDates({ ...dates, startDate: e.target.value })} />
+            <input type="date" className="input input-bordered w-full" value={dates.startDate} disabled={!isSuperAdmin} onChange={e => setDates({ ...dates, startDate: e.target.value })} />
           </Field>
           <Field label="Cierre de registro (opcional)" hint="Vacío mantiene abiertas las altas de jugadores para managers, aunque la temporada haya iniciado. El cierre incluye todo ese día en Cancún; administración conserva sus permisos de alta.">
             <input
               type="date"
               className="input input-bordered w-full"
               value={dates.registrationDeadline}
+              disabled={!isSuperAdmin}
               onChange={(e) => setDates({ ...dates, registrationDeadline: e.target.value })}
             />
           </Field>
@@ -210,6 +211,7 @@ export default function SeasonConfig() {
               type="date"
               className="input input-bordered w-full"
               value={dates.endDate}
+              disabled={!isSuperAdmin}
               onChange={(e) => setDates({ ...dates, endDate: e.target.value })}
             />
           </Field>
@@ -242,6 +244,7 @@ export default function SeasonConfig() {
             type="time"
             className="input input-bordered w-full sm:w-40"
             value={dates.defaultStartTime}
+            disabled={!isSuperAdmin}
             onChange={(e) => setDates({ ...dates, defaultStartTime: e.target.value })}
           />
         </Field>
@@ -251,6 +254,7 @@ export default function SeasonConfig() {
             type="checkbox"
             className="checkbox checkbox-primary mt-0.5"
             checked={requireApproval}
+            disabled={!isSuperAdmin}
             onChange={(e) => setRequireApproval(e.target.checked)}
           />
           <span className="text-sm">
@@ -300,9 +304,11 @@ export default function SeasonConfig() {
           ))}
         </ul>
 
-        <div className="flex gap-2">
+        <label htmlFor="new-category" className="block text-sm font-medium">Nueva categoría</label>
+        <div className="flex flex-wrap gap-2">
           <input
-            className="input input-bordered input-sm flex-1"
+            id="new-category"
+            className="input input-bordered input-sm min-w-0 flex-1"
             placeholder="Nombre de la categoría"
             value={newCategory}
             onChange={(e) => setNewCategory(e.target.value)}
@@ -328,9 +334,11 @@ export default function SeasonConfig() {
           ))}
         </ul>
 
-        <div className="flex gap-2">
+        <label htmlFor="new-field" className="block text-sm font-medium">Nuevo campo</label>
+        <div className="flex flex-wrap gap-2">
           <input
-            className="input input-bordered input-sm flex-1"
+            id="new-field"
+            className="input input-bordered input-sm min-w-0 flex-1"
             placeholder="Campo 3"
             value={newField}
             onChange={(e) => setNewField(e.target.value)}

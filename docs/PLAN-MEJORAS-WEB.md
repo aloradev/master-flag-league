@@ -285,3 +285,11 @@ Prueba share-pagination.cjs aprobada con 23 equipos: 5 paginas cuadradas, 3 de p
 Lista: exportacion completa y pruebas locales completadas; permiso de descargas multiples/compartir real en dispositivo pendiente; sin despliegue.
 
 Commit sugerido: `fix: descarga y comparte todas las paginas de tablas largas`
+
+## Revision UX/UI transversal (2026-10-12)
+
+Lista y cobertura detalladas en docs/AUDITORIA-UX-UI.md. Completados: tabla mas directa con explicacion plegable, filtro persistente de categoria y porcentaje visible en sitio/PNG; nombres de navegacion consistentes y favoritos con etiqueta; pagina 404 con salidas claras; logo privado al inicio publico; registro estable durante restauracion de sesion; configuracion no editable cuando no puede guardarse y etiquetas de altas.
+
+Pruebas locales con respuestas simuladas: ux-intuitive, public-pages, public-statistics, share-pagination y email-operations-ui; compilacion TypeScript/Vite. La API local devolvio 502: pendientes recorridos completos con datos reales de prueba en perfiles, finanzas, plantillas y arbitraje. No se declara toda la aplicacion validada. Pendientes priorizados en auditoria, incluyendo iPhone real, usuarios reales y registro de moneda. Sin despliegue ni correos.
+
+Commit sugerido: `feat: simplifica navegacion y posiciones y corrige fricciones de registro`

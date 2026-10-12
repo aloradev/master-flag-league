@@ -2,9 +2,10 @@ import { ShareCard } from '../../components/ShareCard';
 import { standingsOrder, standingsLegend, standingsNotes } from '../../lib/standingsExplanation';
 import { useQuery } from '@tanstack/react-query';
 import { DataFreshness } from '../../components/DataFreshness';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api';
-import { Card, EmptyState, Spinner } from '../../components/ui';
+import { EmptyState, Spinner } from '../../components/ui';
+import { PublicFilters } from '../../components/PublicFilters';
 import { IconTrophy } from '../../components/icons';
 import { TeamCrest } from '../../components/AuthImage';
 import type { StandingsGroup } from '../../lib/competition';
@@ -38,6 +39,15 @@ const Forma = ({ form }: { form: ('W' | 'D' | 'L')[] }) => {
 };
 
 export default function TablaPublicaPage() {
+  const [params, setParams] = useSearchParams();
+  const categoryId = params.get('categoria') ?? '';
+  const selectCategory = (value: string) => setParams(previous => {
+    const next = new URLSearchParams(previous);
+    if (value) next.set('categoria', value); else next.delete('categoria');
+    return next;
+  }, { replace: true });
+  const percentage = (row: StandingsGroup['rows'][number]) => row.played
+    ? `${((row.wins + row.draws / 2) / row.played * 100).toLocaleString('es-MX', { maximumFractionDigits: 1 })}%` : '—';
   const consulta = useQuery({
     queryKey: ['publico-tabla'],
     queryFn: ({ signal }) => api.get<TablaPublica>('/public/standings', signal),
@@ -60,7 +70,7 @@ export default function TablaPublicaPage() {
   }
 
   const { season, categories } = consulta.data;
-  const conEquipos = categories.filter((g) => g.rows.length > 0);
+  const conEquipos = categories.filter((g) => g.rows.length > 0 && (!categoryId || g.category.id === categoryId));
 
   const mensaje =
     `Tabla general — ${season.name}\n\n` +
@@ -82,24 +92,31 @@ export default function TablaPublicaPage() {
       acciones={conEquipos.length > 0 ? <BotonCompartir texto={mensaje} /> : undefined}
     >
       <DataFreshness label="Posiciones" query={consulta} />
+      {categories.length > 0 && <PublicFilters label="Filtros de posiciones" activeCount={categoryId ? 1 : 0} onClear={() => selectCategory('')}>
+        <div className="text-sm font-semibold"><label htmlFor="standings-category">Categoría</label><select id="standings-category" className="select mt-1 w-full" value={categoryId} onChange={event => selectCategory(event.target.value)}>
+          <option value="">Todas las categorías</option>{categories.map(group => <option key={group.category.id} value={group.category.id}>{group.category.name}</option>)}
+          {categoryId && !categories.some(group => group.category.id === categoryId) && <option value={categoryId}>Categoría no disponible</option>}
+        </select></div>
+      </PublicFilters>}
       {conEquipos.length === 0 ? (
         <EmptyState
           icon={<IconTrophy size={40} />}
-          title="Todavía no se juega nada"
-          description="La tabla se llena con el primer partido terminado."
+          title={categoryId ? 'No hay equipos en esta categoría' : 'Todavía no se juega nada'}
+          description={categoryId ? 'Consulta las otras categorías de la temporada.' : 'La tabla se llena con el primer partido terminado.'}
+          action={categoryId ? <button className="btn btn-primary" onClick={() => selectCategory('')}>Ver todas las categorías</button> : undefined}
         />
       ) : (
         <div className="space-y-5">
-          <Card className="border-primary/20 bg-primary/5 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><h2 className="font-bold">¿Cómo se ordena la tabla?</h2><p className="mt-1 text-sm text-base-content/70">{standingsOrder}</p></div>
-              <span className="badge badge-primary badge-outline">Criterio IFAF</span>
-            </div>
+          <details className="border-y border-base-300 py-3">
+            <summary className="min-h-11 cursor-pointer content-center font-semibold">¿Cómo se ordena la tabla? · IFAF</summary>
+            <div className="py-2">
+            <p className="text-sm text-base-content/70">{standingsOrder}</p>
             <p className="mt-2 text-xs text-base-content/60">{standingsNotes}</p>
             <p className="mt-2 text-xs text-base-content/60">{standingsLegend}</p>
             <p className="mt-2 text-xs text-base-content/60">Ejemplo: una victoria sin derrotas equivale al 100%; una victoria y una derrota, al 50%. Anotar más no supera un porcentaje mayor. Los empates cuentan como media victoria. Los desempates se aplican por pasos a los equipos que sigan igualados.</p>
             <p className="mt-2 text-xs text-base-content/60">Solo cuentan partidos oficiales de temporada regular. Los descansos no suman partidos jugados.</p>
-          </Card>
+            </div>
+          </details>
           {conEquipos.map((g) => (
             <section key={g.category.id}>
               <h2 className="mb-3 flex flex-wrap items-center gap-3 text-lg font-bold">
@@ -117,11 +134,12 @@ export default function TablaPublicaPage() {
               <div className="public-standings-scroll" role="region" aria-label={`Posiciones de ${g.category.name}`} tabIndex={0}>
                 <table className="public-standings">
                   <caption className="sr-only">{g.category.name} · {season.name}</caption>
-                  <colgroup><col className="standing-rank-column" /><col className="standing-team-column" />{Array.from({ length: 7 }, (_, index) => <col key={index} className="standing-number-column" />)}<col /></colgroup>
+                  <colgroup><col className="standing-rank-column" /><col className="standing-team-column" />{Array.from({ length: 8 }, (_, index) => <col key={index} className="standing-number-column" />)}<col /></colgroup>
                   <thead>
                     <tr>
                       <th scope="col" className="standing-rank" title="Posición">#</th>
                       <th scope="col" className="standing-team">Equipo</th>
+                      <th scope="col" title="Porcentaje de resultados: (ganados + empatados / 2) / jugados">%</th>
                       <th scope="col" title="Juegos jugados">JJ</th>
                       <th scope="col" title="Ganados">G</th>
                       <th scope="col" title="Empatados">E</th>
@@ -150,6 +168,7 @@ export default function TablaPublicaPage() {
                           {/* Las columnas completas ya anuncian estos datos a lectores de pantalla. */}
                           <dl className="standing-mobile-balance" aria-hidden="true">
                             {[
+                              ['%', percentage(f), 'Porcentaje de resultados'],
                               ['JJ', f.played, 'Juegos jugados'],
                               ['G', f.wins, 'Ganados'],
                               ['E', f.draws, 'Empatados'],
@@ -160,6 +179,7 @@ export default function TablaPublicaPage() {
                             </div>)}
                           </dl>
                         </th>
+                        <td className="tabular font-semibold">{percentage(f)}</td>
                         <td className="tabular">{f.played}</td>
                         <td className="tabular font-semibold">{f.wins}</td>
                         <td className="tabular">{f.draws}</td>
@@ -176,7 +196,7 @@ export default function TablaPublicaPage() {
                     ))}
                   </tbody>
                 </table>
-              </div><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={[]} tableNotes={[standingsOrder, standingsLegend, standingsNotes]} table={{ headers: ['POS','EQUIPO','JJ','JG','JE','JP','PF','PC','DIF'], rows: g.rows.map(row => [String(row.position) + (row.tiebreak_pending ? '*' : ''), row.team_name, String(row.played), String(row.wins), String(row.draws), String(row.losses), String(row.points_for), String(row.points_against), String(row.point_diff)]) }} filename={`mfl-posiciones-${g.category.id}`} url={`${window.location.origin}/tabla`} /></div>
+              </div><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={[]} tableNotes={[standingsOrder, standingsLegend, standingsNotes]} table={{ headers: ['POS','EQUIPO','%','JJ','JG','JE','JP','PF','PC','DIF'], rows: g.rows.map(row => [String(row.position) + (row.tiebreak_pending ? '*' : ''), row.team_name, percentage(row), String(row.played), String(row.wins), String(row.draws), String(row.losses), String(row.points_for), String(row.points_against), String(row.point_diff)]) }} filename={`mfl-posiciones-${g.category.id}`} url={window.location.href} /></div>
             </section>
           ))}
         </div>

@@ -1,4 +1,5 @@
 import Registration from './pages/Registration';
+import NotFound from './pages/NotFound';
 import Favoritos from './pages/publico/Favoritos';
 import { PrivateMetadata } from './components/PageMetadata';
 import { RouteExperience } from './components/RouteExperience';
@@ -97,7 +98,7 @@ const ScrimmageEntry = () => {
 };
 
 const App = () => {
-  const { restore, user, status } = useAuth();
+  const { restore } = useAuth();
   const [offline, setOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
@@ -238,12 +239,7 @@ const App = () => {
 
         <Route
           path="*"
-          element={
-            <Navigate
-              to={status === 'authenticated' ? homeFor(user?.role) : '/ingresar'}
-              replace
-            />
-          }
+          element={<NotFound />}
         />
       </Routes>
     </BrowserRouter>

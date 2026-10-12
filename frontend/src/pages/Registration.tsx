@@ -14,7 +14,6 @@ export default function Registration({ team = false }: { team?: boolean }) {
   const user = useAuth(s => s.user);
   // Una cuenta autenticada no debe volver al alta de usuario: ese formulario
   // crearía una segunda cuenta y confunde el flujo de inscripción de equipo.
-  if (user && !team) return <Navigate to="/equipo/nuevo" replace />;
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [seasonId, setSeasonId] = useState('');
@@ -28,6 +27,7 @@ export default function Registration({ team = false }: { team?: boolean }) {
   const selected = categories.find(o => o.category_id === categoryId);
   const [nameDraft, setNameDraft] = useState('');
   const nameCheck = useQuery({ queryKey: ['team-name-check', nameDraft, selectedSeason, categoryId], queryFn: () => api.get<{ exists: boolean; mine: boolean; id: string | null }>(`/teams/check-name?name=${encodeURIComponent(nameDraft.trim())}&seasonId=${encodeURIComponent(selectedSeason)}&categoryId=${encodeURIComponent(categoryId)}`), enabled: team && nameDraft.trim().length >= 3 && Boolean(selectedSeason && categoryId), staleTime: 3000 });
+  if (user && !team) return <Navigate to="/equipo/nuevo" replace />;
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault(); if (busy) return; setBusy(true); setError('');
     const form = new FormData(event.currentTarget);

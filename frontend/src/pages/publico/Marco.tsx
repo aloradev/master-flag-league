@@ -37,8 +37,8 @@ export const Marco = ({
   const { notices } = useFavorites();
   const unread = notices.filter(notice => !notice.read).length;
   const links = [
-    { to: '/', label: 'Inicio', desktop: 'La liga', icon: IconShield, active: pathname === '/' },
-    { to: '/jornada', label: 'Jornada', desktop: 'Partidos', icon: IconFootball, active: pathname.startsWith('/jornada') || pathname.startsWith('/partido/') },
+    { to: '/', label: 'Inicio', desktop: 'Inicio', icon: IconShield, active: pathname === '/' },
+    { to: '/jornada', label: 'Jornada', desktop: 'Jornada', icon: IconFootball, active: pathname.startsWith('/jornada') || pathname.startsWith('/partido/') },
     { to: '/tabla', label: 'Tabla', desktop: 'Posiciones', icon: IconTrophy, active: pathname === '/tabla' || pathname.startsWith('/equipos/') },
     { to: '/estadisticas', label: 'Stats', desktop: 'Estadísticas', icon: IconDashboard, active: pathname === '/estadisticas' || pathname.startsWith('/jugador/') },
     { to: '/jugar', label: 'Jugar', desktop: 'Jugar', icon: IconUsers, active: pathname === '/jugar' || pathname === '/registro' },
@@ -68,8 +68,8 @@ export const Marco = ({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Link to="/favoritos" aria-label="Favoritos" title={unread > 0 ? `Favoritos · ${unread} avisos sin leer` : 'Favoritos'} aria-current={pathname === '/favoritos' ? 'page' : undefined} className={`public-favorites-link relative inline-flex size-11 shrink-0 items-center justify-center rounded-field ${pathname === '/favoritos' ? 'bg-primary/10 text-primary' : 'text-base-content/70 hover:bg-base-200'}`}>
-              <IconInbox size={20} />
+            <Link to="/favoritos" aria-label="Favoritos" title={unread > 0 ? `Favoritos · ${unread} avisos sin leer` : 'Favoritos'} aria-current={pathname === '/favoritos' ? 'page' : undefined} className={`public-favorites-link relative inline-flex size-11 flex-col lg:flex-row lg:gap-2 lg:w-auto lg:px-3 shrink-0 items-center justify-center rounded-field ${pathname === '/favoritos' ? 'bg-primary/10 text-primary' : 'text-base-content/70 hover:bg-base-200'}`}>
+              <IconInbox size={20} /><span className="text-[9px] lg:text-sm font-semibold">Favoritos</span>
               {unread > 0 && <span className="public-favorites-count" role="status" aria-label={`${unread} avisos sin leer`}>{unread > 9 ? '9+' : unread}</span>}
             </Link>
             {user ? <Link to={homeFor(user.role)} className="btn btn-sm btn-primary">Mi espacio</Link> : <>
