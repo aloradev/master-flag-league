@@ -275,3 +275,13 @@ El empate deportivo restante se marca como lanzamiento de moneda pendiente, con 
 Pruebas de calculo IFAF y estabilidad del empate aprobadas; compilaciones backend/frontend aprobadas. Lista vigente: calculo y explicacion completados; registro de moneda pendiente; despliegue no realizado.
 
 Commit sugerido: `fix: conserva desempate IFAF por moneda y actualiza explicacion`
+
+## Imagenes compartidas de varias paginas (2026-10-12)
+
+Corregido el flujo de exportacion: el generador ya dividia tablas largas, pero Descargar tarjeta solo guardaba la pagina seleccionada. Se conserva esa descarga individual y se agrega Descargar todas (N), con un PNG numerado por pagina. Preparar/Compartir imagenes incluye todas las paginas del formato elegido, no solo la seleccionada. Vista previa conserva selector de pagina. Se respetan invalidacion al cambiar datos/formato/pagina o cerrar panel y compatibilidad del dispositivo para compartir archivos.
+
+Prueba share-pagination.cjs aprobada con 23 equipos: 5 paginas cuadradas, 3 de publicacion y 2 de historia; verifica descargas PNG, numero de pagina, cada equipo exactamente una vez, vista previa final y compartir todos los archivos (API nativa simulada). Ultima imagen cuadrada inspeccionada visualmente: filas, leyendas IFAF y pie sin solapamiento. TypeScript y build aprobados. La descarga multiple puede requerir permiso del navegador; descarga individual sigue disponible. Compartir nativo real en iPhone queda pendiente, no se certifica con la simulacion.
+
+Lista: exportacion completa y pruebas locales completadas; permiso de descargas multiples/compartir real en dispositivo pendiente; sin despliegue.
+
+Commit sugerido: `fix: descarga y comparte todas las paginas de tablas largas`

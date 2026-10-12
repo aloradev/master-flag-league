@@ -10,7 +10,7 @@ export function ShareCard(props: SocialCardData & { filename: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState('');
-  const [prepared, setPrepared] = useState<File | null>(null);
+  const [prepared, setPrepared] = useState<File[] | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const generation = useRef(0);
   const panel = useRef<HTMLDetailsElement>(null);
@@ -22,14 +22,26 @@ export function ShareCard(props: SocialCardData & { filename: string }) {
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   useEffect(() => { generation.current++; setBusy(false); setPreview(''); setPrepared(null); setUnavailable(false); setError(''); }, [identity]);
   useEffect(() => () => { generation.current++; }, []);
-  const generate = async (action: 'preview' | 'download' | 'share') => {
+  const generate = async (action: 'preview' | 'download' | 'download-all' | 'share') => {
     if (busy) return;
     setBusy(true); setError('');
     const operation = ++generation.current;
     try {
       if (action === 'share' && prepared) {
-        if (!navigator.canShare?.({ files: [prepared] })) { setUnavailable(true); setPrepared(null); return; }
-        await navigator.share({ files: [prepared], title: props.title });
+        if (!navigator.canShare?.({ files: prepared })) { setUnavailable(true); setPrepared(null); return; }
+        await navigator.share({ files: prepared, title: props.title });
+        return;
+      }
+      if (action === 'download-all' || action === 'share') {
+        const files: File[] = [];
+        for (let index = 0; index < pages.count; index++) {
+          const blob = await renderSocialCard(props, format, index);
+          if (generation.current !== operation || latestIdentity.current !== identity || !panel.current?.open) return;
+          files.push(new File([blob], `${props.filename}-${format}-${index + 1}.png`, { type: 'image/png' }));
+        }
+        if (action === 'download-all') files.forEach(file => downloadFile(file, file.name));
+        else if (navigator.canShare?.({ files })) setPrepared(files);
+        else setUnavailable(true);
         return;
       }
       const blob = await renderSocialCard(props, format, selectedPage);
@@ -39,11 +51,6 @@ export function ShareCard(props: SocialCardData & { filename: string }) {
         if (panel.current?.open && latestIdentity.current === identity) setPreview(URL.createObjectURL(blob));
       }
       else if (action === 'download') downloadFile(blob, filename);
-      else {
-        const file = new File([blob], filename, { type: 'image/png' });
-        if (navigator.canShare?.({ files: [file] })) setPrepared(file);
-        else setUnavailable(true);
-      }
     } catch (cause) { if (generation.current === operation && latestIdentity.current === identity && !(cause instanceof DOMException && cause.name === 'AbortError')) setError(action === 'share' && prepared ? 'No se pudo compartir la imagen.' : 'No se pudo crear la imagen.'); }
     finally { if (generation.current === operation) setBusy(false); }
   };
@@ -55,7 +62,8 @@ export function ShareCard(props: SocialCardData & { filename: string }) {
     </div>
     <div className="flex flex-wrap gap-2"><button type="button" className="btn btn-sm btn-ghost min-h-11" disabled={busy} onClick={() => void generate('preview')}>Vista previa</button>
       <button type="button" className="btn btn-sm btn-outline min-h-11" disabled={busy} onClick={() => void generate('download')}>Descargar tarjeta</button>
-      {typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && !unavailable && <button type="button" className="btn btn-sm btn-primary min-h-11" disabled={busy} onClick={() => void generate('share')}>{prepared ? 'Compartir imagen' : 'Preparar imagen'}</button>}
+      {pages.count > 1 && <button type="button" className="btn btn-sm btn-outline min-h-11" disabled={busy} onClick={() => void generate('download-all')}>Descargar todas ({pages.count})</button>}
+      {typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && !unavailable && <button type="button" className="btn btn-sm btn-primary min-h-11" disabled={busy} onClick={() => void generate('share')}>{prepared ? (pages.count > 1 ? 'Compartir imágenes' : 'Compartir imagen') : (pages.count > 1 ? 'Preparar imágenes' : 'Preparar imagen')}</button>}
     </div>
     {busy && <p role="status" className="text-xs">Generando imagen...</p>}
     {unavailable && <p role="status" className="text-sm">Compartir imagen no está disponible en este dispositivo.</p>}
