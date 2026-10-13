@@ -42,7 +42,7 @@ const Fila = ({ f, destacar }: { f: StandingRow; destacar: boolean }) => (
         />
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold leading-tight">{f.team_name}</span>
-          {f.tiebreak_pending && <span className="block text-xs text-warning">Lanzamiento de moneda pendiente</span>}
+          {f.tiebreak_pending && <span className="block text-xs text-warning">Empate deportivo</span>}
           <span className="block text-[11px] text-base-content/50 sm:hidden">
             {f.played} JJ · {f.wins}G · {f.draws}E · {f.losses}P · DIF {f.point_diff >= 0 ? '+' : ''}{f.point_diff}
           </span>
@@ -130,7 +130,7 @@ export default function Standings() {
 
       <Card className="border-primary/20 bg-primary/5 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div><h2 className="font-bold">Criterio de posiciones</h2><p className="mt-1 text-sm text-base-content/70">Primero los equipos con partidos jugados. Después se compara el récord y los desempates.</p></div>
+          <div><h2 className="font-bold">Criterio de posiciones</h2><p className="mt-1 text-sm text-base-content/70">Se comparan juegos ganados, diferencia de puntos, puntos a favor y puntos en contra.</p></div>
           <span className="badge badge-primary badge-outline">Criterio MFL</span>
         </div>
         <p className="mt-2 text-xs text-base-content/60">{standingsOrder}</p>
@@ -138,7 +138,7 @@ export default function Standings() {
         <p className="mt-2 text-xs text-base-content/60">{standingsNotes}</p>
       </Card>
 
-      {conJuego &&
+      {grupos.length > 0 &&
         grupos.map((g) => (
           <section key={g.category.id} className="space-y-2">
             <h2 className="flex items-center gap-2 text-sm font-bold">

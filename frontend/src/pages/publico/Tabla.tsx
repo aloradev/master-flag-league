@@ -108,12 +108,12 @@ export default function TablaPublicaPage() {
       ) : (
         <div className="space-y-5">
           <details className="border-y border-base-300 py-3">
-            <summary className="min-h-11 cursor-pointer content-center font-semibold">¿Cómo se ordena la tabla? · IFAF</summary>
+            <summary className="min-h-11 cursor-pointer content-center font-semibold">¿Cómo se ordena la tabla?</summary>
             <div className="py-2">
             <p className="text-sm text-base-content/70">{standingsOrder}</p>
             <p className="mt-2 text-xs text-base-content/60">{standingsNotes}</p>
             <p className="mt-2 text-xs text-base-content/60">{standingsLegend}</p>
-            <p className="mt-2 text-xs text-base-content/60">Ejemplo: una victoria sin derrotas equivale al 100%; una victoria y una derrota, al 50%. Anotar más no supera un porcentaje mayor. Los empates cuentan como media victoria. Los desempates se aplican por pasos a los equipos que sigan igualados.</p>
+            <p className="mt-2 text-xs text-base-content/60">DIF = PF − PC. El porcentaje es informativo y los enfrentamientos directos no determinan posiciones.</p>
             <p className="mt-2 text-xs text-base-content/60">Solo cuentan partidos oficiales de temporada regular. Los descansos no suman partidos jugados.</p>
             </div>
           </details>
@@ -164,7 +164,7 @@ export default function TablaPublicaPage() {
                             />
                             <Link to={`/equipos/${f.team_id}`} className="link min-w-0 break-words font-semibold [overflow-wrap:anywhere]">{f.team_name}</Link>
                           </div>
-                          {f.tiebreak_pending && <p className="text-xs text-warning">Moneda pendiente · posición provisional</p>}
+                          {f.tiebreak_pending && <p className="text-xs text-warning">Empate deportivo</p>}
                           {/* Las columnas completas ya anuncian estos datos a lectores de pantalla. */}
                           <dl className="standing-mobile-balance" aria-hidden="true">
                             {[

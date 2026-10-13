@@ -137,7 +137,7 @@ export const getPublicTeam = asyncHandler(async (req: Request, res: Response) =>
   const index = standings.findIndex(row => row.team_id === id);
   res.json({ success: true, data: {
     team, roster: roster.rows, games: games.rows,
-    standing: index < 0 ? null : { ...standings[index], position: index + 1 },
+    standing: index < 0 ? null : standings[index],
   } });
 });
 
@@ -282,8 +282,7 @@ export const getPublicStandings = asyncHandler(async (req: Request, res: Respons
       categories: categorias.rows.map((c) => ({
         category: { id: c.id, name: c.name, color: c.color },
         rows: filas
-          .filter((f) => f.category_id === c.id)
-          .map((f, i) => ({ ...f, position: i + 1 })),
+          .filter((f) => f.category_id === c.id),
       })),
     },
   });

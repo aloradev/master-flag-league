@@ -98,7 +98,7 @@ INSERT INTO settings (id, league_id, season_id, key, value) VALUES
   "points_loss": 0,
   "walkover_score": [20, 0],
   "periods": 2,
-  "tiebreakers": ["points", "wins", "point_diff", "points_for", "head_to_head"],
+  "tiebreakers": ["wins", "point_diff", "points_for", "points_against"],
   "rounds_planned": 10
 }'),
 -- Montos en CENTAVOS enteros. Las fechas de vencimiento NO se configuran

@@ -66,7 +66,7 @@ const REGLAS_POR_OMISION: ReglasCompetencia = {
   points_loss: 0,
   walkover_score: [20, 0],
   periods: 2,
-  tiebreakers: ['points', 'wins', 'point_diff', 'points_for', 'head_to_head'],
+  tiebreakers: ['wins', 'point_diff', 'points_for', 'points_against'],
 };
 
 /**
@@ -529,12 +529,14 @@ export const calcularPosiciones = async (
               g.home_score AS pf, g.away_score AS pa, ro.number AS jornada
        FROM games g JOIN rounds ro ON ro.id = g.round_id
        WHERE g.season_id = $1 AND g.status IN ('FINISHED', 'WALKOVER') AND ro.playoff_id IS NULL
+         AND ro.status <> 'CANCELLED' AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL
          AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
        UNION ALL
        SELECT g.category_id, g.away_team_id, g.home_team_id,
               g.away_score, g.home_score, ro.number
        FROM games g JOIN rounds ro ON ro.id = g.round_id
        WHERE g.season_id = $1 AND g.status IN ('FINISHED', 'WALKOVER') AND ro.playoff_id IS NULL
+         AND ro.status <> 'CANCELLED' AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL
          AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
      )
      SELECT t.id AS team_id, t.name AS team_name, t.short_name, t.logo_url, t.category_id,
@@ -602,50 +604,21 @@ export const calcularPosiciones = async (
     };
   });
 
-  const porcentaje = (fila: typeof filas[0]) => (fila.wins + fila.draws / 2) / fila.played;
-  const grupos = new Map<string, typeof filas>();
-  for (const fila of filas) {
-    const clave = JSON.stringify([fila.category_id, fila.played > 0, fila.played ? porcentaje(fila) : null]);
-    grupos.set(clave, [...(grupos.get(clave) ?? []), fila]);
-  }
-  const pendientes = new Set<string>();
-  const alfabetico = (a: typeof filas[0], b: typeof filas[0]) =>
-    a.team_name.localeCompare(b.team_name, 'es') || a.team_id.localeCompare(b.team_id);
-  // IFAF 3-1-4 / AR: cada paso divide el empate y el siguiente evalua los subgrupos.
-  const resolver = (grupo: typeof filas, paso = 0): typeof filas => {
-    if (grupo.length < 2) return grupo;
-    if (!grupo[0].played) return grupo.sort(alfabetico);
-    if (paso === 5) {
-      // IFAF: moneda pendiente; el orden alfabetico solo presenta el empate, no lo resuelve.
-      grupo.forEach(fila => pendientes.add(fila.team_id));
-      return grupo.sort(alfabetico);
-    }
-    const ids = new Set(grupo.map(fila => fila.team_id));
-    const directos = grupo.map(fila => fila.historial.filter(partido => ids.has(partido.rival)));
-    const todosEnfrentados = grupo.every((fila, i) =>
-      grupo.every(rival => rival === fila || directos[i].some(partido => partido.rival === rival.team_id)));
-    if (paso < 3 && !todosEnfrentados) return resolver(grupo, 3);
-    const valores = grupo.map((fila, i) => {
-      const juegos = directos[i];
-      if (paso === 0) return juegos.reduce((suma, p) => suma + (p.pf > p.pa ? 1 : p.pf === p.pa ? 0.5 : 0), 0) / juegos.length;
-      if (paso === 1) return juegos.reduce((suma, p) => suma + p.pf - p.pa, 0);
-      if (paso === 2) return juegos.reduce((suma, p) => suma + p.pf, 0);
-      return paso === 3 ? fila.point_diff : fila.points_for;
-    });
-    const subgrupos = new Map<number, typeof filas>();
-    grupo.forEach((fila, i) => subgrupos.set(valores[i], [...(subgrupos.get(valores[i]) ?? []), fila]));
-    return [...subgrupos.entries()].sort(([a], [b]) => b - a)
-      .flatMap(([, subgrupo]) => resolver(subgrupo, paso + 1));
-  };
-  const ordenadas = [...grupos.values()].sort((a, b) =>
-    a[0].category_id.localeCompare(b[0].category_id) ||
-    Number(b[0].played > 0) - Number(a[0].played > 0) ||
-    (a[0].played ? porcentaje(b[0]) - porcentaje(a[0]) : 0)
-  ).flatMap(grupo => resolver(grupo));
-  const posiciones = new Map<string, number>();
-  return ordenadas.map(({ historial: _h, ...fila }) => {
-    const position = (posiciones.get(fila.category_id) ?? 0) + 1;
-    posiciones.set(fila.category_id, position);
-    return { ...fila, position, tiebreak_pending: pendientes.has(fila.team_id) };
+  const comparar = (a: typeof filas[0], b: typeof filas[0]) =>
+    b.wins - a.wins || b.point_diff - a.point_diff ||
+    b.points_for - a.points_for || a.points_against - b.points_against;
+  const ordenadas = filas.sort((a, b) =>
+    a.category_id.localeCompare(b.category_id) || comparar(a, b) ||
+    a.team_name.localeCompare(b.team_name, 'es'));
+  let indice = 0;
+  let posicion = 0;
+  return ordenadas.map(({ historial: _h, ...fila }, i) => {
+    const anterior = ordenadas[i - 1];
+    if (!anterior || anterior.category_id !== fila.category_id) indice = 0;
+    indice++;
+    if (!anterior || anterior.category_id !== fila.category_id || comparar(anterior, ordenadas[i]) !== 0) posicion = indice;
+    const siguiente = ordenadas[i + 1];
+    const empate = [anterior, siguiente].some(otra => otra && otra.category_id === fila.category_id && comparar(otra, ordenadas[i]) === 0);
+    return { ...fila, position: posicion, tiebreak_pending: empate };
   });
 };

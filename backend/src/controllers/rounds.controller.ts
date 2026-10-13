@@ -404,8 +404,7 @@ export const getStandings = asyncHandler(async (req: AuthRequest, res: Response)
     .map((c) => ({
       category: { id: c.id, name: c.name, color: c.color },
       rows: filas
-        .filter((f) => f.category_id === c.id)
-        .map((f, i) => ({ ...f, position: i + 1 })),
+        .filter((f) => f.category_id === c.id),
     }));
 
   res.json({ success: true, data });
