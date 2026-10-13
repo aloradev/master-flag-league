@@ -255,7 +255,7 @@ async function reservasDeFecha(seasonId: string, date: string, q = query) {
     to_char(g.scheduled_time,'HH24:MI') AS time
     FROM games g JOIN rounds r ON r.id=g.round_id
     WHERE g.season_id=$1 AND r.scheduled_date=$2::date AND r.status<>'CANCELLED'
-      AND g.status<>'CANCELLED' AND g.game_type='OFFICIAL'
+      AND g.status<>'CANCELLED' AND COALESCE(g.game_type,'OFFICIAL')='OFFICIAL'
     UNION ALL SELECT NULL,NULL,b.team_id,NULL,NULL FROM round_byes b JOIN rounds r ON r.id=b.round_id
     WHERE r.season_id=$1 AND r.scheduled_date=$2::date AND r.status<>'CANCELLED' AND r.round_type='OFFICIAL'`,[seasonId,date])).rows;
 }
