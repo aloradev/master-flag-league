@@ -137,7 +137,7 @@ body {
 .public-match-details dt { font-size:11px; color:color-mix(in oklch,var(--color-base-content) 65%,transparent); }
 .public-match-details dd { margin-top:2px; font-size:12px; font-weight:600; overflow-wrap:anywhere; }
 .public-standings-scroll { --standing-team-width:148px; --standing-form-width:96px; max-width:100%; overflow-x:auto; border-block:1px solid var(--color-base-300); overscroll-behavior-x:contain; }
-.public-standings { width:100%; min-width:calc(44px + var(--standing-team-width) + 448px + var(--standing-form-width)); table-layout:fixed; border-collapse:separate; border-spacing:0; font-size:14px; line-height:1.4; }
+.public-standings { width:100%; min-width:calc(44px + var(--standing-team-width) + 392px + var(--standing-form-width)); table-layout:fixed; border-collapse:separate; border-spacing:0; font-size:14px; line-height:1.4; }
 .standing-rank-column { width:44px; }
 .standing-team-column { width:var(--standing-team-width); }
 .standing-number-column { width:56px; }

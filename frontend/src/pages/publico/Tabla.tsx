@@ -46,8 +46,6 @@ export default function TablaPublicaPage() {
     if (value) next.set('categoria', value); else next.delete('categoria');
     return next;
   }, { replace: true });
-  const percentage = (row: StandingsGroup['rows'][number]) => row.played
-    ? `${((row.wins + row.draws / 2) / row.played * 100).toLocaleString('es-MX', { maximumFractionDigits: 1 })}%` : '—';
   const consulta = useQuery({
     queryKey: ['publico-tabla'],
     queryFn: ({ signal }) => api.get<TablaPublica>('/public/standings', signal),
@@ -113,7 +111,7 @@ export default function TablaPublicaPage() {
             <p className="text-sm text-base-content/70">{standingsOrder}</p>
             <p className="mt-2 text-xs text-base-content/60">{standingsNotes}</p>
             <p className="mt-2 text-xs text-base-content/60">{standingsLegend}</p>
-            <p className="mt-2 text-xs text-base-content/60">DIF = PF − PC. El porcentaje es informativo y los enfrentamientos directos no determinan posiciones.</p>
+            <p className="mt-2 text-xs text-base-content/60">DIF = PF − PC.</p>
             <p className="mt-2 text-xs text-base-content/60">Solo cuentan partidos oficiales de temporada regular. Los descansos no suman partidos jugados.</p>
             </div>
           </details>
@@ -134,12 +132,11 @@ export default function TablaPublicaPage() {
               <div className="public-standings-scroll" role="region" aria-label={`Posiciones de ${g.category.name}`} tabIndex={0}>
                 <table className="public-standings">
                   <caption className="sr-only">{g.category.name} · {season.name}</caption>
-                  <colgroup><col className="standing-rank-column" /><col className="standing-team-column" />{Array.from({ length: 8 }, (_, index) => <col key={index} className="standing-number-column" />)}<col /></colgroup>
+                  <colgroup><col className="standing-rank-column" /><col className="standing-team-column" />{Array.from({ length: 7 }, (_, index) => <col key={index} className="standing-number-column" />)}<col /></colgroup>
                   <thead>
                     <tr>
                       <th scope="col" className="standing-rank" title="Posición">#</th>
                       <th scope="col" className="standing-team">Equipo</th>
-                      <th scope="col" title="Porcentaje de resultados: (ganados + empatados / 2) / jugados">%</th>
                       <th scope="col" title="Juegos jugados">JJ</th>
                       <th scope="col" title="Ganados">G</th>
                       <th scope="col" title="Empatados">E</th>
@@ -168,7 +165,6 @@ export default function TablaPublicaPage() {
                           {/* Las columnas completas ya anuncian estos datos a lectores de pantalla. */}
                           <dl className="standing-mobile-balance" aria-hidden="true">
                             {[
-                              ['%', percentage(f), 'Porcentaje de resultados'],
                               ['JJ', f.played, 'Juegos jugados'],
                               ['G', f.wins, 'Ganados'],
                               ['E', f.draws, 'Empatados'],
@@ -179,7 +175,6 @@ export default function TablaPublicaPage() {
                             </div>)}
                           </dl>
                         </th>
-                        <td className="tabular font-semibold">{percentage(f)}</td>
                         <td className="tabular">{f.played}</td>
                         <td className="tabular font-semibold">{f.wins}</td>
                         <td className="tabular">{f.draws}</td>
@@ -196,7 +191,7 @@ export default function TablaPublicaPage() {
                     ))}
                   </tbody>
                 </table>
-              </div><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={[]} tableNotes={[standingsOrder, standingsLegend, standingsNotes]} table={{ headers: ['POS','EQUIPO','%','JJ','JG','JE','JP','PF','PC','DIF'], rows: g.rows.map(row => [String(row.position) + (row.tiebreak_pending ? '*' : ''), row.team_name, percentage(row), String(row.played), String(row.wins), String(row.draws), String(row.losses), String(row.points_for), String(row.points_against), String(row.point_diff)]) }} filename={`mfl-posiciones-${g.category.id}`} url={window.location.href} /></div>
+              </div><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={[]} tableNotes={[standingsOrder, standingsLegend, standingsNotes]} table={{ headers: ['POS','EQUIPO','JJ','JG','JE','JP','PF','PC','DIF'], rows: g.rows.map(row => [String(row.position) + (row.tiebreak_pending ? '*' : ''), row.team_name, String(row.played), String(row.wins), String(row.draws), String(row.losses), String(row.points_for), String(row.points_against), String(row.point_diff)]) }} filename={`mfl-posiciones-${g.category.id}`} url={window.location.href} /></div>
             </section>
           ))}
         </div>
