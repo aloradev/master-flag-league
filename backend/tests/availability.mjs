@@ -7,4 +7,15 @@ assert.equal(proponerJornada({...input,earliestTimes:{a:'20:00'}}).games[0].time
 const unavailable = proponerJornada({...input,earliestTimes:{b:'21:00'}});
 assert.equal(unavailable.games[0].time,null);
 assert.ok(unavailable.warnings.some(w=>w.includes('Sin horario compatible')));
-console.log('Disponibilidad respetada y conflicto explícito: correcto.');
+
+const h = historialVacio();
+h.porHorario.a = { '19:00': 3 };
+h.porHorario.b = { '19:00': 2 };
+assert.equal(proponerJornada({...input,history:h}).games[0].time,'20:00');
+
+const h2 = historialVacio();
+h2.porHorario.a = { '19:00': 3, '20:00': 1 };
+h2.porHorario.b = { '19:00': 1, '20:00': 3 };
+assert.equal(proponerJornada({...input,history:h2}).games[0].time,'19:00');
+
+console.log('Disponibilidad, historial de horarios y conflicto explícito: correcto.');

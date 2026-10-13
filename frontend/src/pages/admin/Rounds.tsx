@@ -58,7 +58,9 @@ export default function AdminRounds() {
   });
 
   const proponer = useMutation({
-    mutationFn: () => competition.propose(seasonId!, fecha || undefined, undefined, rests, earliest),
+    mutationFn: (scheduledDate?: string) =>
+      competition.propose(seasonId!, scheduledDate, undefined, rests, earliest),
+    onMutate: () => setError(null),
     onSuccess: (p) => {
       setPropuesta(p);
       setFecha(p.scheduledDate);
@@ -113,7 +115,7 @@ export default function AdminRounds() {
           tone="primary"
           loading={proponer.isPending}
           disabled={!seasonId || manual}
-          onClick={() => proponer.mutate()}
+          onClick={() => proponer.mutate(undefined)}
         >
           <IconPlus size={16} />
           Generar próxima jornada
@@ -243,7 +245,8 @@ export default function AdminRounds() {
               tone="neutral"
               outline
               loading={proponer.isPending}
-              onClick={() => proponer.mutate()}
+              disabled={guardar.isPending}
+              onClick={() => proponer.mutate(fecha || undefined)}
             >
               Recalcular
             </Button>

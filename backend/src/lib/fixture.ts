@@ -281,11 +281,16 @@ const repartirHuecos = (
     for (const idx of libres) {
       const hueco = huecos[idx];
       if (hueco.time < (earliestTimes[p.home] ?? '') || hueco.time < (earliestTimes[p.away] ?? '')) continue;
+      const horarioHome = veces(h.porHorario, p.home, hueco.time);
+      const horarioAway = veces(h.porHorario, p.away, hueco.time);
+      const campoHome = veces(h.porCampo, p.home, hueco.fieldId);
+      const campoAway = veces(h.porCampo, p.away, hueco.fieldId);
       const coste =
-        veces(h.porHorario, p.home, hueco.time) +
-        veces(h.porHorario, p.away, hueco.time) +
-        veces(h.porCampo, p.home, hueco.fieldId) +
-        veces(h.porCampo, p.away, hueco.fieldId);
+        // Repetir horario se siente más que repetir campo: no es lo
+        // mismo alternar cancha que cerrar la noche tres jornadas seguidas.
+        (horarioHome * horarioHome + horarioAway * horarioAway) * 4 +
+        campoHome * campoHome +
+        campoAway * campoAway;
       // A igualdad de coste gana el hueco más temprano, que es el orden
       // natural en que se llena una noche.
       if (coste < mejorCoste) {
@@ -410,7 +415,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
         `se pueden jugar ${candidatos.length}. ${sobran} ` +
         `${sobran === 1 ? 'partido queda' : 'partidos quedan'} fuera y ` +
         `${sobran * 2} equipos descansan por falta de espacio. ` +
-        `Agrega espacios disponibles en la configuración de campos para ampliar la capacidad.`
+        `Agregar un horario o habilitar más campos amplía la capacidad.`
     );
 
     for (const c of fuera) candidatos.splice(candidatos.indexOf(c), 1);
