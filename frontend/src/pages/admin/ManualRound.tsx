@@ -8,13 +8,13 @@ import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
 type Category = { id: string; name: string; teams: { id: string; name: string }[] };
 type Match = { key: number; category: string; home: string; away: string; field: string; time: string };
 
-export default function ManualRound({ season, onSaved, onCancel }: {
-  season: Season; onSaved: () => void; onCancel: () => void;
+export default function ManualRound({ season, onSaved, onCancel, initialProposal }: {
+  initialProposal?: Proposal; season: Season; onSaved: () => void; onCancel: () => void;
 }) {
-  const [date, setDate] = useState(season.start_date.slice(0, 10));
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [rests, setRests] = useState<string[]>([]);
-  const [nextKey, setNextKey] = useState(0);
+  const [date, setDate] = useState(initialProposal?.scheduledDate ?? season.start_date.slice(0, 10));
+  const [matches, setMatches] = useState<Match[]>(() => initialProposal?.games.map((g, key) => ({ key, category: g.categoryId, home: g.homeTeamId, away: g.awayTeamId, field: g.fieldId ?? '', time: g.time ?? '' })) ?? []);
+  const [rests, setRests] = useState<string[]>(initialProposal?.byes.map(b => b.teamId) ?? []);
+  const [nextKey, setNextKey] = useState(initialProposal?.games.length ?? 0);
   const options = useQuery({ queryKey: ['manual-round-options', season.id],
     queryFn: () => api.get<Category[]>(`/admin/rounds/options?seasonId=${season.id}`) });
   const categories = options.data ?? [];

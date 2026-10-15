@@ -145,7 +145,12 @@ export const proposeRound = asyncHandler(async (req: AuthRequest, res: Response)
   const temporada = await query(`SELECT id FROM seasons WHERE id = $1`, [seasonId]);
   if (!temporada.rows[0]) throw new AppError('Temporada no encontrada', 404);
 
+  if (body.previousGames !== undefined && (!Array.isArray(body.previousGames) || body.previousGames.length > 500 ||
+      body.previousGames.some((g: any) => !g || typeof g.homeTeamId !== 'string' || typeof g.awayTeamId !== 'string'))) {
+    throw new AppError('Propuesta anterior inválida', 400);
+  }
   const propuesta = await construirPropuesta({
+    previousGames: body.previousGames,
     seasonId,
     scheduledDate: body.scheduledDate,
     restTeamIds: body.restTeamIds,

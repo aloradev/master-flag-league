@@ -427,6 +427,25 @@ console.log('\n═══ 10. TOPE DE REPETICIONES: NADIE VE AL MISMO RIVAL TRES 
     `min ${Math.min(...cuentas)} max ${Math.max(...cuentas)} → ${cuentas.join(',')}`);
 }
 
+{
+  const input = { roundNumber: 1, scheduledDate: '2026-10-15',
+    categories: [{ id: 'c', name: 'Mixta', teams: equipos('a', 4) }],
+    fields: campos(1), slots: ['19:00', '20:00'], history: historialVacio() };
+  const first = proponerJornada(input);
+  const next = proponerJornada({ ...input, previousGames: first.games });
+  check(next.games.every(g => first.games.find(old => old.homeTeamId === g.homeTeamId)?.time !== g.time), 'recalcular cambia horarios conservando rivales');
+  check(new Set(next.games.map(g => g.fieldId + ':' + g.time)).size === next.games.length, 'recalcular no duplica espacios');
+  const restricted = { ...input, categories: [{ ...input.categories[0], teams: equipos('a', 2) }], earliestTimes: { a1: '20:00' } };
+  const only = proponerJornada(restricted);
+  const same = proponerJornada({ ...restricted, previousGames: only.games });
+  check(same.games[0].time === '20:00', 'recalcular respeta disponibilidad del equipo');
+  check(same.warnings.some(w => w.includes('No se encontró otra distribución')), 'avisa cuando no hay alternativa');
+  const fieldsOnly = { ...restricted, fields: campos(2) };
+  const before = proponerJornada(fieldsOnly);
+  const after = proponerJornada({ ...fieldsOnly, previousGames: before.games });
+  check(after.games[0].time === '20:00' && after.games[0].fieldId !== before.games[0].fieldId, 'cambia campo si la hora es única');
+}
+
 console.log('\n════════════════════════════════════════════════════');
 console.log(`  RESULTADO: ${pasaron} pasaron · ${fallaron} fallaron`);
 console.log('════════════════════════════════════════════════════');

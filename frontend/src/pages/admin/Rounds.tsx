@@ -38,6 +38,7 @@ export default function AdminRounds() {
   const [fecha, setFecha] = useState('');
   const [editingId, setEditingId] = useState<string | null>(requestedRound);
   useEffect(() => { if (requestedRound) setEditingId(requestedRound); }, [requestedRound]);
+  const [manualProposal, setManualProposal] = useState<Proposal | undefined>();
   const [manual, setManual] = useState(false);
   const [rests, setRests] = useState<string[]>([]);
   const [earliest, setEarliest] = useState<Record<string, string>>({});
@@ -59,7 +60,7 @@ export default function AdminRounds() {
 
   const proponer = useMutation({
     mutationFn: (scheduledDate?: string) =>
-      competition.propose(seasonId!, scheduledDate, undefined, rests, earliest),
+      competition.propose(seasonId!, scheduledDate, undefined, rests, earliest, scheduledDate ? propuesta?.games : undefined),
     onMutate: () => setError(null),
     onSuccess: (p) => {
       setPropuesta(p);
@@ -120,13 +121,13 @@ export default function AdminRounds() {
           <IconPlus size={16} />
           Generar próxima jornada
         </Button>
-        <Button disabled={!seasonId || manual || proponer.isPending || guardar.isPending} onClick={() => { setManual(true); setPropuesta(null); setError(null); }}>Crear jornada manual</Button>
+        <Button disabled={!seasonId || manual || proponer.isPending || guardar.isPending} onClick={() => { setManualProposal(undefined); setManual(true); setPropuesta(null); setError(null); }}>Crear jornada manual</Button>
       </header>
       <Alert tone="info" title="¿Todavía no registraron jugadores?">Puedes publicar la jornada y, después de jugar, abrirla para capturar únicamente el marcador final. El resultado actualiza posiciones aunque las estadísticas individuales queden pendientes.</Alert>
 
       {error && <Alert tone="error">{error}</Alert>}
       {season.data && <TeamProgress season={season.data} onOpenRound={setEditingId} />}
-      {manual && season.data && <ManualRound season={season.data} onCancel={() => setManual(false)} onSaved={() => {
+      {manual && season.data && <ManualRound initialProposal={manualProposal} season={season.data} onCancel={() => setManual(false)} onSaved={() => {
         setManual(false); void qc.invalidateQueries({ queryKey: ['rounds', seasonId] });
       }} />}
       {!manual && <Card className="space-y-3 p-4">
@@ -238,7 +239,7 @@ export default function AdminRounds() {
 
           {fecha !== propuesta.scheduledDate && <Alert tone="warning">Cambiaste la fecha. Recalcula para revisar incorporaciones y asignaciones existentes antes de guardar.</Alert>}
           <div className="flex flex-wrap gap-2 border-t border-base-300/60 pt-3">
-            <Button tone="success" disabled={!fecha || fecha !== propuesta.scheduledDate} loading={guardar.isPending} onClick={() => guardar.mutate()}>
+            <Button tone="success" disabled={proponer.isPending || !fecha || fecha !== propuesta.scheduledDate} loading={guardar.isPending} onClick={() => guardar.mutate()}>
               Guardar como borrador
             </Button>
             <Button
@@ -248,8 +249,9 @@ export default function AdminRounds() {
               disabled={guardar.isPending}
               onClick={() => proponer.mutate(fecha || undefined)}
             >
-              Recalcular
+              Recalcular horarios
             </Button>
+            <Button disabled={guardar.isPending || proponer.isPending} onClick={() => { setManualProposal({ ...propuesta, scheduledDate: fecha }); setManual(true); setPropuesta(null); }}>Editar encuentros y horarios</Button>
             <Button tone="ghost" onClick={() => setPropuesta(null)}>
               Descartar
             </Button>

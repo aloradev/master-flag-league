@@ -38,6 +38,7 @@ export interface Historial {
 }
 
 export interface EntradaPropuesta {
+  previousGames?: PartidoPropuesto[];
   earliestTimes?: Record<string, string>;
   roundNumber: number;
   scheduledDate: string;
@@ -262,7 +263,8 @@ const repartirHuecos = (
   slots: string[],
   h: Historial,
   earliestTimes: Record<string, string> = {},
-  fieldSlots: Record<string, string[]> = {}
+  fieldSlots: Record<string, string[]> = {},
+  previousGames: PartidoPropuesto[] = []
 ): ({ fieldId: string; fieldName: string; time: string } | null)[] => {
   const huecos: { fieldId: string; fieldName: string; time: string }[] = [];
   for (const time of slots) {
@@ -278,6 +280,8 @@ const repartirHuecos = (
   for (const p of partidos) {
     let elegido = -1;
     let mejorCoste = Infinity;
+    let mejorRepeticion = Infinity;
+    const anterior = previousGames.find(g => pairKey(g.homeTeamId, g.awayTeamId) === pairKey(p.home, p.away));
     for (const idx of libres) {
       const hueco = huecos[idx];
       if (hueco.time < (earliestTimes[p.home] ?? '') || hueco.time < (earliestTimes[p.away] ?? '')) continue;
@@ -293,7 +297,10 @@ const repartirHuecos = (
         campoAway * campoAway;
       // A igualdad de coste gana el hueco más temprano, que es el orden
       // natural en que se llena una noche.
-      if (coste < mejorCoste) {
+      const repeticion = anterior ? Number(anterior.time === hueco.time) * 2 +
+        Number(anterior.time === hueco.time && anterior.fieldId === hueco.fieldId) : 0;
+      if (repeticion < mejorRepeticion || (repeticion === mejorRepeticion && coste < mejorCoste)) {
+        mejorRepeticion = repeticion;
         mejorCoste = coste;
         elegido = idx;
       }
@@ -436,7 +443,8 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     slots,
     h,
     entrada.earliestTimes,
-    entrada.fieldSlots
+    entrada.fieldSlots,
+    entrada.previousGames
   );
 
   const games: PartidoPropuesto[] = candidatos.map((c, i) => ({
@@ -459,6 +467,10 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
   games.sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99') ||
     (a.fieldName ?? '').localeCompare(b.fieldName ?? ''));
 
+  if (entrada.previousGames?.length && games.length === entrada.previousGames.length && games.every(g =>
+    entrada.previousGames!.some(old => pairKey(old.homeTeamId, old.awayTeamId) === pairKey(g.homeTeamId, g.awayTeamId) && old.time === g.time && old.fieldId === g.fieldId))) {
+    warnings.push('No se encontró otra distribución compatible. Ajusta la disponibilidad o edita la propuesta manualmente.');
+  }
   const repetidos = games.filter((g) => g.meeting > 1).length;
   if (repetidos > 0) {
     warnings.push(

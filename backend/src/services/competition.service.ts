@@ -270,6 +270,7 @@ export async function validarIncorporacionesJornada(roundId: string, date: strin
 }
 
 export interface OpcionesPropuesta {
+  previousGames?: Propuesta['games'];
   restTeamIds?: string[];
   earliestTimes?: Record<string, string>;
   seasonId: string;
@@ -337,6 +338,7 @@ export const construirPropuesta = async (
   }
 
   const propuesta = proponerJornada({
+    previousGames: opciones.previousGames,
     roundNumber: siguienteNumero.rows[0].n,
     scheduledDate: date,
     categories: categorias.map((c) => ({ ...c, teams: c.teams.filter((t) => !rests.includes(t.id) && !busy.has(t.id)) })),
