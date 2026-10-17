@@ -82,8 +82,8 @@ function Editor({ game }: { game: GameDetail }) {
   </div>;
 }
 
-export default function HistoricalStatistics({ gameId }: { gameId: string }) {
-  const [open, setOpen] = useState(false);
+export default function HistoricalStatistics({ gameId, initiallyOpen = false }: { gameId: string; initiallyOpen?: boolean }) {
+  const [open, setOpen] = useState(initiallyOpen);
   const game = useQuery({ queryKey: ['game',gameId], queryFn: () => competition.game(gameId), enabled: open });
   return <section className="space-y-3 border-t border-base-300 pt-3">
     <Button size="sm" onClick={() => setOpen(!open)}>{open ? 'Ocultar estadísticas' : 'Capturar o revisar estadísticas'}</Button>

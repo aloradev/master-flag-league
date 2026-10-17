@@ -65,6 +65,7 @@ export default function RoundGames({ id, season }: { id: string; season: Season 
     {!round.data?.games.length && <p>No hay partidos en esta jornada.</p>}
     {round.data?.games.map((g) => <div key={g.id} id={`game-${g.id}`} className="space-y-2">
       <GameEditor game={g} season={season} referees={refs.data ?? []} locked={['FINISHED', 'CANCELLED'].includes(round.data!.status)} />
+      <Link className="btn btn-primary btn-sm" to={`/admin/partidos/${g.id}/acta`}>Estadísticas y acta</Link>
       <Card className="p-3"><HistoricalResult game={g} roundStatus={round.data!.status} /></Card>
     </div>)}
   </section>;

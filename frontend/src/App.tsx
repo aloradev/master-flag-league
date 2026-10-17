@@ -42,6 +42,8 @@ import Roster from './pages/Roster';
 import Jornadas from './pages/Jornadas';
 import Standings from './pages/Standings';
 import AdminRounds from './pages/admin/Rounds';
+import GameReport from './pages/admin/GameReport';
+import SharedGameReport from './pages/admin/SharedGameReport';
 import AdminReferees from './pages/admin/Referees';
 import Scrimmage from './pages/admin/Scrimmage';
 import AdminFinances from './pages/admin/Finances';
@@ -138,6 +140,7 @@ const App = () => {
         <Route path="/jugador/:id" element={<PublicPlayer />} />
         <Route path="/partido/:id" element={<PartidoPublico />} />
         <Route path="/scrimmage/:id" element={<ScrimmageEntry />} />
+        <Route path="/llenar-acta/:id" element={<SharedGameReport />} />
         <Route
           path="/cambiar-contrasena"
           element={
@@ -221,6 +224,7 @@ const App = () => {
           <Route path="/admin/equipos/:id/roster" element={<Roster />} />
           <Route path="/admin/usuarios" element={<AdminUsers />} />
           <Route path="/admin/jornadas" element={<AdminRounds />} />
+          <Route path="/admin/partidos/:id/acta" element={<GameReport />} />
         <Route path="/admin/arbitros" element={<AdminReferees />} />
         <Route path="/admin/scrimmages" element={<Scrimmage />} />
           <Route path="/admin/temporada" element={<SeasonConfig />} />

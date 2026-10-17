@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import * as gameReports from '../controllers/game-reports.controller.js';
 import { registrationStatus } from '../controllers/registration-status.controller.js';
 import * as onboarding from '../controllers/onboarding.controller.js';
 import { adminPending } from '../controllers/admin-pending.controller.js';
@@ -68,8 +69,13 @@ router.get('/public/standings', publico.getPublicStandings);
 router.get('/public/statistics/players', statistics.publicPlayerStats);
 
 // A partir de aquí, todo exige sesión.
+router.get('/public/game-reports/:id', gameReports.read);
+router.put('/public/game-reports/:id', gameReports.save);
 router.use(requireAuth);
 router.use(restrictScrimmageToken);
+router.get('/admin/games/:id/report', requireAdmin, gameReports.adminRead);
+router.post('/admin/games/:id/report-link', requireAdmin, gameReports.createLink);
+router.delete('/admin/games/:id/report-link', requireAdmin, gameReports.revoke);
 
 // ════════════════════════════════ SESIÓN ══════════════════════════════════
 router.get('/auth/me', auth.me);

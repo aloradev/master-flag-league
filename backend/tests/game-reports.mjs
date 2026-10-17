@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { PGlite } from '@electric-sql/pglite';
+import pool from '../dist/config/database.js';
+import * as reports from '../dist/controllers/game-reports.controller.js';
+const db = new PGlite();
+await db.exec(await readFile(new URL('../src/db/migrations.sql',import.meta.url),'utf8'));
+await db.exec(await readFile(new URL('../src/db/seed.sql',import.meta.url),'utf8'));
+pool.query=(sql,params)=>db.query(sql,params);
+await db.exec(`INSERT INTO teams(id,season_id,category_id,name) VALUES ('rh','season_2026','cat_varonil_2026','Local'),('ra','season_2026','cat_varonil_2026','Visitante');
+INSERT INTO rounds(id,season_id,number,scheduled_date,status) VALUES('rr','season_2026',999,'2026-10-17','PUBLISHED');
+INSERT INTO games(id,season_id,round_id,category_id,home_team_id,away_team_id,scheduled_time) VALUES('rg','season_2026','rr','cat_varonil_2026','rh','ra','19:00');`);
+const invoke=(handler,{id='rg',token='',body={}}={})=>new Promise(resolve=>handler({params:{id},body,get:n=>n==='authorization'?`Bearer ${token}`:undefined},{json:data=>resolve({data:data.data}),setHeader(){}},error=>resolve({error})));
+try {
+ const link=await invoke(reports.createLink); assert.equal(link.data.token.length,64);
+ const token=link.data.token;
+ assert.equal((await invoke(reports.read)).error.statusCode,401);
+ assert.equal((await invoke(reports.read,{id:'other',token})).error.statusCode,401);
+ assert.equal((await invoke(reports.read,{token})).data.revision,0);
+ const data={author:'Arbitro',notes:'Sin incidentes',homeScore:24,awayScore:18,players:[{team:'home',name:'Jugador sin registro',jersey:'7',td:4,passes:0,receptions:4,interceptions:1,sacks:0}]};
+ assert.equal((await invoke(reports.save,{token,body:{data,revision:0}})).data.revision,1);
+ assert.equal((await invoke(reports.save,{token,body:{data,revision:0}})).error.statusCode,409);
+ assert.equal((await invoke(reports.save,{token,body:{data:{...data,homeScore:-1},revision:1}})).error.statusCode,400);
+ assert.deepEqual((await invoke(reports.adminRead)).data.data,data);
+ const rotated=await invoke(reports.createLink);
+ assert.equal((await invoke(reports.read,{token})).error.statusCode,401);
+ assert.equal((await invoke(reports.read,{token:rotated.data.token})).data.revision,1);
+ await invoke(reports.revoke);
+ assert.equal((await invoke(reports.read,{token:rotated.data.token})).error.statusCode,401);
+ const expired=await invoke(reports.createLink);
+ await db.exec("UPDATE game_reports SET expires_at=NOW()-INTERVAL '1 day'");
+ assert.equal((await invoke(reports.save,{token:expired.data.token,body:{data,revision:1}})).error.statusCode,401);
+ assert.equal((await db.query("SELECT home_score FROM games WHERE id='rg'")).rows[0].home_score,0);
+ console.log('OK: captura sin jugadores, acceso por partido, revisión, conflictos, rotación, revocación y vencimiento.');
+} finally {await db.close(); await pool.end();}

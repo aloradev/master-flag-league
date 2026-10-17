@@ -5,7 +5,7 @@ import type { Game, RoundStatus } from '../../lib/competition';
 import { Alert, Button, Field } from '../../components/ui';
 import HistoricalStatistics from './HistoricalStatistics';
 
-export default function HistoricalResult({ game, roundStatus }: { game: Game; roundStatus: RoundStatus }) {
+export default function HistoricalResult({ game, roundStatus, showStatistics = true }: { game: Game; roundStatus: RoundStatus; showStatistics?: boolean }) {
   const qc = useQueryClient();
   const historical = game.score_source === 'MANUAL';
   const [open, setOpen] = useState(false);
@@ -49,6 +49,6 @@ export default function HistoricalResult({ game, roundStatus }: { game: Game; ro
         <Button size="sm" tone="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
       </div>
     </fieldset>}
-    {historical && game.status === 'FINISHED' && available && <HistoricalStatistics gameId={game.id} />}
+    {showStatistics && historical && game.status === 'FINISHED' && available && <HistoricalStatistics gameId={game.id} />}
   </section>;
 }

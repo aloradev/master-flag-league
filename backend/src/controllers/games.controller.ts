@@ -528,7 +528,11 @@ export const updateGame = asyncHandler(async (req: AuthRequest, res: Response) =
     const r = await query(`SELECT * FROM games WHERE id = $1`, [id]);
     const game = r.rows[0];
     if (!game) throw new AppError('Partido no encontrado', 404);
-    if (['FINISHED', 'WALKOVER'].includes(game.status)) {
+    const notesOnly = typeof notes === 'string' && Object.keys(req.body).every(key => key === 'notes');
+    if (notes !== undefined && (typeof notes !== 'string' || notes.length > 10000)) {
+      throw new AppError('El acta debe ser texto de hasta 10000 caracteres.', 400);
+    }
+    if (['FINISHED', 'WALKOVER'].includes(game.status) && !notesOnly) {
       throw new AppError('El partido ya está cerrado. Corrige las jugadas, no el registro.', 409);
     }
 

@@ -714,3 +714,13 @@ CREATE TABLE IF NOT EXISTS player_interests (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS player_interests_league_status ON player_interests(league_id,status,created_at);
+
+-- Captura temporal por enlace, independiente del registro de jugadores.
+CREATE TABLE IF NOT EXISTS game_reports (
+ game_id TEXT PRIMARY KEY REFERENCES games(id) ON DELETE CASCADE,
+ token_hash TEXT,
+ expires_at TIMESTAMPTZ,
+ data JSONB NOT NULL DEFAULT '{}'::jsonb,
+ revision INTEGER NOT NULL DEFAULT 0,
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
