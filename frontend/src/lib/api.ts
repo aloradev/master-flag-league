@@ -107,7 +107,11 @@ const request = async <T>(path: string, options: RequestOptions = {}): Promise<T
     );
   }
 
-  return (payload?.data ?? payload) as T;
+  // A successful response can explicitly contain data: null (no report yet).
+  // Preserve it instead of returning the response envelope as domain data.
+  return (payload !== null && typeof payload === 'object' && Object.prototype.hasOwnProperty.call(payload, 'data')
+    ? payload.data
+    : payload) as T;
   } catch (error) {
     if (controller.signal.aborted && !options.signal?.aborted) {
       throw new ApiError('La conexión tardó demasiado. El servidor puede estar iniciando; vuelve a intentar.', 408);
