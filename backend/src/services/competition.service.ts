@@ -280,6 +280,10 @@ export async function validarClubesJornada(roundId:string,date:string,q=query,ga
     FROM games g JOIN rounds r ON r.id=g.round_id WHERE g.season_id=$1 AND g.status<>'CANCELLED'
     AND r.status<>'CANCELLED' AND g.game_type='OFFICIAL' AND (g.round_id=$2 OR r.scheduled_date=$3::date)`,[round.season_id,roundId,date])).rows;
   for (const g of rows.filter(g=>g.round_id===roundId && g.time && (!gameId || g.id===gameId))) {
+    for (const id of [g.home_team_id,g.away_team_id]) {
+      if (rows.filter(other=>[other.home_team_id,other.away_team_id].includes(id)).length>2)
+        throw new AppError('Un equipo puede jugar como máximo dos partidos en la misma fecha.',409);
+    }
     const clubs=[teams.get(g.home_team_id)?.club ?? '',teams.get(g.away_team_id)?.club ?? ''];
     if(hasClubConflict(clubs,g.category_id,g.time,reservasClub(rows.filter(other=>other.id!==g.id),teams),teams.get(g.home_team_id)?.mixed))
       throw new AppError('El mixto no puede coincidir con varonil o femenil del mismo club. Revisa los horarios.',409);
@@ -522,6 +526,7 @@ export const guardarPropuesta = async (
     const deficits = await cargarRecuperaciones(propuesta.seasonId,categories,query);
     const occupied = new Set<string>(reservations.filter(r => r.field_id).map(r => `${r.field_id}:${r.time}`));
     const reserve = (id: string, category: string, recovery = false) => {
+      if ((appearances.get(id) ?? 0)>=2) throw new AppError('Un equipo puede jugar como máximo dos partidos por jornada.',400);
       if (!teams.has(id) || teams.get(id) !== category || reserved.has(id) ||
         (!propuesta.manual && used.has(id) && (!recovery || !(deficits[id]>0) || (appearances.get(id) ?? 0)>=2))) throw new AppError('Revisa los equipos: deben estar activos e incorporados para la fecha, ser de la misma categoría y no tener otra asignación ese día. Actualiza la propuesta.', 400);
       used.add(id);

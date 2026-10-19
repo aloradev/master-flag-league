@@ -393,6 +393,12 @@ BEGIN
   SELECT COALESCE(allow_team_repeats, FALSE) INTO permite_repetidos
   FROM rounds WHERE id = NEW.round_id;
   IF permite_repetidos THEN
+    IF (SELECT COUNT(*) FROM games g WHERE g.round_id=NEW.round_id AND g.id<>NEW.id
+      AND g.status<>'CANCELLED' AND NEW.home_team_id IN (g.home_team_id,g.away_team_id)) >= 2
+      OR (SELECT COUNT(*) FROM games g WHERE g.round_id=NEW.round_id AND g.id<>NEW.id
+      AND g.status<>'CANCELLED' AND NEW.away_team_id IN (g.home_team_id,g.away_team_id)) >= 2 THEN
+      RAISE EXCEPTION 'Un equipo puede jugar como máximo dos partidos por jornada' USING ERRCODE='check_violation';
+    END IF;
     RETURN NEW;
   END IF;
 

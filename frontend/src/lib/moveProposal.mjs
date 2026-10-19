@@ -8,6 +8,7 @@ export function moveProposal(games, index, target, slots, earliest = {}, clubRes
   const result=games.map((game,i)=>i===index ? {...game,...target} : i===occupied
     ? {...game,fieldId:source.fieldId,fieldName:source.fieldName,time:source.time} : game);
   const teams=new Set(), fields=new Set();
+  const appearances=new Map();
   const clubs=[...clubReservations];
   const clubKey=name=>name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   const isMixed=game=>game.mixed ?? /(^| )(mixto|mixta|mixed)( |$)/.test(clubKey(game.categoryName ?? game.categoryId));
@@ -21,6 +22,8 @@ export function moveProposal(games, index, target, slots, earliest = {}, clubRes
       throw new Error('El mixto no puede coincidir con varonil o femenil del mismo club. El cambio no se aplicó.');
     clubs.push(...gameClubs.map(club=>({club,categoryId:game.categoryId,time:game.time,mixed:isMixed(game)})));
     for (const [id,name] of [[game.homeTeamId,game.homeTeamName],[game.awayTeamId,game.awayTeamName]]) {
+      appearances.set(id,(appearances.get(id) ?? 0)+1);
+      if(appearances.get(id)>2) throw new Error(`${name} supera el máximo de dos partidos por jornada.`);
       if (game.time < (earliest[id] ?? '')) throw new Error(`${name} está disponible desde las ${earliest[id]}.`);
       const key=`${id}|${game.time}`;
       if (teams.has(key)) throw new Error(`${name} ya tiene otro encuentro a esa hora. El cambio no se aplicó.`);

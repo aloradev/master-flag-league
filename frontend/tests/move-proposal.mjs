@@ -18,6 +18,7 @@ const unassigned=[{...games[0],fieldId:null,time:null},games[1]];
 assert.throws(()=>moveProposal(unassigned,0,slots.find(s=>s.fieldId==='f1'&&s.time==='20:00'),slots),/espacio libre/);
 assert.equal(moveProposal(unassigned,0,slots[0],slots)[0].time,'19:00');
 assert.deepEqual(games,snapshot,'Rejected changes leave schedule intact');
+assert.throws(()=>moveProposal([game('a','b','19:00'),game('a','c','20:00'),game('a','d','21:00')],0,slots[0],slots),/máximo de dos/,'Cannot retain a triple fixture when moving matches');
 const cross=[{...game('a','b','19:00'),categoryId:'male',homeClub:'49ers',awayClub:'aztecas'},
  {...game('c','d','20:00'),categoryId:'mixed',mixed:true,homeClub:'49ers',awayClub:'halcones'}];
 assert.throws(()=>moveProposal(cross,1,slots.find(s=>s.fieldId==='f2'&&s.time==='19:00'),slots),/mismo club/,'Different team IDs in different categories still clash by club');

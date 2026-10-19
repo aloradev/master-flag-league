@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import pool from '../dist/config/database.js';
-import { construirPropuesta, guardarPropuesta, publicarRecuperaciones } from '../dist/services/competition.service.js';
+import { construirPropuesta, guardarPropuesta, publicarRecuperaciones, validarClubesJornada } from '../dist/services/competition.service.js';
 import { withTransaction } from '../dist/config/database.js';
 const db=new PGlite();
 await db.exec(await readFile(new URL('../src/db/migrations.sql',import.meta.url),'utf8'));
@@ -38,6 +38,14 @@ try {
  recovery.fieldId='field_2_2026';
  await assert.rejects(guardarPropuesta(clash,'recovery_admin'));
  const id=await guardarPropuesta(p,'recovery_admin');
+ const triple={...p,scheduledDate:'2026-09-20',manual:true,byes:[],games:['b','c','d'].map((away,i)=>({...p.games[0],homeTeamId:'a',awayTeamId:away,recovery:false,postponedGameId:undefined,time:['19:00','20:00','21:00'][i]}))};
+ await assert.rejects(guardarPropuesta(triple,'recovery_admin'),/máximo dos/,'Manual scheduling must also stop at two matches');
+ await assert.rejects(db.query(`INSERT INTO games(id,season_id,round_id,category_id,home_team_id,away_team_id,scheduled_time)
+ VALUES('third_direct','season_2026',$1,'cat_varonil_2026','c','d','23:00')`,[id]),/máximo dos/,'Database rejects a third match even in rounds allowing doubles');
+ await db.exec(`INSERT INTO rounds(id,season_id,number,scheduled_date,status) VALUES('extra_date','season_2026',999,'2026-09-19','DRAFT');
+ INSERT INTO games(id,season_id,round_id,category_id,home_team_id,away_team_id,scheduled_time) VALUES('extra_date_game','season_2026','extra_date','cat_varonil_2026','c','d','23:00');`);
+ await assert.rejects(validarClubesJornada(id,'2026-09-19'),/máximo dos/,'Checks the same date across different rounds before publication');
+ await db.exec("DELETE FROM rounds WHERE id='extra_date'");
  assert.equal((await db.query('SELECT count(*)::int AS n FROM games WHERE round_id=$1',[id])).rows[0].n,3);
  assert.equal((await db.query('SELECT allow_team_repeats FROM rounds WHERE id=$1',[id])).rows[0].allow_team_repeats,true);
  const next=await construirPropuesta({...options,scheduledDate:'2026-09-26'});

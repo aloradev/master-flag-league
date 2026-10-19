@@ -586,6 +586,7 @@ export const updateGame = asyncHandler(async (req: AuthRequest, res: Response) =
        * Postgres: el mensaje es la única pista que va a tener.
        */
       const msg = (e as Error).message ?? '';
+      if (msg.includes('máximo dos partidos')) throw new AppError('Un equipo puede jugar como máximo dos partidos por jornada.',409);
       if (msg.includes('uq_games_campo_hora')) {
         throw new AppError('Ese campo ya tiene un partido a esa hora en esta jornada', 409);
       }

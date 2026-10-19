@@ -22,6 +22,7 @@ export default function ManualRound({ season, onSaved, onCancel, initialProposal
   const teams = categories.flatMap(c => c.teams.map(t => ({ ...t, category: c })));
   const playing = matches.flatMap(m => [m.home, m.away]).filter(Boolean);
   const appearances = matches.flatMap(m => [m.home, m.away]).filter(Boolean).reduce<Record<string, number>>((acc, id) => ({ ...acc, [id]: (acc[id] ?? 0) + 1 }), {});
+  const exceedsDouble = Object.values(appearances).some(count=>count>2);
   const complete = matches.length > 0 && matches.every(m => m.category && m.home && m.away && m.field && m.time);
   const duplicateSlot = new Set(matches.filter(m => m.field && m.time).map(m => `${m.field}:${m.time}`)).size < matches.filter(m => m.field && m.time).length;
   const save = useMutation({
@@ -44,6 +45,7 @@ export default function ManualRound({ season, onSaved, onCancel, initialProposal
 
   return <Card className="space-y-4 p-4">
     <h2 className="text-lg font-bold">Crear jornada manual</h2>
+    <p className="text-sm font-medium">Máximo doble jornada: dos partidos por equipo en la misma fecha.</p>
     <p className="text-sm text-base-content/70">Elige enfrentamientos entre equipos oficiales activos, incluso con plantilla pendiente. Se respeta la fecha de incorporación confirmada y no se permiten equipos ni campos ya asignados ese día. Los horarios son de Cancún. Se guardará como borrador; después podrás asignar árbitros y publicar. Para capturar estadísticas individuales se requieren jugadores registrados y la elegibilidad configurada.</p>
     {options.isLoading && <Spinner />}
     <Button size="sm" disabled={options.isFetching} onClick={() => void options.refetch()}>Actualizar equipos activos</Button>
@@ -59,7 +61,7 @@ export default function ManualRound({ season, onSaved, onCancel, initialProposal
         </select></Field>
         <div className="grid gap-3 sm:grid-cols-2">{(['home', 'away'] as const).map(side => <Field key={side} label={side === 'home' ? 'Equipo local' : 'Equipo visitante'}>
           <select disabled={Boolean(m.postponedGameId)} className="select select-bordered w-full" value={m[side]} onChange={e => update(m.key, { [side]: e.target.value })}>
-            <option value="">Selecciona equipo</option>{categories.find(c => c.id === m.category)?.teams.map(t => <option key={t.id} value={t.id}>{t.name} — {appearances[t.id] ?? 0} {(appearances[t.id] ?? 0) === 1 ? 'partido' : 'partidos'}</option>)}
+            <option value="">Selecciona equipo</option>{categories.find(c => c.id === m.category)?.teams.map(t => <option key={t.id} value={t.id} disabled={t.id!==m[side] && (appearances[t.id] ?? 0)>=2}>{t.name} — {appearances[t.id] ?? 0}/2 partidos</option>)}
           </select></Field>)}</div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Campo"><select className="select select-bordered w-full" value={m.field} onChange={e => update(m.key, { field: e.target.value })}>
@@ -79,8 +81,8 @@ export default function ManualRound({ season, onSaved, onCancel, initialProposal
         </label>)}
       </section>
       {duplicateSlot && <Alert tone="warning">Hay dos partidos en el mismo campo y horario. Cambia uno antes de guardar.</Alert>}
-      {Object.entries(appearances).filter(([, count]) => count >= 3).map(([id, count]) => <Alert key={id} tone="warning">{teams.find(t => t.id === id)?.name} ya tiene {count} partidos asignados en esta jornada. Puedes continuar.</Alert>)}
-      <div className="flex flex-wrap gap-2"><Button tone="success" loading={save.isPending} disabled={!date || !complete || duplicateSlot || options.isError} onClick={() => save.mutate()}>Guardar jornada manual como borrador</Button>
+      {exceedsDouble && <Alert tone="error">El máximo es doble jornada: dos partidos por equipo. Quita o reasigna el encuentro adicional para guardar.</Alert>}
+      <div className="flex flex-wrap gap-2"><Button tone="success" loading={save.isPending} disabled={exceedsDouble || !date || !complete || duplicateSlot || options.isError} onClick={() => save.mutate()}>Guardar jornada manual como borrador</Button>
         <Button tone="ghost" onClick={onCancel}>Cancelar</Button></div>
     </fieldset>
   </Card>;
