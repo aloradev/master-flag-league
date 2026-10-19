@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import { proponerJornada, historialVacio, pairKey } from '../dist/lib/fixture.js';
+const teams=['a','b','c','d'].map(id=>({id,name:id}));
+const h=historialVacio();
+for(const [i,a] of teams.entries()) for(const b of teams.slice(i+1)) h.vecesEnfrentados[pairKey(a.id,b.id)]=1;
+h.vecesEnfrentados[pairKey('a','b')]=0;
+h.descansos.c=20;h.descansos.d=20;
+const input={roundNumber:8,scheduledDate:'2026-10-24',categories:[{id:'cat',name:'Categoría',teams}],fields:[{id:'f',name:'Campo'}],slots:['19:00','20:00','21:00'],history:h,recoveryDeficits:{c:3,d:3}};
+const p=proponerJornada(input);
+assert.equal(p.games.length,1);assert.equal(pairKey(p.games[0].homeTeamId,p.games[0].awayTeamId),'a|b');
+assert.ok(p.games.every(g=>g.meeting===1),'No repeat even for teams with larger recovery deficits');
+assert.ok(p.byes.every(b=>b.reason==='FIRST_LEG'));
+const blocked=proponerJornada({...input,categories:[{id:'cat',name:'Categoría',teams:teams.slice(1)}],firstLegPendingCategoryIds:['cat']});
+assert.equal(blocked.games.length,0,'Unavailable missing rival does not unlock second leg');
+assert.ok(blocked.warnings.some(w=>w.includes('primera vuelta')));
+const limited=proponerJornada({...input,slots:['19:00']});
+assert.equal(limited.games.length,1);assert.equal(limited.games[0].meeting,1);
+h.vecesEnfrentados['a|b']=1;
+const completed=proponerJornada(input);
+assert.equal(completed.games.filter(g=>!g.recovery).length,2);assert.ok(completed.games.every(g=>g.meeting===2));
+// Irregular history: maximize the number of missing first-leg pairings.
+h.vecesEnfrentados['a|b']=0;h.vecesEnfrentados['a|c']=0;h.vecesEnfrentados['b|d']=0;
+const irregular=proponerJornada(input);
+assert.equal(irregular.games.length,2);assert.deepEqual(new Set(irregular.games.map(g=>pairKey(g.homeTeamId,g.awayTeamId))),new Set(['a|c','b|d']));
+console.log('OK: close first leg before repeats, recovery priority, unavailable rivals, capacity, irregular matching and second leg.');

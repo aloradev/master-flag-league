@@ -401,7 +401,7 @@ console.log('\n═══ 10. TOPE DE REPETICIONES: NADIE VE AL MISMO RIVAL TRES 
     fields: campos(2), slots: ['19:00'], history: h,
   });
 
-  check(p.games.length === 2, 'propone los 2 partidos posibles', `${p.games.length}`);
+  check(p.games.length === 1 && pairKey(p.games[0].homeTeamId,p.games[0].awayTeamId)===pairKey('a3','a4'), 'cierra el único cruce pendiente antes de repetir rivales', `${p.games.length}`);
 
   const parElegido = p.games.map((g) => pairKey(g.homeTeamId, g.awayTeamId));
   const repiteTerceraVez = parElegido.includes(pairKey('a1', 'a2'));
@@ -409,9 +409,12 @@ console.log('\n═══ 10. TOPE DE REPETICIONES: NADIE VE AL MISMO RIVAL TRES 
     repiteTerceraVez ? `eligió ${parElegido.join(' y ')}` : '');
 
   const maxEncuentros = Math.max(...p.games.map((g) => g.meeting));
-  check(maxEncuentros === 2, 'ningún partido de la jornada es el tercer encuentro de ese par',
+  check(maxEncuentros === 1, 'la primera vuelta tiene prioridad sobre llenar espacios con repeticiones',
     `el máximo fue el encuentro ${maxEncuentros}`);
   console.log(`      eligió: ${p.games.map((g) => `${g.homeTeamId}-${g.awayTeamId} (encuentro ${g.meeting})`).join(', ')}`);
+  marcar('a3','a4',1);
+  const second=proponerJornada({roundNumber:8,scheduledDate:'2026-10-25',categories:[{id:'c1',name:'Varonil',teams}],fields:campos(2),slots:['19:00'],history:h});
+  check(second.games.length===2 && second.games.every(g=>g.meeting===2),'tras completar la primera vuelta propone segunda vuelta sin tercer encuentro');
 }
 
 // El mismo tope, sostenido a lo largo de una temporada larga: tras 12

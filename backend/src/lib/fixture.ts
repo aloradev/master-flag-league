@@ -38,6 +38,7 @@ export interface Historial {
 }
 
 export interface EntradaPropuesta {
+  firstLegPendingCategoryIds?: string[];
   recoveryDeficits?: Record<string, number>;
   previousGames?: PartidoPropuesto[];
   earliestTimes?: Record<string, string>;
@@ -51,7 +52,7 @@ export interface EntradaPropuesta {
   history: Historial;
 }
 
-export type MotivoDescanso = 'ODD_TEAMS' | 'CAPACITY' | 'MANUAL';
+export type MotivoDescanso = 'ODD_TEAMS' | 'CAPACITY' | 'MANUAL' | 'FIRST_LEG';
 
 export interface PartidoPropuesto {
   postponedGameId?: string;
@@ -124,7 +125,8 @@ export const LIMITE_EQUIPOS_POR_CATEGORIA = 20;
 const emparejar = (
   teams: string[],
   permitido: (a: string, b: string) => boolean,
-  peso: (a: string, b: string) => number
+  peso: (a: string, b: string) => number,
+  maxPairs = Infinity
 ): { pares: [string, string][]; libres: string[] } => {
   const n = teams.length;
   if (n < 2) return { pares: [], libres: [...teams] };
@@ -137,6 +139,7 @@ const emparejar = (
   const mejor = new Float64Array(total).fill(Number.NEGATIVE_INFINITY);
   const desde = new Int32Array(total).fill(-1);
   const conQuien = new Int32Array(total).fill(-1);
+  const pairCounts = new Int32Array(total);
   mejor[0] = 0;
 
   for (let mask = 0; mask < total; mask++) {
@@ -153,9 +156,11 @@ const emparejar = (
       mejor[dejarLibre] = mejor[mask];
       desde[dejarLibre] = mask;
       conQuien[dejarLibre] = -1;
+      pairCounts[dejarLibre] = pairCounts[mask];
     }
 
     for (let j = i + 1; j < n; j++) {
+      if (pairCounts[mask] >= maxPairs) break;
       if (mask & (1 << j)) continue;
       if (!permitido(teams[i], teams[j])) continue;
       const siguiente = mask | (1 << i) | (1 << j);
@@ -164,6 +169,7 @@ const emparejar = (
         mejor[siguiente] = valor;
         desde[siguiente] = mask;
         conQuien[siguiente] = j;
+        pairCounts[siguiente] = pairCounts[mask]+1;
       }
     }
   }
@@ -209,16 +215,17 @@ const orientar = (
 /**
  * Empareja una categoría.
  *
- * Solo se permiten enfrentamientos con el mínimo de encuentros previos:
- * en la primera vuelta eso son los que nunca se han visto. Cuando ya no
- * queda ninguno posible con ese mínimo, se amplía en uno y empieza la
- * vuelta siguiente. Nadie repite rival mientras le quede alguien nuevo.
+ * Mientras falten cruces de primera vuelta en la categoría, solo admite
+ * rivales nuevos, incluso si algunos equipos quedan sin cruce disponible.
+ * Después busca llenar la jornada con el menor número de repeticiones.
  */
 const emparejarCategoria = (
   cat: CategoriaEntrada,
   h: Historial,
   deficits: Record<string, number> = {},
-  spareCapacity = false
+  spareCapacity = false,
+  firstLegPending = false,
+  capacity = Infinity
 ): { pares: [string, string][]; libres: string[]; encuentroMinimo: number } => {
   const ids = cat.teams.map((t) => t.id);
   if (ids.length < 2) return { pares: [], libres: ids, encuentroMinimo: 0 };
@@ -242,6 +249,11 @@ const emparejarCategoria = (
     vistos(a, b) * 10;
 
   const maximoPosible = Math.floor(ids.length / 2);
+
+  if (firstLegPending) {
+    const {pares,libres}=emparejar(ids,(a,b)=>vistos(a,b)===0,peso,capacity);
+    return {pares,libres,encuentroMinimo:0};
+  }
 
   // Se prueba con el mínimo y se amplía solo si no alcanza para llenar
   // la noche. Ampliar antes de tiempo repetiría rivales sin necesidad.
@@ -329,6 +341,8 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
   const { categories, fields, slots, history: h } = entrada;
   const capacidad = fields.reduce((n, f) => n + slots.filter(t => !entrada.fieldSlots?.[f.id] || entrada.fieldSlots[f.id].includes(t)).length, 0);
   const warnings: string[] = [];
+  const firstLeg = new Set(entrada.firstLegPendingCategoryIds ?? categories.filter(cat=>
+    cat.teams.some((a,i)=>cat.teams.slice(i+1).some(b=>cuenta(h.vecesEnfrentados,pairKey(a.id,b.id))===0))).map(c=>c.id));
 
   const nombre = new Map<string, string>();
   const categoriaDe = new Map<string, CategoriaEntrada>();
@@ -365,7 +379,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
         teamName: solo.name,
         categoryId: cat.id,
         categoryName: cat.name,
-        reason: 'ODD_TEAMS',
+        reason: firstLeg.has(cat.id) ? 'FIRST_LEG' : 'ODD_TEAMS',
         totalAfter: cuenta(h.descansos, solo.id) + 1,
       });
       warnings.push(`${cat.name} tiene un solo equipo: no hay con quién emparejarlo.`);
@@ -373,7 +387,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     }
 
     const { pares, libres } = emparejarCategoria(cat, h, entrada.recoveryDeficits,
-      capacidad > categories.reduce((sum,c)=>sum+Math.floor(c.teams.length/2),0));
+      capacidad > categories.reduce((sum,c)=>sum+Math.floor(c.teams.length/2),0),firstLeg.has(cat.id),capacidad);
 
     for (const [a, b] of pares) {
       const { home, away } = orientar(a, b, h);
@@ -390,7 +404,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
         teamName: nombre.get(id) ?? id,
         categoryId: cat.id,
         categoryName: cat.name,
-        reason: 'ODD_TEAMS',
+        reason: firstLeg.has(cat.id) && pares.length<Math.floor(cat.teams.length/2) ? 'FIRST_LEG' : 'ODD_TEAMS',
         totalAfter: cuenta(h.descansos, id) + 1,
       });
     }
@@ -399,6 +413,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
         `${cat.name} tiene ${cat.teams.length} equipos (impar): uno descansa cada jornada.`
       );
     }
+    if (firstLeg.has(cat.id) && pares.length<Math.floor(cat.teams.length/2)) warnings.push(`${cat.name}: se prioriza cerrar la primera vuelta. No se repiten rivales para llenar espacios; revisa los cruces pendientes y la disponibilidad.`);
   }
 
   // ---- Capacidad de la noche ----
@@ -406,13 +421,14 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
   // queda fuera. Se sacan primero los equipos que MENOS han descansado,
   // porque son los que pueden permitirse la noche libre sin desbalancear.
   if (candidatos.length > capacidad) {
-    if (Object.values(entrada.recoveryDeficits ?? {}).some(n=>n>0)) {
+    if (!firstLeg.size && Object.values(entrada.recoveryDeficits ?? {}).some(n=>n>0)) {
       // With limited capacity, choose the teams before optimizing full-night
       // pairings; otherwise a trailing team can be split into a discarded pair.
       const ranked = categories.filter(c=>c.teams.length<=LIMITE_EQUIPOS_POR_CATEGORIA).flatMap(cat=>
-        cat.teams.flatMap((a,i)=>cat.teams.slice(i+1).map(b=>({cat,a,b}))));
+        cat.teams.flatMap((a,i)=>cat.teams.slice(i+1).filter(b=>!firstLeg.has(cat.id)||cuenta(h.vecesEnfrentados,pairKey(a.id,b.id))===0).map(b=>({cat,a,b}))));
       const deficit = (id:string)=>entrada.recoveryDeficits?.[id] ?? 0;
-      ranked.sort((x,y)=>(deficit(y.a.id)+deficit(y.b.id))-(deficit(x.a.id)+deficit(x.b.id)) ||
+      ranked.sort((x,y)=>Number(cuenta(h.vecesEnfrentados,pairKey(x.a.id,x.b.id))>0)-Number(cuenta(h.vecesEnfrentados,pairKey(y.a.id,y.b.id))>0) ||
+        (deficit(y.a.id)+deficit(y.b.id))-(deficit(x.a.id)+deficit(x.b.id)) ||
         cuenta(h.vecesEnfrentados,pairKey(x.a.id,x.b.id))-cuenta(h.vecesEnfrentados,pairKey(y.a.id,y.b.id)) ||
         (cuenta(h.descansos,y.a.id)+cuenta(h.descansos,y.b.id))-(cuenta(h.descansos,x.a.id)+cuenta(h.descansos,x.b.id)));
       const selected = new Set<string>();
@@ -424,11 +440,12 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
         candidatos.push({cat,home,away,meeting:cuenta(h.vecesEnfrentados,pairKey(home,away))+1});
       }
       descansos.length=0;
-      for (const [id,cat] of categoriaDe) if (!selected.has(id)) descansos.push({teamId:id,teamName:nombre.get(id)!,categoryId:cat.id,categoryName:cat.name,reason:'ODD_TEAMS',totalAfter:cuenta(h.descansos,id)+1});
+      for (const [id,cat] of categoriaDe) if (!selected.has(id)) descansos.push({teamId:id,teamName:nombre.get(id)!,categoryId:cat.id,categoryName:cat.name,reason:firstLeg.has(cat.id)?'FIRST_LEG':'ODD_TEAMS',totalAfter:cuenta(h.descansos,id)+1});
     }
     const sobran = candidatos.length - capacidad;
     const porDescansoAcumulado = [...candidatos].sort(
       (x, y) =>
+        Number(x.meeting===1)-Number(y.meeting===1) ||
         ((entrada.recoveryDeficits?.[x.home] ?? 0) + (entrada.recoveryDeficits?.[x.away] ?? 0) -
         (entrada.recoveryDeficits?.[y.home] ?? 0) - (entrada.recoveryDeficits?.[y.away] ?? 0)) * 10000 +
         cuenta(h.descansos, x.home) +
@@ -504,7 +521,8 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
   const occupied = (fieldId: string, time: string) => games.some(g => g.fieldId === fieldId && g.time === time);
   const busy = (id: string, time: string) => games.some(g => g.time === time && [g.homeTeamId, g.awayTeamId].includes(id));
   const pairs = categories.flatMap(cat => cat.teams.flatMap((a, i) => cat.teams.slice(i + 1).map(b => ({ cat, a, b }))))
-    .filter(({a,b}) => deficits[a.id] > 0 && deficits[b.id] > 0)
+    .filter(({cat,a,b}) => deficits[a.id] > 0 && deficits[b.id] > 0 &&
+      (!firstLeg.has(cat.id)||cuenta(h.vecesEnfrentados,pairKey(a.id,b.id))===0))
     .sort((x,y) => (deficits[y.a.id]+deficits[y.b.id])-(deficits[x.a.id]+deficits[x.b.id]) ||
       cuenta(h.vecesEnfrentados,pairKey(x.a.id,x.b.id))-cuenta(h.vecesEnfrentados,pairKey(y.a.id,y.b.id)));
   for (const {cat,a,b} of pairs) {
@@ -541,7 +559,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
   if (repetidos > 0) {
     warnings.push(
       `${repetidos} ${repetidos === 1 ? 'enfrentamiento se repite' : 'enfrentamientos se repiten'}: ` +
-        `la primera vuelta ya está completa.`
+        `la primera vuelta ya está completa en esas categorías.`
     );
   }
 

@@ -728,3 +728,7 @@ CREATE TABLE IF NOT EXISTS game_reports (
 -- A draft reserves a postponed fixture; publication moves the original match.
 ALTER TABLE games ADD COLUMN IF NOT EXISTS postponed_game_id VARCHAR(36) REFERENCES games(id);
 CREATE UNIQUE INDEX IF NOT EXISTS unique_postponed_reservation ON games(postponed_game_id) WHERE postponed_game_id IS NOT NULL;
+
+-- Avoid inventing an odd-team bye when first-leg opponents are unavailable.
+ALTER TABLE round_byes DROP CONSTRAINT IF EXISTS round_byes_reason_check;
+ALTER TABLE round_byes ADD CONSTRAINT round_byes_reason_check CHECK (reason IN ('ODD_TEAMS','CAPACITY','MANUAL','FIRST_LEG'));

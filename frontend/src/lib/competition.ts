@@ -132,7 +132,7 @@ export interface RoundSummary {
 
 export interface RoundBye {
   team_id: string;
-  reason: 'ODD_TEAMS' | 'CAPACITY' | 'MANUAL';
+  reason: 'ODD_TEAMS' | 'CAPACITY' | 'MANUAL' | 'FIRST_LEG';
   team_name: string;
   short_name: string | null;
   logo_url: string | null;
@@ -167,7 +167,7 @@ export interface ProposedBye {
   teamName: string;
   categoryId: string;
   categoryName: string;
-  reason: 'ODD_TEAMS' | 'CAPACITY' | 'MANUAL';
+  reason: 'ODD_TEAMS' | 'CAPACITY' | 'MANUAL' | 'FIRST_LEG';
   totalAfter: number;
 }
 
@@ -357,6 +357,7 @@ export const ETIQUETA_PARTIDO: Record<GameStatus, { texto: string; tono: string 
 
 export const MOTIVO_DESCANSO: Record<string, string> = {
   ODD_TEAMS: 'Número impar de equipos',
+  FIRST_LEG: 'Sin cruce disponible de primera vuelta',
   CAPACITY: 'No alcanzaron los horarios',
   MANUAL: 'Decisión del administrador',
 };

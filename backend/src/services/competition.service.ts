@@ -386,6 +386,8 @@ export const construirPropuesta = async (
     fieldSlots[slot.field.id]=fieldSlots[slot.field.id].filter((time:string)=>time!==slot.time);
   }
   const propuesta = proponerJornada({
+    firstLegPendingCategoryIds: categorias.filter(c=>c.teams.some((a,i)=>c.teams.slice(i+1).some(b=>
+      !historial.vecesEnfrentados[pairKey(a.id,b.id)]))).map(c=>c.id),
     recoveryDeficits: await cargarRecuperaciones(seasonId, categorias),
     previousGames: opciones.previousGames,
     roundNumber: siguienteNumero.rows[0].n,
@@ -401,6 +403,12 @@ export const construirPropuesta = async (
   propuesta.games.sort((a,b)=>(a.time ?? '').localeCompare(b.time ?? ''));
   propuesta.capacity+=rescheduled.length;
   propuesta.warnings.push(...postponedWarnings);
+  for (const cat of categorias) {
+    const pending=cat.teams.flatMap((a,i)=>cat.teams.slice(i+1).filter(b=>!historial.vecesEnfrentados[pairKey(a.id,b.id)]).map(b=>pairKey(a.id,b.id)));
+    if (!pending.length) continue;
+    const covered=pending.filter(key=>propuesta.games.some(g=>!g.postponedGameId && pairKey(g.homeTeamId,g.awayTeamId)===key)).length;
+    propuesta.warnings.push(`${cat.name}: ${pending.length} cruce(s) de primera vuelta por programar; ${covered} incluido(s) en esta propuesta y ${pending.length-covered} pendiente(s). Los encuentros guardados, incluidos pospuestos y borradores, ya se consideran programados.`);
+  }
   if (rescheduled.length) propuesta.warnings.push(`${rescheduled.length} partido(s) pospuesto(s) incluido(s). El borrador reserva el encuentro; al publicar se mueve el partido original conservando su acta y estadísticas.`);
 
   await validarFechaJornada(seasonId, propuesta.scheduledDate);
@@ -506,7 +514,7 @@ export const guardarPropuesta = async (
     }
     for (const b of propuesta.byes) {
       reserve(b.teamId, b.categoryId);
-      if (!['MANUAL','CAPACITY','ODD_TEAMS'].includes(b.reason)) throw new AppError('Motivo de descanso inválido', 400);
+      if (!['MANUAL','CAPACITY','ODD_TEAMS','FIRST_LEG'].includes(b.reason)) throw new AppError('Motivo de descanso inválido', 400);
     }
     const next = await query("SELECT COALESCE(MAX(number),0)+1 AS n FROM rounds WHERE season_id=$1 AND round_type='OFFICIAL'", [propuesta.seasonId]);
     propuesta.roundNumber = next.rows[0].n;
