@@ -18,4 +18,10 @@ const unassigned=[{...games[0],fieldId:null,time:null},games[1]];
 assert.throws(()=>moveProposal(unassigned,0,slots.find(s=>s.fieldId==='f1'&&s.time==='20:00'),slots),/espacio libre/);
 assert.equal(moveProposal(unassigned,0,slots[0],slots)[0].time,'19:00');
 assert.deepEqual(games,snapshot,'Rejected changes leave schedule intact');
+const cross=[{...game('a','b','19:00'),categoryId:'male',homeClub:'49ers',awayClub:'aztecas'},
+ {...game('c','d','20:00'),categoryId:'female',homeClub:'49ers',awayClub:'halcones'}];
+assert.throws(()=>moveProposal(cross,1,slots.find(s=>s.fieldId==='f2'&&s.time==='19:00'),slots),/mismo club/,'Different team IDs in different categories still clash by club');
+assert.doesNotThrow(()=>moveProposal([{...cross[0],homeClub:'other'},cross[1]],1,slots.find(s=>s.fieldId==='f2'&&s.time==='19:00'),slots),'Different clubs can play simultaneously');
+assert.throws(()=>moveProposal([cross[1]],0,slots.find(s=>s.time==='19:00'),slots,{},[{club:'49ers',categoryId:'mixed',time:'19:00'}]),/mismo club/,'Respects saved fixtures outside the proposal');
+assert.equal(moveProposal(cross,0,slots.find(s=>s.fieldId==='f1'&&s.time==='20:00'),slots)[1].time,'19:00','An atomic swap can move both clubs to valid times');
 console.log('OK: empty destination, swap, team conflicts, availability of both games, reserved slots, metadata and immutable changes.');

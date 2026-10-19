@@ -134,6 +134,7 @@ export default function AdminRounds() {
       }} />}
       {!manual && <Card className="space-y-3 p-4">
         <h2 className="font-semibold">Disponibilidad para esta jornada</h2>
+        <p className="text-sm text-base-content/70">Los equipos del mismo club no se cruzan de horario entre categorías. Por defecto se agrupan por nombre; puedes indicar un club común en la ficha de cada equipo.</p>
         <p className="text-sm">Elige qué equipos descansan y pulsa “Aplicar descansos y recalcular” para reorganizar los encuentros y horarios de la propuesta.</p>
         <p className="text-xs text-base-content/60">BYE acumulados: solo descansos registrados en jornadas cerradas de temporada regular. No incluye jornadas abiertas, borradores, canceladas ni playoffs.</p>
         <p className="text-sm text-base-content/70">Primero se completan los cruces de primera vuelta de cada categoría. Si faltan rivales disponibles, se avisa antes de repetir encuentros para llenar la jornada.</p>

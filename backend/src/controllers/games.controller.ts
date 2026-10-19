@@ -11,6 +11,7 @@ import {
   esJugadaValida,
   refrescarMarcador,
   cargarReglas,
+  validarClubesJornada,
 } from '../services/competition.service.js';
 
 const GAME_COLUMNS = `g.id, g.season_id, g.round_id, g.category_id, g.field_id,
@@ -594,6 +595,10 @@ export const updateGame = asyncHandler(async (req: AuthRequest, res: Response) =
       throw e;
     }
 
+    if ([fieldId,scheduledTime,homeTeamId,awayTeamId,status].some(v=>v!==undefined)) {
+      const round=(await query("SELECT to_char(scheduled_date,'YYYY-MM-DD') AS date FROM rounds WHERE id=$1",[game.round_id])).rows[0];
+      await validarClubesJornada(game.round_id,round.date,query,id);
+    }
     await audit(req, {
       action: 'UPDATE_GAME',
       entityType: 'game',

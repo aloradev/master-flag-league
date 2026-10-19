@@ -25,6 +25,7 @@
     "test:generator-entry": "node tests/generator-entry.mjs",
     "test:generator-recovery": "node tests/generator-recovery.mjs",
     "test:generator-first-leg": "node tests/generator-first-leg.mjs",
+    "test:club-scheduling": "node tests/club-scheduling.mjs",
     "test:team-progress": "node tests/team-progress.mjs",
     "test:registration-progress": "node tests/registration-progress.mjs",
     "test:historical-results": "node tests/historical-results.mjs",

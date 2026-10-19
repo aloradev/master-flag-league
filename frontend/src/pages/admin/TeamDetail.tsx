@@ -49,6 +49,8 @@ export default function AdminTeamDetail() {
     void queryClient.invalidateQueries({ queryKey: ['team', id] });
     void queryClient.invalidateQueries({ queryKey: ['teams'] });
     void queryClient.invalidateQueries({ queryKey: ['teams-managed'] });
+    void queryClient.invalidateQueries({ queryKey: ['round-teams'] });
+    void queryClient.invalidateQueries({ queryKey: ['manual-round-options'] });
     void queryClient.invalidateQueries({ queryKey: ['users'] });
   };
 
@@ -380,6 +382,7 @@ const EditarEquipo = ({
 }) => {
   const [form, setForm] = useState({
     name: equipo.name,
+    clubName: equipo.club_name ?? '',
     shortName: equipo.short_name ?? '',
     colorPrimary: equipo.color_primary || '#1f2937',
     colorSecondary: equipo.color_secondary || '#f9fafb',
@@ -392,6 +395,7 @@ const EditarEquipo = ({
     try {
       await api.put(`/teams/${equipo.id}`, {
         name: form.name.trim(),
+        clubName: form.clubName.trim(),
         shortName: form.shortName.trim() || undefined,
         colorPrimary: form.colorPrimary,
         colorSecondary: form.colorSecondary,
@@ -432,6 +436,9 @@ const EditarEquipo = ({
           />
         </Field>
 
+        <Field label="Club para horarios" hint="Usa el mismo club en femenil, varonil y mixto para evitar cruces de hora. Si lo dejas vacío, se usa el nombre del equipo.">
+          <input className="input input-bordered w-full" maxLength={150} value={form.clubName} onChange={e=>setForm({...form,clubName:e.target.value})} />
+        </Field>
         <Field label="Nombre corto" hint="Tres o cuatro letras. Es lo que cabe en el marcador.">
           <input
             className="input input-bordered w-full uppercase"

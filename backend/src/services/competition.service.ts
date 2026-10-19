@@ -4,6 +4,7 @@ import { query as defaultQuery } from '../config/database.js';
 import { newPrefixedId } from '../utils/id.js';
 import {
   pairKey,
+  clubKey, hasClubConflict, type ClubReservation,
   historialVacio,
   proponerJornada,
   type Historial,
@@ -198,7 +199,7 @@ export const cargarCategoriasConEquipos = async (
 ): Promise<CategoriaEntrada[]> => {
   const r = await query(
     `SELECT c.id AS category_id, c.name AS category_name, c.sort_order,
-            t.id AS team_id, t.name AS team_name
+            t.id AS team_id, t.name AS team_name, t.club_name
      FROM categories c
      LEFT JOIN teams t ON t.category_id = c.id
        AND t.season_id = c.season_id
@@ -215,7 +216,7 @@ export const cargarCategoriasConEquipos = async (
     if (!mapa.has(row.category_id)) {
       mapa.set(row.category_id, { id: row.category_id, name: row.category_name, teams: [] });
     }
-    if (row.team_id) mapa.get(row.category_id)!.teams.push({ id: row.team_id, name: row.team_name });
+    if (row.team_id) mapa.get(row.category_id)!.teams.push({ id: row.team_id, name: row.team_name,clubName:row.club_name });
   }
   return [...mapa.values()];
 };
@@ -258,6 +259,31 @@ async function reservasDeFecha(seasonId: string, date: string, q = query) {
       AND g.status<>'CANCELLED' AND COALESCE(g.game_type,'OFFICIAL')='OFFICIAL'
     UNION ALL SELECT NULL,NULL,b.team_id,NULL,NULL FROM round_byes b JOIN rounds r ON r.id=b.round_id
     WHERE r.season_id=$1 AND r.scheduled_date=$2::date AND r.status<>'CANCELLED' AND r.round_type='OFFICIAL'`,[seasonId,date])).rows;
+}
+
+async function clubesTemporada(seasonId:string,q=query) {
+  const teams=await q('SELECT id,name,club_name,category_id FROM teams WHERE season_id=$1',[seasonId]);
+  return new Map(teams.rows.map(t=>[t.id,{club:clubKey(t.club_name?.trim() || t.name),categoryId:t.category_id}]));
+}
+function reservasClub(reservations: any[], teams:Awaited<ReturnType<typeof clubesTemporada>>):ClubReservation[] {
+  return reservations.filter(r=>r.time).flatMap(r=>[r.home_team_id,r.away_team_id].flatMap(id=>{
+    const t=teams.get(id); return t ? [{...t,time:r.time}] : [];
+  }));
+}
+
+/** Recheck saved fixtures when their date, time or club membership changes. */
+export async function validarClubesJornada(roundId:string,date:string,q=query,gameId?:string) {
+  const round=(await q('SELECT season_id FROM rounds WHERE id=$1',[roundId])).rows[0];
+  if (!round) throw new AppError('Jornada no encontrada',404);
+  const teams=await clubesTemporada(round.season_id,q);
+  const rows=(await q(`SELECT g.id,g.round_id,g.home_team_id,g.away_team_id,g.category_id,to_char(g.scheduled_time,'HH24:MI') AS time
+    FROM games g JOIN rounds r ON r.id=g.round_id WHERE g.season_id=$1 AND g.status<>'CANCELLED'
+    AND r.status<>'CANCELLED' AND g.game_type='OFFICIAL' AND (g.round_id=$2 OR r.scheduled_date=$3::date)`,[round.season_id,roundId,date])).rows;
+  for (const g of rows.filter(g=>g.round_id===roundId && g.time && (!gameId || g.id===gameId))) {
+    const clubs=[teams.get(g.home_team_id)?.club ?? '',teams.get(g.away_team_id)?.club ?? ''];
+    if(hasClubConflict(clubs,g.category_id,g.time,reservasClub(rows.filter(other=>other.id!==g.id),teams)))
+      throw new AppError('Dos equipos del mismo club en categorías distintas no pueden jugar a la misma hora. Revisa los horarios.',409);
+  }
 }
 
 /** Se vuelve a comprobar al cambiar la fecha o publicar un borrador anterior. */
@@ -341,6 +367,9 @@ export const construirPropuesta = async (
     : await cargarHorarios(seasonId);
 
   const reservations = await reservasDeFecha(seasonId, date);
+  const seasonClubs=await clubesTemporada(seasonId);
+  const existingClubReservations=reservasClub(reservations,seasonClubs);
+  const clubReservations=[...existingClubReservations];
   const busy = new Set(reservations.flatMap(r => [r.home_team_id,r.away_team_id,r.bye_team_id].filter(Boolean)));
   for (const field of campos.rows) {
     fieldSlots[field.id] = (fieldSlots[field.id] ?? slots).filter((time: string) => !reservations.some(r => r.field_id === field.id && r.time === time));
@@ -377,17 +406,21 @@ export const construirPropuesta = async (
     const slot = home && away && home.category.id===g.category_id && away.category.id===g.category_id &&
       ![g.home_team_id,g.away_team_id].some(id=>rests.includes(id)||busy.has(id))
       ? [...new Set(slots)].sort().flatMap(time=>campos.rows.map(field=>({time,field}))).filter(({time,field})=>
+        !hasClubConflict([seasonClubs.get(g.home_team_id)!.club,seasonClubs.get(g.away_team_id)!.club],g.category_id,time,clubReservations) &&
         fieldSlots[field.id].includes(time) && time >= (earliest[g.home_team_id] ?? '') && time >= (earliest[g.away_team_id] ?? ''))
         .sort((a,b)=>Number(a.time===previous?.time)-Number(b.time===previous?.time) ||
           slotCost(a.time,a.field.id)-slotCost(b.time,b.field.id))[0] : undefined;
     if (!slot || !home || !away) { postponedWarnings.push(`Pospuesto de jornada ${g.number}: ${home?.name ?? g.home_team_id} vs ${away?.name ?? g.away_team_id} sigue pendiente por disponibilidad, incorporación o falta de espacio.`); continue; }
     rescheduled.push({postponedGameId:g.id,categoryId:g.category_id,categoryName:home.category.name,
+      homeClub:seasonClubs.get(home.id)!.club,awayClub:seasonClubs.get(away.id)!.club,
       homeTeamId:home.id,homeTeamName:home.name,awayTeamId:away.id,awayTeamName:away.name,
       fieldId:slot.field.id,fieldName:slot.field.name,time:slot.time,meeting:historial.vecesEnfrentados[pairKey(home.id,away.id)] ?? 1});
     busy.add(home.id);busy.add(away.id);
+    clubReservations.push(...[home.id,away.id].map(id=>({...seasonClubs.get(id)!,time:slot.time})));
     fieldSlots[slot.field.id]=fieldSlots[slot.field.id].filter((time:string)=>time!==slot.time);
   }
   const propuesta = proponerJornada({
+    clubReservations,
     firstLegPendingCategoryIds: categorias.filter(c=>c.teams.some((a,i)=>c.teams.slice(i+1).some(b=>
       !historial.vecesEnfrentados[pairKey(a.id,b.id)]))).map(c=>c.id),
     recoveryDeficits: await cargarRecuperaciones(seasonId, categorias),
@@ -403,6 +436,7 @@ export const construirPropuesta = async (
   });
   propuesta.games.push(...rescheduled);
   propuesta.availableSlots=availableSlots;
+  propuesta.clubReservations=existingClubReservations;
   propuesta.games.sort((a,b)=>(a.time ?? '').localeCompare(b.time ?? ''));
   propuesta.capacity+=rescheduled.length;
   propuesta.warnings.push(...postponedWarnings);
@@ -479,6 +513,8 @@ export const guardarPropuesta = async (
     const teams = new Map(categories.flatMap((c) => c.teams.map((t) => [t.id, c.id] as const)));
     const fields = await query("SELECT id FROM fields WHERE season_id=$1 AND status='ACTIVE'", [propuesta.seasonId]);
     const reservations = await reservasDeFecha(propuesta.seasonId, propuesta.scheduledDate, query);
+    const seasonClubs=await clubesTemporada(propuesta.seasonId,query);
+    const clubReservations=reservasClub(reservations,seasonClubs);
     const reserved = new Set<string>(reservations.flatMap(r => [r.home_team_id,r.away_team_id,r.bye_team_id].filter(Boolean)));
     const used = new Set<string>();
     const appearances = new Map<string, number>();
@@ -503,6 +539,9 @@ export const guardarPropuesta = async (
         if (!original.rows.length) throw new AppError('El partido pospuesto cambió o ya está reservado. Recalcula la propuesta.',409);
       }
       if (g.homeTeamId === g.awayTeamId) throw new AppError('Los equipos deben ser distintos', 400);
+      const clubs=[seasonClubs.get(g.homeTeamId)?.club ?? '',seasonClubs.get(g.awayTeamId)?.club ?? ''];
+      if(hasClubConflict(clubs,g.categoryId,g.time!,clubReservations)) throw new AppError('Un equipo del mismo club ya juega en otra categoría a esa hora.',409);
+      clubReservations.push(...clubs.map(club=>({club,categoryId:g.categoryId,time:g.time!})));
       if (!propuesta.manual && g.recovery && (!(deficits[g.homeTeamId]>0) || !(deficits[g.awayTeamId]>0) ||
         propuesta.games.some(other=>other!==g && pairKey(other.homeTeamId,other.awayTeamId)===pairKey(g.homeTeamId,g.awayTeamId)))) throw new AppError('La recuperación ya no es válida. Recalcula la propuesta.',409);
       reserve(g.homeTeamId, g.categoryId, g.recovery); reserve(g.awayTeamId, g.categoryId, g.recovery);

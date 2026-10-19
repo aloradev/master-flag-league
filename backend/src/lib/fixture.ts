@@ -13,6 +13,7 @@
  */
 
 export interface EquipoRef {
+  clubName?: string | null;
   id: string;
   name: string;
 }
@@ -38,6 +39,7 @@ export interface Historial {
 }
 
 export interface EntradaPropuesta {
+  clubReservations?: ClubReservation[];
   firstLegPendingCategoryIds?: string[];
   recoveryDeficits?: Record<string, number>;
   previousGames?: PartidoPropuesto[];
@@ -55,6 +57,8 @@ export interface EntradaPropuesta {
 export type MotivoDescanso = 'ODD_TEAMS' | 'CAPACITY' | 'MANUAL' | 'FIRST_LEG';
 
 export interface PartidoPropuesto {
+  homeClub?: string;
+  awayClub?: string;
   postponedGameId?: string;
   recovery?: boolean;
   categoryId: string;
@@ -81,6 +85,7 @@ export interface DescansoPropuesto {
 }
 
 export interface Propuesta {
+  clubReservations?: ClubReservation[];
   availableSlots?: {fieldId:string;fieldName:string;time:string}[];
   recoveries?: { teamId: string; teamName: string; pending: number; scheduled: number }[];
   manual?: boolean;
@@ -95,6 +100,11 @@ export interface Propuesta {
 /** Clave estable de un par, sin importar el orden en que llegue. */
 export const pairKey = (a: string, b: string): string =>
   a < b ? `${a}|${b}` : `${b}|${a}`;
+
+export interface ClubReservation { club:string; categoryId:string; time:string }
+export const clubKey = (name:string) => name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+export const hasClubConflict = (clubs:string[],categoryId:string,time:string,reservations:ClubReservation[]) =>
+  reservations.some(r=>r.time===time && r.categoryId!==categoryId && clubs.includes(r.club));
 
 export const historialVacio = (): Historial => ({
   vecesEnfrentados: {},
@@ -280,13 +290,14 @@ const emparejarCategoria = (
  * uno que además nadie siente injusto.
  */
 const repartirHuecos = (
-  partidos: { home: string; away: string }[],
+  partidos: { home: string; away: string; categoryId:string; clubs:string[] }[],
   fields: EquipoRef[],
   slots: string[],
   h: Historial,
   earliestTimes: Record<string, string> = {},
   fieldSlots: Record<string, string[]> = {},
-  previousGames: PartidoPropuesto[] = []
+  previousGames: PartidoPropuesto[] = [],
+  clubReservations:ClubReservation[] = []
 ): ({ fieldId: string; fieldName: string; time: string } | null)[] => {
   const huecos: { fieldId: string; fieldName: string; time: string }[] = [];
   for (const time of slots) {
@@ -295,6 +306,7 @@ const repartirHuecos = (
 
   const libres = new Set(huecos.map((_, i) => i));
   const asignado: ({ fieldId: string; fieldName: string; time: string } | null)[] = [];
+  const reserved=[...clubReservations];
 
   const veces = (mapa: Record<string, Record<string, number>>, equipo: string, clave: string) =>
     mapa[equipo]?.[clave] ?? 0;
@@ -307,6 +319,7 @@ const repartirHuecos = (
     for (const idx of libres) {
       const hueco = huecos[idx];
       if (hueco.time < (earliestTimes[p.home] ?? '') || hueco.time < (earliestTimes[p.away] ?? '')) continue;
+      if (hasClubConflict(p.clubs,p.categoryId,hueco.time,reserved)) continue;
       const horarioHome = veces(h.porHorario, p.home, hueco.time);
       const horarioAway = veces(h.porHorario, p.away, hueco.time);
       const campoHome = veces(h.porCampo, p.home, hueco.fieldId);
@@ -333,6 +346,7 @@ const repartirHuecos = (
     }
     libres.delete(elegido);
     asignado.push(huecos[elegido]);
+    reserved.push(...p.clubs.map(club=>({club,categoryId:p.categoryId,time:huecos[elegido].time})));
   }
 
   return asignado;
@@ -346,10 +360,12 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     cat.teams.some((a,i)=>cat.teams.slice(i+1).some(b=>cuenta(h.vecesEnfrentados,pairKey(a.id,b.id))===0))).map(c=>c.id));
 
   const nombre = new Map<string, string>();
+  const clubs = new Map<string,string>();
   const categoriaDe = new Map<string, CategoriaEntrada>();
   for (const cat of categories) {
     for (const t of cat.teams) {
       nombre.set(t.id, t.name);
+      clubs.set(t.id,clubKey(t.clubName?.trim() || t.name));
       categoriaDe.set(t.id, cat);
     }
   }
@@ -488,17 +504,19 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
 
   // ---- Campo y horario ----
   const huecos = repartirHuecos(
-    candidatos.map((c) => ({ home: c.home, away: c.away })),
+    candidatos.map((c) => ({ home: c.home, away: c.away,categoryId:c.cat.id,clubs:[clubs.get(c.home)!,clubs.get(c.away)!] })),
     fields,
     slots,
     h,
     entrada.earliestTimes,
     entrada.fieldSlots,
-    entrada.previousGames
+    entrada.previousGames,
+    entrada.clubReservations
   );
 
   const games: PartidoPropuesto[] = candidatos.map((c, i) => ({
     categoryId: c.cat.id,
+    homeClub:clubs.get(c.home),awayClub:clubs.get(c.away),
     categoryName: c.cat.name,
     homeTeamId: c.home,
     homeTeamName: nombre.get(c.home) ?? c.home,
@@ -530,6 +548,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     if ((extra.get(a.id) ?? 0) || (extra.get(b.id) ?? 0) || appearances(a.id) !== 1 || appearances(b.id) !== 1 || usedPair(a.id,b.id)) continue;
     const slot = [...new Set(slots)].sort().flatMap(time => fields.map(field => ({time,field}))).filter(({time,field}) =>
       (!entrada.fieldSlots?.[field.id] || entrada.fieldSlots[field.id].includes(time)) && !occupied(field.id,time) &&
+      !hasClubConflict([clubs.get(a.id)!,clubs.get(b.id)!],cat.id,time,[...(entrada.clubReservations ?? []),...games.filter(g=>g.time).flatMap(g=>[g.homeClub!,g.awayClub!].map(club=>({club,categoryId:g.categoryId,time:g.time!})))]) &&
       time >= (entrada.earliestTimes?.[a.id] ?? '') && time >= (entrada.earliestTimes?.[b.id] ?? '') && !busy(a.id,time) && !busy(b.id,time))
       .sort((x,y)=>{
         const cost = (slot:{time:string;field:EquipoRef}) => [a.id,b.id].reduce((sum,id)=>sum+
@@ -539,6 +558,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     if (!slot) continue;
     const {home,away} = orientar(a.id,b.id,h);
     games.push({ categoryId:cat.id, categoryName:cat.name, homeTeamId:home,homeTeamName:nombre.get(home)!,
+      homeClub:clubs.get(home),awayClub:clubs.get(away),
       awayTeamId:away,awayTeamName:nombre.get(away)!,fieldId:slot.field.id,fieldName:slot.field.name,time:slot.time,
       meeting:cuenta(h.vecesEnfrentados,pairKey(home,away))+1,recovery:true });
     extra.set(a.id,1);extra.set(b.id,1);

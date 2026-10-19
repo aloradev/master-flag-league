@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { PGlite } from '@electric-sql/pglite';
+import pool from '../dist/config/database.js';
+import { construirPropuesta,guardarPropuesta,validarClubesJornada } from '../dist/services/competition.service.js';
+import { updateGame } from '../dist/controllers/games.controller.js';
+import { updateTeam } from '../dist/controllers/teams.controller.js';
+const db=new PGlite();
+await db.exec(await readFile(new URL('../src/db/migrations.sql',import.meta.url),'utf8'));
+await db.exec(await readFile(new URL('../src/db/seed.sql',import.meta.url),'utf8'));
+pool.query=(s,p)=>db.query(s,p);pool.connect=async()=>({query:pool.query,release(){}});
+try {
+ await db.exec(`INSERT INTO users(id,league_id,email,password_hash,name,role_id) VALUES('club_admin','league_cancun','club@test.local','unused','Admin','role_super_admin');
+ INSERT INTO teams(id,season_id,category_id,name,club_name) VALUES
+ ('male','season_2026','cat_varonil_2026','49ers',null),('mrival','season_2026','cat_varonil_2026','Aztecas',null),
+ ('female','season_2026','cat_femenil_2026','49ers Femenil','49ERS'),('frival','season_2026','cat_femenil_2026','Halcones',null);`);
+ const options={seasonId:'season_2026',scheduledDate:'2026-09-19',slots:['19:00','20:00']};
+ const p=await construirPropuesta(options);
+ assert.equal(p.games.length,2);assert.notEqual(p.games[0].time,p.games[1].time,'Different categories from same club do not overlap');
+ const noRoom=await construirPropuesta({...options,slots:['19:00']});
+ assert.equal(noRoom.games.filter(g=>g.time).length,1,'No feasible time means no overlapping assignment');
+ const male=p.games.find(g=>g.categoryId==='cat_varonil_2026');
+ await guardarPropuesta({...p,manual:true,games:[male],byes:[]},'club_admin');
+ const next=await construirPropuesta(options);
+ const female=next.games.find(g=>g.categoryId==='cat_femenil_2026');
+ assert.ok(female);assert.notEqual(female.time,male.time,'Respects club commitments from a different saved round');
+ assert.ok(next.clubReservations.some(r=>r.club==='49ers'&&r.time===male.time));
+ const invalid=structuredClone(next);invalid.games[0].time=male.time;invalid.games[0].fieldId=male.fieldId==='field_1_2026'?'field_2_2026':'field_1_2026';
+ await assert.rejects(guardarPropuesta(invalid,'club_admin'),/mismo club/);
+ const roundId=await guardarPropuesta(next,'club_admin');
+ await validarClubesJornada(roundId,'2026-09-19');
+ const editClub=(body,role='SUPER_ADMIN')=>new Promise(resolve=>updateTeam({params:{id:'female'},body,managedTeamIds:['female'],user:{id:'club_admin',role,leagueId:'league_cancun'}},{json:data=>resolve({data})},error=>resolve({error})));
+ assert.equal((await editClub({clubName:'Club ajeno'},'TEAM_MANAGER')).error.statusCode,403);
+ assert.equal((await editClub({clubName:'x'.repeat(151)})).error.statusCode,400);
+ assert.ok(!(await editClub({clubName:'49ers'})).error);
+ assert.equal((await db.query("SELECT club_name FROM teams WHERE id='female'")).rows[0].club_name,'49ers');
+ const maleRow=(await db.query("SELECT id,round_id FROM games WHERE home_team_id='male' OR away_team_id='male'")).rows[0];
+ await db.query("UPDATE rounds SET status='PUBLISHED' WHERE id=$1",[maleRow.round_id]);
+ await db.query("UPDATE games SET status='POSTPONED' WHERE id=$1",[maleRow.id]);
+ const recovery=await construirPropuesta({...options,scheduledDate:'2026-09-26'});
+ assert.equal(recovery.games.filter(g=>g.postponedGameId).length,1);
+ assert.equal(new Set(recovery.games.filter(g=>g.time).map(g=>g.time)).size,2,'Postponed fixture and another category of the same club get different times');
+ const id=(await db.query('SELECT id FROM games WHERE round_id=$1',[roundId])).rows[0].id;
+ const response=await new Promise(resolve=>updateGame({params:{id},body:{scheduledTime:male.time},user:{id:'club_admin',role:'SUPER_ADMIN',leagueId:'league_cancun'}},{json:data=>resolve({data})},error=>resolve({error})));
+ assert.match(response.error?.message ?? '',/mismo club/);
+ assert.equal((await db.query("SELECT to_char(scheduled_time,'HH24:MI') AS time FROM games WHERE id=$1",[id])).rows[0].time,female.time,'Invalid change rolls back');
+ await db.exec("UPDATE teams SET club_name='Otro club' WHERE id='female'");
+ await db.query('UPDATE games SET scheduled_time=$2 WHERE id=$1',[id,male.time]);
+ await validarClubesJornada(roundId,'2026-09-19');
+ console.log('OK: same club across categories, explicit club aliases, generation, no free time, saved reservations, manual edits, rollback and independent clubs.');
+} finally {await db.close();await pool.end();}

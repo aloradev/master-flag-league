@@ -34,6 +34,7 @@ export interface SessionUser {
 }
 
 export interface TeamSummary {
+  club_name?: string | null;
   id: string;
   name: string;
   short_name?: string;

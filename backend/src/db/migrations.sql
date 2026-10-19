@@ -732,3 +732,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS unique_postponed_reservation ON games(postpone
 -- Avoid inventing an odd-team bye when first-leg opponents are unavailable.
 ALTER TABLE round_byes DROP CONSTRAINT IF EXISTS round_byes_reason_check;
 ALTER TABLE round_byes ADD CONSTRAINT round_byes_reason_check CHECK (reason IN ('ODD_TEAMS','CAPACITY','MANUAL','FIRST_LEG'));
+
+-- Club identity for avoiding simultaneous cross-category fixtures.
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS club_name VARCHAR(150);

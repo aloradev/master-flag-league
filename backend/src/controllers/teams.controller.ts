@@ -18,7 +18,7 @@ import { makeLogo, isProcessableImage } from '../services/image.service.js';
  * tabla no la filtra.
  */
 const TEAM_COLUMNS = `
-  t.id, t.season_id, t.category_id, t.name, t.short_name,
+  t.id, t.season_id, t.category_id, t.name, t.short_name, t.club_name,
   t.logo_url, t.image_url, t.color_primary, t.color_secondary,
   t.status, t.created_at, t.updated_at
 `;
@@ -188,10 +188,12 @@ export const updateTeam = asyncHandler(async (req: AuthRequest, res: Response) =
   const before = await query('SELECT * FROM teams WHERE id = $1', [id]);
   if (!before.rows[0]) throw new AppError('Equipo no encontrado', 404);
 
-  const { name, shortName, colorPrimary, colorSecondary, logoUrl, imageUrl, status } = req.body ?? {};
+  const { name, shortName, colorPrimary, colorSecondary, logoUrl, imageUrl, status, clubName } = req.body ?? {};
 
   // Solo administración cambia el estado del equipo (activo/suspendido).
   const isAdmin = req.user!.role === ROLES.SUPER_ADMIN || req.user!.role === ROLES.SPORTS_ADMIN;
+  if (clubName !== undefined && !isAdmin) throw new AppError('Solo administración puede asignar el club.',403);
+  if (clubName !== undefined && (typeof clubName!=='string' || clubName.length>150)) throw new AppError('Indica un club de hasta 150 caracteres.',400);
   if (status && !isAdmin) {
     throw new AppError('Solo administración puede cambiar el estado del equipo', 403);
   }
@@ -205,6 +207,7 @@ export const updateTeam = asyncHandler(async (req: AuthRequest, res: Response) =
        logo_url = COALESCE($5, logo_url),
        image_url = COALESCE($6, image_url),
        status = COALESCE($7, status),
+       club_name = CASE WHEN $9::text IS NULL THEN club_name ELSE NULLIF(trim($9),'') END,
        updated_at = NOW()
      WHERE id = $8`,
     [
@@ -216,6 +219,7 @@ export const updateTeam = asyncHandler(async (req: AuthRequest, res: Response) =
       imageUrl ?? null,
       status ?? null,
       id,
+      clubName ?? null,
     ]
   );
 

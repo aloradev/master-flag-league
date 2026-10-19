@@ -15,7 +15,7 @@ export default function ProposalSchedule({ proposal, earliest, disabled, onChang
  const move=(index:number,slot:typeof slots[number])=>{
   if(disabled)return;
   try {
-   const games=moveProposal(proposal.games,index,slot,slots,earliest);
+   const games=moveProposal(proposal.games,index,slot,slots,earliest,proposal.clubReservations);
    onChange(games);setSelected(null);setError('');setMessage(`Horario actualizado: ${slot.fieldName}, ${hora12(slot.time)}. Guarda el borrador para conservarlo.`);
   }catch(e){setError(e instanceof Error?e.message:'No se pudo cambiar el horario.');setMessage('');}
   setOver('');

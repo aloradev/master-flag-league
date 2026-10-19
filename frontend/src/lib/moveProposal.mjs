@@ -1,5 +1,5 @@
 /** Move to an empty slot, or swap the two fixtures atomically. */
-export function moveProposal(games, index, target, slots, earliest = {}) {
+export function moveProposal(games, index, target, slots, earliest = {}, clubReservations = []) {
   if (!Number.isInteger(index) || !games[index]) throw new Error('Selecciona el encuentro que quieres mover.');
   if (!slots.some(s=>s.fieldId===target.fieldId && s.time===target.time)) throw new Error('Ese campo y horario no están disponibles.');
   const source=games[index];
@@ -8,11 +8,17 @@ export function moveProposal(games, index, target, slots, earliest = {}) {
   const result=games.map((game,i)=>i===index ? {...game,...target} : i===occupied
     ? {...game,fieldId:source.fieldId,fieldName:source.fieldName,time:source.time} : game);
   const teams=new Set(), fields=new Set();
+  const clubs=[...clubReservations];
+  const clubKey=name=>name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   for (const game of result) {
     if (!game.time || !game.fieldId) continue;
     const slot=`${game.fieldId}|${game.time}`;
     if (fields.has(slot)) throw new Error('Ese campo ya tiene un encuentro a esa hora.');
     fields.add(slot);
+    const gameClubs=[game.homeClub ?? clubKey(game.homeTeamName),game.awayClub ?? clubKey(game.awayTeamName)];
+    if (clubs.some(r=>r.time===game.time && r.categoryId!==game.categoryId && gameClubs.includes(r.club)))
+      throw new Error('Equipos del mismo club en categorías distintas no pueden jugar a la misma hora. El cambio no se aplicó.');
+    clubs.push(...gameClubs.map(club=>({club,categoryId:game.categoryId,time:game.time})));
     for (const [id,name] of [[game.homeTeamId,game.homeTeamName],[game.awayTeamId,game.awayTeamName]]) {
       if (game.time < (earliest[id] ?? '')) throw new Error(`${name} está disponible desde las ${earliest[id]}.`);
       const key=`${id}|${game.time}`;

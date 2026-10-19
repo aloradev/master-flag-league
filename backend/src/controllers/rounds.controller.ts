@@ -16,6 +16,7 @@ import {
   validarFechaJornada,
   validarIncorporacionesJornada,
   publicarRecuperaciones,
+  validarClubesJornada,
 } from '../services/competition.service.js';
 
 /**
@@ -226,6 +227,7 @@ export const updateRound = asyncHandler(async (req: AuthRequest, res: Response) 
   const { name, scheduledDate, notes, slots } = req.body ?? {};
   if (scheduledDate !== undefined) await validarFechaJornada(round.season_id, scheduledDate);
   if (scheduledDate !== undefined) await validarIncorporacionesJornada(id, scheduledDate);
+  if (scheduledDate !== undefined) await validarClubesJornada(id,scheduledDate);
 
   await query(
     `UPDATE rounds SET
@@ -277,6 +279,7 @@ export const publishRound = asyncHandler(async (req: AuthRequest, res: Response)
   if (!round) throw new AppError('Jornada no encontrada', 404);
   if (round.status !== 'DRAFT') throw new AppError('La jornada ya está publicada', 409);
   await validarIncorporacionesJornada(id, new Date(round.scheduled_date).toISOString().slice(0,10), query);
+  await validarClubesJornada(id,new Date(round.scheduled_date).toISOString().slice(0,10),query);
   const rescheduled=await publicarRecuperaciones(id,query);
   for (const moved of rescheduled) await audit(req,{action:'RESCHEDULE_POSTPONED_GAME',entityType:'game',entityId:moved.id,
     oldValue:{roundId:moved.fromRoundId},newValue:{roundId:moved.toRoundId}},query);
