@@ -356,6 +356,8 @@ export const construirPropuesta = async (
   }
 
   const eligibleTeams = new Map(categorias.flatMap(c=>c.teams.map(t=>[t.id,{...t,category:c}] as const)));
+  const availableSlots = [...new Set(slots)].sort().flatMap(time=>campos.rows
+    .filter(field=>fieldSlots[field.id].includes(time)).map(field=>({fieldId:field.id,fieldName:field.name,time})));
   const postponed = await query(`SELECT g.id,g.home_team_id,g.away_team_id,g.category_id,r.number
     FROM games g JOIN rounds r ON r.id=g.round_id
     WHERE g.season_id=$1 AND g.status='POSTPONED' AND r.status IN ('PUBLISHED','IN_PROGRESS','FINISHED')
@@ -400,6 +402,7 @@ export const construirPropuesta = async (
     history: historial,
   });
   propuesta.games.push(...rescheduled);
+  propuesta.availableSlots=availableSlots;
   propuesta.games.sort((a,b)=>(a.time ?? '').localeCompare(b.time ?? ''));
   propuesta.capacity+=rescheduled.length;
   propuesta.warnings.push(...postponedWarnings);

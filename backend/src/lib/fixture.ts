@@ -81,6 +81,7 @@ export interface DescansoPropuesto {
 }
 
 export interface Propuesta {
+  availableSlots?: {fieldId:string;fieldName:string;time:string}[];
   recoveries?: { teamId: string; teamName: string; pending: number; scheduled: number }[];
   manual?: boolean;
   roundNumber: number;

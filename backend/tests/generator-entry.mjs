@@ -46,6 +46,8 @@ const extra=await construirPropuesta({seasonId:'season_2026',scheduledDate:'2026
 assert.equal(extra.games.length,1);
 assert.deepEqual(new Set(extra.games.flatMap(g=>[g.homeTeamId,g.awayTeamId])),new Set(['gen_e','gen_f']));
 const used=new Set(next.games.map(g=>`${g.fieldId}:${g.time}`));
+assert.ok(extra.availableSlots.length>0,'Expone espacios de destino para reorganizar la propuesta');
+assert.ok(extra.availableSlots.every(slot=>!used.has(`${slot.fieldId}:${slot.time}`)),'No ofrece espacios ya reservados como destinos de arrastre');
 assert.ok(extra.games.every(g=>!used.has(`${g.fieldId}:${g.time}`)));
 const tampered=structuredClone(extra);
 tampered.games[0].fieldId=next.games[0].fieldId;tampered.games[0].time=next.games[0].time;

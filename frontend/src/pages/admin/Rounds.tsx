@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import RoundGames from './RoundGames';
+import ProposalSchedule from './ProposalSchedule';
 import ManualRound from './ManualRound';
 import TeamProgress from './TeamProgress';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -103,9 +104,6 @@ export default function AdminRounds() {
   if (season.error) return <Alert tone="error">No hay temporada activa.</Alert>;
 
   const lista = jornadas.data ?? [];
-  const porFecha = propuesta
-    ? [...new Set(propuesta.games.map((g) => g.time))].sort()
-    : [];
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -196,40 +194,11 @@ export default function AdminRounds() {
             </div>
           )}
 
-          {porFecha.map((hora) => (
-            <section key={hora} className="space-y-1.5">
-              <h3 className="tabular text-sm font-bold">{hora ? hora12(hora) : 'Sin horario compatible'}</h3>
-              <ul className="space-y-1.5">
-                {propuesta.games
-                  .filter((g) => g.time === hora)
-                  .map((g) => (
-                    <li
-                      key={`${g.homeTeamId}-${g.awayTeamId}`}
-                      className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-field
-                                 border border-base-300/60 bg-base-100/60 px-3 py-2 text-sm"
-                    >
-                      <span className="w-20 shrink-0 text-[11px] font-semibold text-base-content/60">
-                        {g.fieldName}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="font-medium">{g.homeTeamName}</span>
-                        <span className="text-base-content/40"> vs </span>
-                        <span className="font-medium">{g.awayTeamName}</span>
-                      </span>
-                      <span className="badge badge-ghost badge-sm">{g.categoryName}</span>
-                      {g.recovery && <span className="badge badge-info badge-sm">Recuperación</span>}
-                      {g.postponedGameId && <span className="badge badge-info badge-sm">Pospuesto · reprogramación</span>}
-                      {g.meeting > 1 && (
-                        <span className="badge badge-warning badge-sm">
-                          {g.meeting}º encuentro
-                        </span>
-                      )}
-                    </li>
-                  ))}
-              </ul>
-            </section>
-          ))}
-
+          <ProposalSchedule proposal={propuesta} earliest={earliest}
+            disabled={availabilityChanged || proponer.isPending || guardar.isPending || fecha !== propuesta.scheduledDate}
+            onChange={games => { setPropuesta(current => current ? { ...current, games,
+              warnings: [...current.warnings.filter(w=>!w.startsWith('Sin horario compatible:')),
+                ...games.filter(g=>!g.time).map(g=>`Sin horario compatible: ${g.homeTeamName} vs ${g.awayTeamName}. Ajusta la disponibilidad antes de guardar.`)] } : null); setError(null); }} />
           {propuesta.byes.length > 0 && (
             <section className="space-y-1.5">
               <h3 className="text-sm font-bold">Descansan ({propuesta.byes.length})</h3>
