@@ -436,7 +436,7 @@ const EditarEquipo = ({
           />
         </Field>
 
-        <Field label="Club para horarios" hint="Usa el mismo club en femenil, varonil y mixto para evitar cruces de hora. Si lo dejas vacío, se usa el nombre del equipo.">
+        <Field label="Club para horarios" hint="Usa el mismo club en femenil, varonil y mixto para evitar que mixto coincida con varonil o femenil. Varonil y femenil sí pueden coincidir. Si lo dejas vacío, se usa el nombre del equipo.">
           <input className="input input-bordered w-full" maxLength={150} value={form.clubName} onChange={e=>setForm({...form,clubName:e.target.value})} />
         </Field>
         <Field label="Nombre corto" hint="Tres o cuatro letras. Es lo que cabe en el marcador.">

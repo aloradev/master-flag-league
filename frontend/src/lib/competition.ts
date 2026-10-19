@@ -148,6 +148,7 @@ export interface RoundDetail extends RoundSummary {
 
 /** La propuesta viene en camelCase: es un cálculo, no una fila de la base. */
 export interface ProposedGame {
+  mixed?: boolean;
   homeClub?: string;
   awayClub?: string;
   postponedGameId?: string;
@@ -174,7 +175,7 @@ export interface ProposedBye {
 }
 
 export interface Proposal {
-  clubReservations?: {club:string;categoryId:string;time:string}[];
+  clubReservations?: {club:string;categoryId:string;time:string;mixed?:boolean}[];
   availableSlots?: {fieldId:string;fieldName:string;time:string}[];
   recoveries?: { teamId: string; teamName: string; pending: number; scheduled: number }[];
   manual?: boolean;

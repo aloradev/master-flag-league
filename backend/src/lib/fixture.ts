@@ -19,6 +19,7 @@ export interface EquipoRef {
 }
 
 export interface CategoriaEntrada {
+  mixed?: boolean;
   id: string;
   name: string;
   teams: EquipoRef[];
@@ -57,6 +58,7 @@ export interface EntradaPropuesta {
 export type MotivoDescanso = 'ODD_TEAMS' | 'CAPACITY' | 'MANUAL' | 'FIRST_LEG';
 
 export interface PartidoPropuesto {
+  mixed?: boolean;
   homeClub?: string;
   awayClub?: string;
   postponedGameId?: string;
@@ -101,10 +103,11 @@ export interface Propuesta {
 export const pairKey = (a: string, b: string): string =>
   a < b ? `${a}|${b}` : `${b}|${a}`;
 
-export interface ClubReservation { club:string; categoryId:string; time:string }
+export interface ClubReservation { club:string; categoryId:string; time:string; mixed?:boolean }
 export const clubKey = (name:string) => name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-export const hasClubConflict = (clubs:string[],categoryId:string,time:string,reservations:ClubReservation[]) =>
-  reservations.some(r=>r.time===time && r.categoryId!==categoryId && clubs.includes(r.club));
+export const isMixedCategory = (name:string) => /(^| )(mixto|mixta|mixed)( |$)/.test(clubKey(name));
+export const hasClubConflict = (clubs:string[],categoryId:string,time:string,reservations:ClubReservation[],mixed=false) =>
+  reservations.some(r=>r.time===time && r.categoryId!==categoryId && (mixed || r.mixed) && clubs.includes(r.club));
 
 export const historialVacio = (): Historial => ({
   vecesEnfrentados: {},
@@ -290,7 +293,7 @@ const emparejarCategoria = (
  * uno que además nadie siente injusto.
  */
 const repartirHuecos = (
-  partidos: { home: string; away: string; categoryId:string; clubs:string[] }[],
+  partidos: { home: string; away: string; categoryId:string; clubs:string[]; mixed:boolean }[],
   fields: EquipoRef[],
   slots: string[],
   h: Historial,
@@ -319,7 +322,7 @@ const repartirHuecos = (
     for (const idx of libres) {
       const hueco = huecos[idx];
       if (hueco.time < (earliestTimes[p.home] ?? '') || hueco.time < (earliestTimes[p.away] ?? '')) continue;
-      if (hasClubConflict(p.clubs,p.categoryId,hueco.time,reserved)) continue;
+      if (hasClubConflict(p.clubs,p.categoryId,hueco.time,reserved,p.mixed)) continue;
       const horarioHome = veces(h.porHorario, p.home, hueco.time);
       const horarioAway = veces(h.porHorario, p.away, hueco.time);
       const campoHome = veces(h.porCampo, p.home, hueco.fieldId);
@@ -346,7 +349,7 @@ const repartirHuecos = (
     }
     libres.delete(elegido);
     asignado.push(huecos[elegido]);
-    reserved.push(...p.clubs.map(club=>({club,categoryId:p.categoryId,time:huecos[elegido].time})));
+    reserved.push(...p.clubs.map(club=>({club,categoryId:p.categoryId,time:huecos[elegido].time,mixed:p.mixed})));
   }
 
   return asignado;
@@ -504,7 +507,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
 
   // ---- Campo y horario ----
   const huecos = repartirHuecos(
-    candidatos.map((c) => ({ home: c.home, away: c.away,categoryId:c.cat.id,clubs:[clubs.get(c.home)!,clubs.get(c.away)!] })),
+    candidatos.map((c) => ({ home: c.home, away: c.away,categoryId:c.cat.id,clubs:[clubs.get(c.home)!,clubs.get(c.away)!],mixed:c.cat.mixed ?? isMixedCategory(c.cat.name) })),
     fields,
     slots,
     h,
@@ -516,6 +519,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
 
   const games: PartidoPropuesto[] = candidatos.map((c, i) => ({
     categoryId: c.cat.id,
+    mixed:c.cat.mixed ?? isMixedCategory(c.cat.name),
     homeClub:clubs.get(c.home),awayClub:clubs.get(c.away),
     categoryName: c.cat.name,
     homeTeamId: c.home,
@@ -548,7 +552,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     if ((extra.get(a.id) ?? 0) || (extra.get(b.id) ?? 0) || appearances(a.id) !== 1 || appearances(b.id) !== 1 || usedPair(a.id,b.id)) continue;
     const slot = [...new Set(slots)].sort().flatMap(time => fields.map(field => ({time,field}))).filter(({time,field}) =>
       (!entrada.fieldSlots?.[field.id] || entrada.fieldSlots[field.id].includes(time)) && !occupied(field.id,time) &&
-      !hasClubConflict([clubs.get(a.id)!,clubs.get(b.id)!],cat.id,time,[...(entrada.clubReservations ?? []),...games.filter(g=>g.time).flatMap(g=>[g.homeClub!,g.awayClub!].map(club=>({club,categoryId:g.categoryId,time:g.time!})))]) &&
+      !hasClubConflict([clubs.get(a.id)!,clubs.get(b.id)!],cat.id,time,[...(entrada.clubReservations ?? []),...games.filter(g=>g.time).flatMap(g=>[g.homeClub!,g.awayClub!].map(club=>({club,categoryId:g.categoryId,time:g.time!,mixed:g.mixed})))],cat.mixed ?? isMixedCategory(cat.name)) &&
       time >= (entrada.earliestTimes?.[a.id] ?? '') && time >= (entrada.earliestTimes?.[b.id] ?? '') && !busy(a.id,time) && !busy(b.id,time))
       .sort((x,y)=>{
         const cost = (slot:{time:string;field:EquipoRef}) => [a.id,b.id].reduce((sum,id)=>sum+
@@ -558,6 +562,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     if (!slot) continue;
     const {home,away} = orientar(a.id,b.id,h);
     games.push({ categoryId:cat.id, categoryName:cat.name, homeTeamId:home,homeTeamName:nombre.get(home)!,
+      mixed:cat.mixed ?? isMixedCategory(cat.name),
       homeClub:clubs.get(home),awayClub:clubs.get(away),
       awayTeamId:away,awayTeamName:nombre.get(away)!,fieldId:slot.field.id,fieldName:slot.field.name,time:slot.time,
       meeting:cuenta(h.vecesEnfrentados,pairKey(home,away))+1,recovery:true });

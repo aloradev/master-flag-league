@@ -19,9 +19,12 @@ assert.throws(()=>moveProposal(unassigned,0,slots.find(s=>s.fieldId==='f1'&&s.ti
 assert.equal(moveProposal(unassigned,0,slots[0],slots)[0].time,'19:00');
 assert.deepEqual(games,snapshot,'Rejected changes leave schedule intact');
 const cross=[{...game('a','b','19:00'),categoryId:'male',homeClub:'49ers',awayClub:'aztecas'},
- {...game('c','d','20:00'),categoryId:'female',homeClub:'49ers',awayClub:'halcones'}];
+ {...game('c','d','20:00'),categoryId:'mixed',mixed:true,homeClub:'49ers',awayClub:'halcones'}];
 assert.throws(()=>moveProposal(cross,1,slots.find(s=>s.fieldId==='f2'&&s.time==='19:00'),slots),/mismo club/,'Different team IDs in different categories still clash by club');
 assert.doesNotThrow(()=>moveProposal([{...cross[0],homeClub:'other'},cross[1]],1,slots.find(s=>s.fieldId==='f2'&&s.time==='19:00'),slots),'Different clubs can play simultaneously');
-assert.throws(()=>moveProposal([cross[1]],0,slots.find(s=>s.time==='19:00'),slots,{},[{club:'49ers',categoryId:'mixed',time:'19:00'}]),/mismo club/,'Respects saved fixtures outside the proposal');
+assert.throws(()=>moveProposal([cross[1]],0,slots.find(s=>s.time==='19:00'),slots,{},[{club:'49ers',categoryId:'male',mixed:false,time:'19:00'}]),/mismo club/,'Respects saved fixtures outside the proposal');
 assert.equal(moveProposal(cross,0,slots.find(s=>s.fieldId==='f1'&&s.time==='20:00'),slots)[1].time,'19:00','An atomic swap can move both clubs to valid times');
+const women={...cross[1],homeTeamId:'w',awayTeamId:'x',mixed:false,categoryId:'female',categoryName:'Femenil'};
+assert.doesNotThrow(()=>moveProposal([cross[0],women],1,slots.find(s=>s.fieldId==='f2'&&s.time==='19:00'),slots),'Male and female squads from the same club may overlap');
+assert.throws(()=>moveProposal([women,cross[1]],0,slots.find(s=>s.fieldId==='f2'&&s.time==='20:00'),slots),/mixto/,'Female and mixed squads from the same club must not overlap');
 console.log('OK: empty destination, swap, team conflicts, availability of both games, reserved slots, metadata and immutable changes.');
