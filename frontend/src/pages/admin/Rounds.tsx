@@ -41,6 +41,7 @@ export default function AdminRounds() {
   const [manualProposal, setManualProposal] = useState<Proposal | undefined>();
   const [manual, setManual] = useState(false);
   const [rests, setRests] = useState<string[]>([]);
+  const [availabilityChanged, setAvailabilityChanged] = useState(false);
   const [earliest, setEarliest] = useState<Record<string, string>>({});
 
   const season = useQuery({
@@ -51,6 +52,8 @@ export default function AdminRounds() {
   const seasonId = season.data?.id;
   const teams = useQuery({ queryKey: ['round-teams', seasonId],
     queryFn: () => api.get<TeamSummary[]>(`/teams?seasonId=${seasonId}`), enabled: Boolean(seasonId) });
+  const progress = useQuery({ queryKey: ['rounds', 'team-progress', seasonId],
+    queryFn: () => api.get<{id:string;counts:Record<string,number>}[]>(`/admin/team-progress?seasonId=${seasonId}`), enabled: Boolean(seasonId) });
 
   const jornadas = useQuery({
     queryKey: ['rounds', seasonId],
@@ -64,6 +67,7 @@ export default function AdminRounds() {
     onMutate: () => setError(null),
     onSuccess: (p) => {
       setPropuesta(p);
+      setAvailabilityChanged(false);
       setFecha(p.scheduledDate);
       setError(null);
     },
@@ -115,7 +119,7 @@ export default function AdminRounds() {
         <Button
           tone="primary"
           loading={proponer.isPending}
-          disabled={!seasonId || manual}
+          disabled={!seasonId || manual || guardar.isPending}
           onClick={() => proponer.mutate(undefined)}
         >
           <IconPlus size={16} />
@@ -132,21 +136,28 @@ export default function AdminRounds() {
       }} />}
       {!manual && <Card className="space-y-3 p-4">
         <h2 className="font-semibold">Disponibilidad para esta jornada</h2>
+        <p className="text-sm">Elige qué equipos descansan y pulsa “Aplicar descansos y recalcular” para reorganizar los encuentros y horarios de la propuesta.</p>
+        <p className="text-xs text-base-content/60">BYE acumulados: solo descansos registrados en jornadas cerradas de temporada regular. No incluye jornadas abiertas, borradores, canceladas ni playoffs.</p>
         <p className="text-sm text-base-content/70">Primero se completan los cruces de primera vuelta de cada categoría. Si faltan rivales disponibles, se avisa antes de repetir encuentros para llenar la jornada.</p>
         <p className="text-sm text-base-content/70">La generación prioriza pospuestos y propone recuperaciones para equipos rezagados, con un máximo de dos partidos por equipo. Respeta los espacios ocupados, la disponibilidad de campos y equipos, y procura rotar los horarios ya usados.</p>
         <p className="text-sm text-base-content/70">Selecciona descansos por decisión administrativa y la hora más temprana de cada equipo. Después genera o recalcula. Los horarios finales se ajustan en “Programación y árbitros” al guardar el borrador.</p>
         {teams.isError && <Alert tone="error">No se pudieron cargar los equipos.</Alert>}
+        {progress.isError && <Alert tone="error">No se pudieron cargar los BYE. <button className="link" onClick={() => void progress.refetch()}>Reintentar</button></Alert>}
         {teams.data?.filter((t) => t.status === 'ACTIVE').map((t) => <div key={t.id} className="flex flex-wrap items-center gap-3 border-b border-base-300 py-2">
           <span className="min-w-0 flex-1 text-sm">{t.name} · {t.category_name}</span>
+          <span className="badge badge-outline">BYE cerrados: {progress.isPending ? '…' : progress.isError ? 'Sin datos' : progress.data?.find(p=>p.id===t.id)?.counts.BYE_CLOSED ?? 0}</span>
           {Number(t.players_total) === 0 && <span className="text-xs text-warning">Plantilla pendiente</span>}
           {Number(t.players_total) > 0 && season.data?.require_approval_to_play && Number(t.players_eligible) === 0 && <span className="text-xs text-warning">Sin jugadores elegibles aún</span>}
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="checkbox checkbox-sm"
-            checked={rests.includes(t.id)} onChange={(e) => { setRests(e.target.checked ? [...rests, t.id] : rests.filter((id) => id !== t.id)); setPropuesta(null); }} />Descansa</label>
+            disabled={proponer.isPending || guardar.isPending} checked={rests.includes(t.id)} onChange={(e) => { setRests(current=>e.target.checked ? [...current, t.id] : current.filter((id) => id !== t.id)); setAvailabilityChanged(Boolean(propuesta)); }} />Descansa</label>
           <label className="text-xs">Disponible desde
-            <input type="time" className="input input-sm ml-2" disabled={rests.includes(t.id)} value={earliest[t.id] ?? ''}
-              onChange={(e) => { const next = { ...earliest }; if (e.target.value) next[t.id] = e.target.value; else delete next[t.id]; setEarliest(next); setPropuesta(null); }} />
+            <input type="time" className="input input-sm ml-2" disabled={rests.includes(t.id) || proponer.isPending || guardar.isPending} value={earliest[t.id] ?? ''}
+              onChange={(e) => { const next = { ...earliest }; if (e.target.value) next[t.id] = e.target.value; else delete next[t.id]; setEarliest(next); setAvailabilityChanged(Boolean(propuesta)); }} />
           </label>
         </div>)}
+        <p className="text-sm">Descansos seleccionados: {rests.length}</p>
+        <Button tone="primary" loading={proponer.isPending} disabled={!seasonId || guardar.isPending || teams.isPending || teams.isError} onClick={() => proponer.mutate(propuesta ? fecha || undefined : undefined)}>Aplicar descansos y recalcular</Button>
+        {availabilityChanged && <Alert tone="warning">La selección cambió. Recalcula para actualizar la propuesta antes de guardarla.</Alert>}
       </Card>}
 
       {/* ─────────── PROPUESTA ─────────── */}
@@ -243,7 +254,7 @@ export default function AdminRounds() {
 
           {fecha !== propuesta.scheduledDate && <Alert tone="warning">Cambiaste la fecha. Recalcula para revisar incorporaciones y asignaciones existentes antes de guardar.</Alert>}
           <div className="flex flex-wrap gap-2 border-t border-base-300/60 pt-3">
-            <Button tone="success" disabled={proponer.isPending || !fecha || fecha !== propuesta.scheduledDate} loading={guardar.isPending} onClick={() => guardar.mutate()}>
+            <Button tone="success" disabled={availabilityChanged || proponer.isPending || !fecha || fecha !== propuesta.scheduledDate} loading={guardar.isPending} onClick={() => guardar.mutate()}>
               Guardar como borrador
             </Button>
             <Button
@@ -253,9 +264,9 @@ export default function AdminRounds() {
               disabled={guardar.isPending}
               onClick={() => proponer.mutate(fecha || undefined)}
             >
-              Recalcular horarios
+              Recalcular encuentros y horarios
             </Button>
-            <Button disabled={guardar.isPending || proponer.isPending} onClick={() => { setManualProposal({ ...propuesta, scheduledDate: fecha }); setManual(true); setPropuesta(null); }}>Editar encuentros y horarios</Button>
+            <Button disabled={availabilityChanged || guardar.isPending || proponer.isPending} onClick={() => { setManualProposal({ ...propuesta, scheduledDate: fecha }); setManual(true); setPropuesta(null); }}>Editar encuentros y horarios</Button>
             <Button tone="ghost" onClick={() => setPropuesta(null)}>
               Descartar
             </Button>

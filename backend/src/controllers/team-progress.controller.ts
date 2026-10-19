@@ -18,7 +18,7 @@ export const teamProgress = asyncHandler(async (req: AuthRequest, res: Response)
       to_char(t.competition_start_date,'YYYY-MM-DD') AS competition_start_date
       FROM teams t JOIN categories c ON c.id=t.category_id
       WHERE t.season_id=$1 AND t.team_type='OFFICIAL' ORDER BY c.sort_order,t.name`,[seasonId]),
-    query(`SELECT id,number,to_char(scheduled_date,'YYYY-MM-DD') AS date,
+    query(`SELECT id,number,status,to_char(scheduled_date,'YYYY-MM-DD') AS date,
       scheduled_date < (NOW() AT TIME ZONE 'America/Cancun')::date AS elapsed
       FROM rounds WHERE season_id=$1 AND round_type='OFFICIAL' AND playoff_id IS NULL
       AND status IN ('PUBLISHED','IN_PROGRESS','FINISHED') ORDER BY scheduled_date,number`,[seasonId]),
@@ -29,6 +29,7 @@ export const teamProgress = asyncHandler(async (req: AuthRequest, res: Response)
     query(`SELECT b.round_id,b.team_id,b.reason FROM round_byes b
       JOIN rounds r ON r.id=b.round_id WHERE r.season_id=$1`,[seasonId]),
   ]);
+  const closedRounds = new Set(rounds.rows.filter(r=>r.status==='FINISHED').map(r=>r.id));
   const data = teams.rows.map(team => {
     const timeline = rounds.rows.map(round => {
       const matches = games.rows.filter(g=>g.round_id===round.id && [g.home_team_id,g.away_team_id].includes(team.id));
@@ -47,6 +48,7 @@ export const teamProgress = asyncHandler(async (req: AuthRequest, res: Response)
         bye_reason:bye?.reason ?? null };
     });
     const counts = Object.fromEntries(['PLAYED','WALKOVER','POSTPONED','LIVE','CANCELLED','AWAITING_RESULT','SCHEDULED','BYE','BEFORE_ENTRY','UNASSIGNED_ELAPSED','UNASSIGNED'].map(state=>[state,timeline.filter(r=>r.state===state).length]));
+    counts.BYE_CLOSED=byes.rows.filter(b=>b.team_id===team.id && closedRounds.has(b.round_id)).length;
     return {...team,counts,timeline};
   });
   res.json({success:true,data});

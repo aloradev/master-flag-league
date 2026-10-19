@@ -60,5 +60,20 @@ assert.ok(!(await invoke(updateCompetitionEntry,{...body,date:null})).error);
 a=(await invoke(teamProgress)).data.find(t=>t.id==='tp_a');
 assert.equal(a.counts.BEFORE_ENTRY,0);assert.equal(a.counts.UNASSIGNED_ELAPSED,3);
 assert.equal((await db.query("SELECT COUNT(*)::int AS n FROM audit_logs WHERE action='UPDATE_COMPETITION_ENTRY'")).rows[0].n,2);
+assert.equal(a.counts.BYE_CLOSED,0,'Una jornada publicada no cuenta como cerrada');
+await db.exec(`INSERT INTO round_byes(id,round_id,team_id,reason) VALUES
+ ('tp_bye_open','tp_r1','tp_a','ODD_TEAMS'),
+ ('tp_bye_draft','tp_r10','tp_a','MANUAL'),
+ ('tp_bye_cancelled','tp_r11','tp_a','CAPACITY'),
+ ('tp_bye_scrimmage','tp_r12','tp_a','MANUAL');
+ UPDATE rounds SET status='FINISHED' WHERE id IN ('tp_r3','tp_r12');
+ UPDATE round_byes SET reason='FIRST_LEG' WHERE id='tp_bye';`);
+a=(await invoke(teamProgress)).data.find(t=>t.id==='tp_a');
+assert.equal(a.counts.BYE_CLOSED,1,'Solo descansos registrados en jornadas oficiales cerradas');
+assert.equal((await invoke(teamProgress)).data.find(t=>t.id==='tp_b').counts.BYE_CLOSED,0,'No inventa BYE para un equipo sin descanso registrado');
+await db.exec("UPDATE rounds SET status='FINISHED' WHERE id='tp_r1'");
+assert.equal((await invoke(teamProgress)).data.find(t=>t.id==='tp_a').counts.BYE_CLOSED,2,'Actualiza el total al cerrar otra jornada');
+await db.exec("UPDATE rounds SET status='CANCELLED' WHERE id='tp_r1'");
+assert.equal((await invoke(teamProgress)).data.find(t=>t.id==='tp_a').counts.BYE_CLOSED,1,'Excluye una jornada cancelada aunque antes estuviera cerrada');
 await db.close();await pool.end();
 console.log('OK: seguimiento por jornada, estados separados, incorporación explícita, permisos, exclusiones, sin efectos en posiciones y auditoría atómica.');
