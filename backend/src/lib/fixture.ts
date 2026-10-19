@@ -38,6 +38,7 @@ export interface Historial {
 }
 
 export interface EntradaPropuesta {
+  recoveryDeficits?: Record<string, number>;
   previousGames?: PartidoPropuesto[];
   earliestTimes?: Record<string, string>;
   roundNumber: number;
@@ -53,6 +54,8 @@ export interface EntradaPropuesta {
 export type MotivoDescanso = 'ODD_TEAMS' | 'CAPACITY' | 'MANUAL';
 
 export interface PartidoPropuesto {
+  postponedGameId?: string;
+  recovery?: boolean;
   categoryId: string;
   categoryName: string;
   homeTeamId: string;
@@ -77,6 +80,7 @@ export interface DescansoPropuesto {
 }
 
 export interface Propuesta {
+  recoveries?: { teamId: string; teamName: string; pending: number; scheduled: number }[];
   manual?: boolean;
   roundNumber: number;
   scheduledDate: string;
@@ -212,7 +216,9 @@ const orientar = (
  */
 const emparejarCategoria = (
   cat: CategoriaEntrada,
-  h: Historial
+  h: Historial,
+  deficits: Record<string, number> = {},
+  spareCapacity = false
 ): { pares: [string, string][]; libres: string[]; encuentroMinimo: number } => {
   const ids = cat.teams.map((t) => t.id);
   if (ids.length < 2) return { pares: [], libres: ids, encuentroMinimo: 0 };
@@ -226,6 +232,9 @@ const emparejarCategoria = (
   if (!Number.isFinite(minimo)) minimo = 0;
 
   const peso = (a: string, b: string) =>
+    Math.min(100, (deficits[a] ?? 0) + (deficits[b] ?? 0)) * 1000 +
+    // Leave the pair of trailing teams available for an extra fixture.
+    (spareCapacity ? -1 : 1) * Math.min(deficits[a] ?? 0, deficits[b] ?? 0) * 50 +
     // Preferir a quien más ha descansado: así el descanso rota en lugar
     // de caerle siempre al mismo.
     (cuenta(h.descansos, a) + cuenta(h.descansos, b)) * 100 -
@@ -363,7 +372,8 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
       continue;
     }
 
-    const { pares, libres } = emparejarCategoria(cat, h);
+    const { pares, libres } = emparejarCategoria(cat, h, entrada.recoveryDeficits,
+      capacidad > categories.reduce((sum,c)=>sum+Math.floor(c.teams.length/2),0));
 
     for (const [a, b] of pares) {
       const { home, away } = orientar(a, b, h);
@@ -396,9 +406,31 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
   // queda fuera. Se sacan primero los equipos que MENOS han descansado,
   // porque son los que pueden permitirse la noche libre sin desbalancear.
   if (candidatos.length > capacidad) {
+    if (Object.values(entrada.recoveryDeficits ?? {}).some(n=>n>0)) {
+      // With limited capacity, choose the teams before optimizing full-night
+      // pairings; otherwise a trailing team can be split into a discarded pair.
+      const ranked = categories.filter(c=>c.teams.length<=LIMITE_EQUIPOS_POR_CATEGORIA).flatMap(cat=>
+        cat.teams.flatMap((a,i)=>cat.teams.slice(i+1).map(b=>({cat,a,b}))));
+      const deficit = (id:string)=>entrada.recoveryDeficits?.[id] ?? 0;
+      ranked.sort((x,y)=>(deficit(y.a.id)+deficit(y.b.id))-(deficit(x.a.id)+deficit(x.b.id)) ||
+        cuenta(h.vecesEnfrentados,pairKey(x.a.id,x.b.id))-cuenta(h.vecesEnfrentados,pairKey(y.a.id,y.b.id)) ||
+        (cuenta(h.descansos,y.a.id)+cuenta(h.descansos,y.b.id))-(cuenta(h.descansos,x.a.id)+cuenta(h.descansos,x.b.id)));
+      const selected = new Set<string>();
+      candidatos.length=0;
+      for (const {cat,a,b} of ranked) {
+        if (selected.has(a.id)||selected.has(b.id)) continue;
+        selected.add(a.id);selected.add(b.id);
+        const {home,away}=orientar(a.id,b.id,h);
+        candidatos.push({cat,home,away,meeting:cuenta(h.vecesEnfrentados,pairKey(home,away))+1});
+      }
+      descansos.length=0;
+      for (const [id,cat] of categoriaDe) if (!selected.has(id)) descansos.push({teamId:id,teamName:nombre.get(id)!,categoryId:cat.id,categoryName:cat.name,reason:'ODD_TEAMS',totalAfter:cuenta(h.descansos,id)+1});
+    }
     const sobran = candidatos.length - capacidad;
     const porDescansoAcumulado = [...candidatos].sort(
       (x, y) =>
+        ((entrada.recoveryDeficits?.[x.home] ?? 0) + (entrada.recoveryDeficits?.[x.away] ?? 0) -
+        (entrada.recoveryDeficits?.[y.home] ?? 0) - (entrada.recoveryDeficits?.[y.away] ?? 0)) * 10000 +
         cuenta(h.descansos, x.home) +
         cuenta(h.descansos, x.away) -
         (cuenta(h.descansos, y.home) + cuenta(h.descansos, y.away))
@@ -426,7 +458,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     );
 
     for (const c of fuera) candidatos.splice(candidatos.indexOf(c), 1);
-  } else if (candidatos.length < capacidad && candidatos.length > 0) {
+  } else if (!entrada.recoveryDeficits && candidatos.length < capacidad && candidatos.length > 0) {
     const libres = capacidad - candidatos.length;
     warnings.push(
       `Sobran ${libres} ${libres === 1 ? 'espacio' : 'espacios'} de los ${capacidad} de la noche.`
@@ -463,6 +495,40 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     warnings.push(`Sin horario compatible: ${game.homeTeamName} vs ${game.awayTeamName}. Ajusta la disponibilidad antes de guardar.`);
   }
 
+  // Fill spare slots with at most one extra match per team. Both teams must
+  // have a deficit, so recovery does not create a new lead for another team.
+  const deficits = entrada.recoveryDeficits ?? {};
+  const extra = new Map<string, number>();
+  const appearances = (id: string) => games.filter(g => g.time && [g.homeTeamId, g.awayTeamId].includes(id)).length;
+  const usedPair = (a: string, b: string) => games.some(g => pairKey(g.homeTeamId, g.awayTeamId) === pairKey(a, b));
+  const occupied = (fieldId: string, time: string) => games.some(g => g.fieldId === fieldId && g.time === time);
+  const busy = (id: string, time: string) => games.some(g => g.time === time && [g.homeTeamId, g.awayTeamId].includes(id));
+  const pairs = categories.flatMap(cat => cat.teams.flatMap((a, i) => cat.teams.slice(i + 1).map(b => ({ cat, a, b }))))
+    .filter(({a,b}) => deficits[a.id] > 0 && deficits[b.id] > 0)
+    .sort((x,y) => (deficits[y.a.id]+deficits[y.b.id])-(deficits[x.a.id]+deficits[x.b.id]) ||
+      cuenta(h.vecesEnfrentados,pairKey(x.a.id,x.b.id))-cuenta(h.vecesEnfrentados,pairKey(y.a.id,y.b.id)));
+  for (const {cat,a,b} of pairs) {
+    if ((extra.get(a.id) ?? 0) || (extra.get(b.id) ?? 0) || appearances(a.id) !== 1 || appearances(b.id) !== 1 || usedPair(a.id,b.id)) continue;
+    const slot = [...new Set(slots)].sort().flatMap(time => fields.map(field => ({time,field}))).filter(({time,field}) =>
+      (!entrada.fieldSlots?.[field.id] || entrada.fieldSlots[field.id].includes(time)) && !occupied(field.id,time) &&
+      time >= (entrada.earliestTimes?.[a.id] ?? '') && time >= (entrada.earliestTimes?.[b.id] ?? '') && !busy(a.id,time) && !busy(b.id,time))
+      .sort((x,y)=>{
+        const cost = (slot:{time:string;field:EquipoRef}) => [a.id,b.id].reduce((sum,id)=>sum+
+          (h.porHorario[id]?.[slot.time] ?? 0)**2*4+(h.porCampo[id]?.[slot.field.id] ?? 0)**2,0);
+        return cost(x)-cost(y);
+      })[0];
+    if (!slot) continue;
+    const {home,away} = orientar(a.id,b.id,h);
+    games.push({ categoryId:cat.id, categoryName:cat.name, homeTeamId:home,homeTeamName:nombre.get(home)!,
+      awayTeamId:away,awayTeamName:nombre.get(away)!,fieldId:slot.field.id,fieldName:slot.field.name,time:slot.time,
+      meeting:cuenta(h.vecesEnfrentados,pairKey(home,away))+1,recovery:true });
+    extra.set(a.id,1);extra.set(b.id,1);
+  }
+  const playing = new Set(games.filter(g=>g.time).flatMap(g=>[g.homeTeamId,g.awayTeamId]));
+  for (let i=descansos.length-1;i>=0;i--) if (playing.has(descansos[i].teamId)) descansos.splice(i,1);
+  const recoveries = [...nombre].filter(([id]) => deficits[id]>0).map(([teamId,teamName]) => ({teamId,teamName,pending:deficits[teamId],scheduled:extra.get(teamId) ?? 0}));
+  for (const r of recoveries) warnings.push(`${r.teamName}: ${r.pending} partido(s) por recuperar; ${r.scheduled} recuperación(es) propuesta(s).${r.scheduled ? '' : ' No hay rival pendiente y espacio compatible; revisa la programación manual.'}`);
+
   // Se ordena como se vive la noche: por hora y luego por campo.
   games.sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99') ||
     (a.fieldName ?? '').localeCompare(b.fieldName ?? ''));
@@ -480,6 +546,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
   }
 
   return {
+    ...(entrada.recoveryDeficits ? { recoveries } : {}),
     roundNumber: entrada.roundNumber,
     scheduledDate: entrada.scheduledDate,
     capacity: capacidad,

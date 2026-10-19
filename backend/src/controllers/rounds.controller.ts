@@ -15,6 +15,7 @@ import {
   cargarCategoriasConEquipos,
   validarFechaJornada,
   validarIncorporacionesJornada,
+  publicarRecuperaciones,
 } from '../services/competition.service.js';
 
 /**
@@ -276,6 +277,9 @@ export const publishRound = asyncHandler(async (req: AuthRequest, res: Response)
   if (!round) throw new AppError('Jornada no encontrada', 404);
   if (round.status !== 'DRAFT') throw new AppError('La jornada ya está publicada', 409);
   await validarIncorporacionesJornada(id, new Date(round.scheduled_date).toISOString().slice(0,10), query);
+  const rescheduled=await publicarRecuperaciones(id,query);
+  for (const moved of rescheduled) await audit(req,{action:'RESCHEDULE_POSTPONED_GAME',entityType:'game',entityId:moved.id,
+    oldValue:{roundId:moved.fromRoundId},newValue:{roundId:moved.toRoundId}},query);
 
   const incompletos = await query(
     `SELECT COUNT(*)::int AS n FROM games
@@ -360,7 +364,7 @@ export const cancelRound = asyncHandler(async (req: AuthRequest, res: Response) 
     // Los partidos ya jugados se conservan: cancelar la jornada por lluvia
     // no debe borrar el resultado del que sí alcanzó a jugarse.
     await query(
-      `UPDATE games SET status = 'CANCELLED', updated_at = NOW()
+      `UPDATE games SET status = 'CANCELLED', postponed_game_id = NULL, updated_at = NOW()
        WHERE round_id = $1 AND status IN ('SCHEDULED', 'LIVE')`,
       [id]
     );

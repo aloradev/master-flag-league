@@ -132,6 +132,7 @@ export default function AdminRounds() {
       }} />}
       {!manual && <Card className="space-y-3 p-4">
         <h2 className="font-semibold">Disponibilidad para esta jornada</h2>
+        <p className="text-sm text-base-content/70">La generación prioriza pospuestos y propone recuperaciones para equipos rezagados, con un máximo de dos partidos por equipo. Respeta los espacios ocupados, la disponibilidad de campos y equipos, y procura rotar los horarios ya usados.</p>
         <p className="text-sm text-base-content/70">Selecciona descansos por decisión administrativa y la hora más temprana de cada equipo. Después genera o recalcula. Los horarios finales se ajustan en “Programación y árbitros” al guardar el borrador.</p>
         {teams.isError && <Alert tone="error">No se pudieron cargar los equipos.</Alert>}
         {teams.data?.filter((t) => t.status === 'ACTIVE').map((t) => <div key={t.id} className="flex flex-wrap items-center gap-3 border-b border-base-300 py-2">
@@ -204,6 +205,8 @@ export default function AdminRounds() {
                         <span className="font-medium">{g.awayTeamName}</span>
                       </span>
                       <span className="badge badge-ghost badge-sm">{g.categoryName}</span>
+                      {g.recovery && <span className="badge badge-info badge-sm">Recuperación</span>}
+                      {g.postponedGameId && <span className="badge badge-info badge-sm">Pospuesto · reprogramación</span>}
                       {g.meeting > 1 && (
                         <span className="badge badge-warning badge-sm">
                           {g.meeting}º encuentro

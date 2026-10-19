@@ -6,13 +6,13 @@ import type { Season } from '../../lib/types';
 import { Alert, Button, Card, Field, Spinner } from '../../components/ui';
 
 type Category = { id: string; name: string; teams: { id: string; name: string }[] };
-type Match = { key: number; category: string; home: string; away: string; field: string; time: string };
+type Match = { key: number; category: string; home: string; away: string; field: string; time: string; postponedGameId?: string };
 
 export default function ManualRound({ season, onSaved, onCancel, initialProposal }: {
   initialProposal?: Proposal; season: Season; onSaved: () => void; onCancel: () => void;
 }) {
   const [date, setDate] = useState(initialProposal?.scheduledDate ?? season.start_date.slice(0, 10));
-  const [matches, setMatches] = useState<Match[]>(() => initialProposal?.games.map((g, key) => ({ key, category: g.categoryId, home: g.homeTeamId, away: g.awayTeamId, field: g.fieldId ?? '', time: g.time ?? '' })) ?? []);
+  const [matches, setMatches] = useState<Match[]>(() => initialProposal?.games.map((g, key) => ({ key, category: g.categoryId, home: g.homeTeamId, away: g.awayTeamId, field: g.fieldId ?? '', time: g.time ?? '', postponedGameId:g.postponedGameId })) ?? []);
   const [rests, setRests] = useState<string[]>(initialProposal?.byes.map(b => b.teamId) ?? []);
   const [nextKey, setNextKey] = useState(initialProposal?.games.length ?? 0);
   const options = useQuery({ queryKey: ['manual-round-options', season.id],
@@ -29,7 +29,7 @@ export default function ManualRound({ season, onSaved, onCancel, initialProposal
       const proposal: Proposal = {
         manual: true,
         seasonId: season.id, scheduledDate: date, roundNumber: 0, capacity: matches.length, warnings: [],
-        games: matches.map(m => ({ categoryId: m.category, categoryName: categories.find(c => c.id === m.category)!.name,
+        games: matches.map(m => ({ postponedGameId:m.postponedGameId, categoryId: m.category, categoryName: categories.find(c => c.id === m.category)!.name,
           homeTeamId: m.home, homeTeamName: teams.find(t => t.id === m.home)!.name,
           awayTeamId: m.away, awayTeamName: teams.find(t => t.id === m.away)!.name,
           fieldId: m.field, fieldName: season.fields.find(f => f.id === m.field)!.name, time: m.time, meeting: 1 })),
@@ -53,11 +53,12 @@ export default function ManualRound({ season, onSaved, onCancel, initialProposal
       <Field label="Fecha" required><input required type="date" className="input input-bordered" value={date} min={season.start_date.slice(0, 10)} onChange={e => setDate(e.target.value)} /></Field>
       {matches.map((m, index) => <section key={m.key} className="space-y-3 rounded-field border border-base-300 p-3">
         <div className="flex items-center justify-between"><h3 className="font-semibold">Partido {index + 1}</h3><Button size="xs" tone="ghost" onClick={() => setMatches(rows => rows.filter(row => row.key !== m.key))}>Quitar partido {index + 1}</Button></div>
-        <Field label="Categoría"><select className="select select-bordered w-full" value={m.category} onChange={e => update(m.key, { category: e.target.value, home: '', away: '' })}>
+        {m.postponedGameId && <p className="text-sm text-info">Reprogramación de un partido pospuesto. Conserva sus equipos; puedes ajustar campo y horario o quitarlo de la propuesta.</p>}
+        <Field label="Categoría"><select disabled={Boolean(m.postponedGameId)} className="select select-bordered w-full" value={m.category} onChange={e => update(m.key, { category: e.target.value, home: '', away: '' })}>
           <option value="">Selecciona categoría</option>{categories.filter(c => c.teams.length >= 2).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select></Field>
         <div className="grid gap-3 sm:grid-cols-2">{(['home', 'away'] as const).map(side => <Field key={side} label={side === 'home' ? 'Equipo local' : 'Equipo visitante'}>
-          <select className="select select-bordered w-full" value={m[side]} onChange={e => update(m.key, { [side]: e.target.value })}>
+          <select disabled={Boolean(m.postponedGameId)} className="select select-bordered w-full" value={m[side]} onChange={e => update(m.key, { [side]: e.target.value })}>
             <option value="">Selecciona equipo</option>{categories.find(c => c.id === m.category)?.teams.map(t => <option key={t.id} value={t.id}>{t.name} — {appearances[t.id] ?? 0} {(appearances[t.id] ?? 0) === 1 ? 'partido' : 'partidos'}</option>)}
           </select></Field>)}</div>
         <div className="grid gap-3 sm:grid-cols-2">

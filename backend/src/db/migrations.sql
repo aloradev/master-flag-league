@@ -724,3 +724,7 @@ CREATE TABLE IF NOT EXISTS game_reports (
  revision INTEGER NOT NULL DEFAULT 0,
  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- A draft reserves a postponed fixture; publication moves the original match.
+ALTER TABLE games ADD COLUMN IF NOT EXISTS postponed_game_id VARCHAR(36) REFERENCES games(id);
+CREATE UNIQUE INDEX IF NOT EXISTS unique_postponed_reservation ON games(postponed_game_id) WHERE postponed_game_id IS NOT NULL;
