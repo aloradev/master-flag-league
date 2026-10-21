@@ -234,6 +234,7 @@ router.get('/finance/balance', loadManagedTeams, finance.getBalance);
 const soloFinanzas = requireRole(ROLES.SUPER_ADMIN, ROLES.FINANCE_ADMIN);
 router.put('/finance/settings', soloFinanzas, finance.updateFinanceSettings);
 router.post('/finance/fees', soloFinanzas, finance.createFee);
+router.put('/finance/fees/:id', soloFinanzas, finance.updateFee);
 router.post('/finance/fees/:id/cancel', soloFinanzas, finance.cancelFee);
 // El borrado en bloque es POST y el individual DELETE, así que no se
 // pisan aunque compartan el prefijo: no hay ningún POST '/finance/fees/:id'

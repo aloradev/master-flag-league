@@ -163,6 +163,7 @@ export const finance = {
   createFee: (datos: {
     teamId: string; concept: string; description?: string; amount: string; dueDate: string;
   }) => api.post<Cargo>('/finance/fees', datos),
+  updateFee: (id: string, datos: { concept: string; description: string; amount: string; dueDate: string }) => api.put<Cargo>(`/finance/fees/${id}`, datos),
   cancelFee: (id: string, reason: string) =>
     api.post<{ id: string }>(`/finance/fees/${id}/cancel`, { reason }),
   deleteFee: (id: string) =>

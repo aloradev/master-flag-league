@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import { query } from '../config/database.js';
+import { query, withTransaction } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
@@ -250,6 +250,35 @@ export const createFee = asyncHandler(async (req: AuthRequest, res: Response) =>
  * Se cancela, no se borra, y solo si no tiene pagos: un cargo con dinero
  * aplicado que desaparece deja el pago huérfano y la cuenta sin cuadrar.
  */
+export const updateFee = asyncHandler(async (req: AuthRequest, res: Response) => {
+  exigirEscritura(req);
+  const { concept, description, amount, dueDate } = req.body ?? {};
+  if (!Object.prototype.hasOwnProperty.call(CONCEPTOS, concept)) throw new AppError('Concepto inválido', 400);
+  if (typeof description !== 'string' || description.length > 500) throw new AppError('Descripción inválida (máximo 500 caracteres)', 400);
+  if (typeof dueDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || !Number.isFinite(Date.parse(dueDate)) || new Date(dueDate).toISOString().slice(0, 10) !== dueDate) throw new AppError('Vencimiento inválido', 400);
+  const amountCents = aCentavos(amount);
+  let anterior;
+  try {
+    anterior = await withTransaction(async (q) => {
+      await q('LOCK TABLE payments IN SHARE ROW EXCLUSIVE MODE');
+      const r = await q('SELECT * FROM fees WHERE id = $1 FOR UPDATE', [req.params.id]);
+      const cargo = r.rows[0];
+      if (!cargo) throw new AppError('Cargo no encontrado', 404);
+      if (cargo.cancelled_at) throw new AppError('El cargo está cancelado', 409);
+      if (cargo.round_id && concept !== cargo.concept) throw new AppError('Un cargo de jornada debe conservar su concepto', 400);
+      const pagos = await q('SELECT COALESCE(SUM(amount_cents), 0)::int AS paid FROM payments WHERE fee_id = $1 AND voided_at IS NULL', [req.params.id]);
+      if (amountCents < pagos.rows[0].paid) throw new AppError('El monto no puede ser menor que lo ya pagado', 409);
+      await q('UPDATE fees SET concept = $2, description = $3, amount_cents = $4, due_date = $5 WHERE id = $1', [req.params.id, concept, description.trim() || null, amountCents, dueDate]);
+      return cargo;
+    });
+  } catch (e) {
+    if ((e as { code?: string }).code === '23505') throw new AppError('Ya existe un cargo vigente de ese concepto para el equipo', 409);
+    throw e;
+  }
+  await audit(req, { action: 'UPDATE_FEE', entityType: 'fee', entityId: String(req.params.id), oldValue: anterior, newValue: { concept, description, amount_cents: amountCents, due_date: dueDate } });
+  res.json({ success: true, data: (await cargosConSaldo({ teamId: anterior.team_id })).find(f => f.id === req.params.id) });
+});
+
 export const cancelFee = asyncHandler(async (req: AuthRequest, res: Response) => {
   exigirEscritura(req);
   const { id } = req.params;
@@ -331,7 +360,7 @@ export const deleteFee = asyncHandler(async (req: AuthRequest, res: Response) =>
     throw new AppError(
       cargo.pagado > 0
         ? `Este cargo tiene $${(cargo.pagado / 100).toFixed(2)} pagados. ` +
-          `Anula primero los pagos, o cancélalo si quieres dejar el registro.`
+          `Anula primero los pagos y luego cancela el cargo para conservar su historial.`
         : 'Este cargo tiene pagos anulados en su historial. ' +
           'Cancélalo en lugar de borrarlo, para no perder ese rastro.',
       409

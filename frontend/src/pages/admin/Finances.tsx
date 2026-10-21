@@ -1,3 +1,4 @@
+import { Dialog } from '../../components/Dialog';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
@@ -38,6 +39,7 @@ export default function AdminFinances() {
   const [cobrando, setCobrando] = useState<Cargo | null>(null);
   const [nuevoGasto, setNuevoGasto] = useState(false);
   const [expandido, setExpandido] = useState<string | null>(null);
+  const [editando, setEditando] = useState<Cargo | null>(null);
   const [ajustando, setAjustando] = useState(false);
 
   const season = useQuery({
@@ -48,7 +50,7 @@ export default function AdminFinances() {
   const seasonId = season.data?.id;
 
   const invalidar = () => {
-    for (const k of ['fin-accounts', 'fin-balance', 'fin-fees', 'fin-expenses']) {
+    for (const k of ['fin-accounts', 'fin-balance', 'fin-fees', 'fin-expenses', 'fin-statement', 'fin-payments']) {
       void qc.invalidateQueries({ queryKey: [k] });
     }
   };
@@ -357,6 +359,7 @@ export default function AdminFinances() {
           <button
             key={id}
             role="tab"
+            aria-selected={pestana === id}
             type="button"
             onClick={() => setPestana(id)}
             className={`tab ${pestana === id ? 'tab-active' : ''}`}
@@ -382,14 +385,15 @@ export default function AdminFinances() {
           cargos={cargos.data ?? []}
           cargando={cargos.isLoading}
           puedeEscribir={puedeEscribir}
+          onEditar={setEditando}
           borrando={borrarUno.isPending ? (borrarUno.variables as string) : null}
           onCobrar={(c) => { setCobrando(c); setError(null); setAviso(null); }}
           onEliminar={(c) => {
             if (
               window.confirm(
                 `Eliminar «${c.description || c.concept_label}» de ${c.team_name} ` +
-                  `(${pesos(c.amount_cents)}).\n\nDesaparece de la lista como si nunca ` +
-                  `hubiera existido. Si el equipo ya lo vio y quieres dejar el registro, ` +
+                  `(${pesos(c.amount_cents)}).\n\nSe quitará de la lista de cargos. ` +
+                  `La auditoría conserva la eliminación. Para mantenerlo visible, ` +
                   `usa Cancelar en su lugar.`
               )
             ) {
@@ -431,6 +435,8 @@ export default function AdminFinances() {
         />
       )}
 
+      {editando && <EditorCargo cargo={editando} onCerrar={() => setEditando(null)} onListo={() => { setEditando(null); setError(null); setAviso('Cargo actualizado.'); invalidar(); }} />}
+      {[catalogo, balance, cuentas, cargos, gastos].some(q => q.isError) && <Alert tone="error">No se pudieron cargar todos los datos financieros. <button className="link" onClick={() => { invalidar(); void catalogo.refetch(); }}>Reintentar</button></Alert>}
       {cobrando && (
         <HojaCobro
           cargo={cobrando}
@@ -674,6 +680,7 @@ const ListaCargos = ({
   onCobrar,
   onCancelar,
   onEliminar,
+  onEditar,
 }: {
   cargos: Cargo[];
   cargando: boolean;
@@ -682,7 +689,11 @@ const ListaCargos = ({
   onCobrar: (c: Cargo) => void;
   onCancelar: (c: Cargo) => void;
   onEliminar: (c: Cargo) => void;
+  onEditar: (c: Cargo) => void;
 }) => {
+  const [buscar, setBuscar] = useState('');
+  const [estado, setEstado] = useState('');
+  const visibles = cargos.filter(f => (!estado || f.status === estado) && (f.team_name + ' ' + (f.description || f.concept_label)).toLocaleLowerCase('es').includes(buscar.trim().toLocaleLowerCase('es')));
   if (cargando) return <Spinner />;
   if (cargos.length === 0) {
     return (
@@ -694,7 +705,14 @@ const ListaCargos = ({
   }
 
   return (
-    <Card className="overflow-x-auto">
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-3">
+        <label className="min-w-48 flex-1"><span className="block text-xs font-semibold">Buscar equipo o concepto</span><input className="input w-full" value={buscar} onChange={e => setBuscar(e.target.value)} /></label>
+        <label><span className="block text-xs font-semibold">Estado</span><select className="select" value={estado} onChange={e => setEstado(e.target.value)}><option value="">Todos</option>{Object.entries(ETIQUETA_CARGO).map(([id, e]) => <option key={id} value={id}>{e.texto}</option>)}</select></label>
+      </div>
+      <p className="text-xs text-base-content/70" role="status">{visibles.length} de {cargos.length} cargos · Saldo: {pesos(visibles.reduce((n, f) => n + f.balance_cents, 0))}</p>
+      {visibles.length === 0 && <EmptyState title="Sin coincidencias" description="Prueba otro equipo o estado." />}
+      <Card className="overflow-x-auto">
       <table className="table table-sm">
         <thead>
           <tr className="text-[11px] uppercase">
@@ -705,11 +723,11 @@ const ListaCargos = ({
             <th className="text-right">Pagado</th>
             <th className="text-right">Saldo</th>
             <th className="text-center">Estado</th>
-            {puedeEscribir && <th />}
+            {puedeEscribir && <th>Acciones</th>}
           </tr>
         </thead>
         <tbody>
-          {cargos.map((f) => {
+          {visibles.map((f) => {
             const e = ETIQUETA_CARGO[f.status];
             return (
               <tr key={f.id} className={f.status === 'CANCELLED' ? 'opacity-45' : undefined}>
@@ -732,12 +750,13 @@ const ListaCargos = ({
                   <span className={`badge badge-xs ${e.tono}`}>{e.texto}</span>
                 </td>
                 {puedeEscribir && (
-                  <td className="whitespace-nowrap text-right">
+                  <td className="min-w-44 text-right">
                     {f.balance_cents > 0 && (
                       <Button size="xs" tone="primary" onClick={() => onCobrar(f)}>
                         Cobrar
                       </Button>
                     )}
+                    {f.status !== 'CANCELLED' && <Button size="xs" tone="ghost" className="min-h-11" onClick={() => onEditar(f)}>Editar</Button>}
                     {/* Dos acciones distintas a propósito:
                         · CANCELAR deja el registro visible como cancelado,
                           para el cargo que el equipo ya vio.
@@ -767,6 +786,7 @@ const ListaCargos = ({
         </tbody>
       </table>
     </Card>
+    </div>
   );
 };
 
@@ -1322,41 +1342,24 @@ const HojaGasto = ({
   );
 };
 
-const HojaInferior = ({
-  titulo,
-  children,
-  onCerrar,
-}: {
-  titulo: string;
-  children: React.ReactNode;
-  onCerrar: () => void;
-}) => (
-  <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-    {/* El fondo cierra al tocarlo, pero se oculta del árbol de
-        accesibilidad: si se anuncia como un botón "Cerrar", quien usa
-        lector de pantalla oye dos controles con el mismo nombre y el
-        primero es invisible. El botón visible de la cabecera ya cubre
-        teclado y lectores. */}
-    <div
-      aria-hidden="true"
-      onClick={onCerrar}
-      className="mfl-fondo absolute inset-0 bg-black/60"
-    />
-    <div
-      role="dialog"
-      aria-label={titulo}
-      className="mfl-hoja relative max-h-[85vh] w-full max-w-lg space-y-3
-                 overflow-y-auto rounded-t-box border-t border-base-300 bg-base-200
-                 p-4 shadow-2xl sm:rounded-box sm:border"
-    >
-      <div className="sticky -top-4 -mx-4 -mt-4 mb-1 flex items-center justify-between
-                      border-b border-base-300/60 bg-base-200 px-4 py-3">
-        <h2 className="text-sm font-bold">{titulo}</h2>
-        <Button size="sm" tone="ghost" className="min-h-11 px-3" onClick={onCerrar}>
-          Cerrar
-        </Button>
-      </div>
-      {children}
-    </div>
-  </div>
-);
+const EditorCargo = ({ cargo, onCerrar, onListo }: { cargo: Cargo; onCerrar: () => void; onListo: () => void }) => {
+  const [concept, setConcept] = useState(cargo.concept);
+  const [description, setDescription] = useState(cargo.description ?? '');
+  const [amount, setAmount] = useState((cargo.amount_cents / 100).toFixed(2));
+  const [dueDate, setDueDate] = useState(cargo.due_date.slice(0, 10));
+  const guardar = useMutation({ mutationFn: () => finance.updateFee(cargo.id, { concept, description, amount, dueDate }), onSuccess: onListo });
+  return <Dialog title="Editar cargo" onClose={() => { if (!guardar.isPending) onCerrar(); }}>
+    <p className="font-semibold">{cargo.team_name}</p>
+    <p className="text-sm text-base-content/70">Pagado: {pesos(cargo.paid_cents)}. El monto total debe cubrir los abonos registrados. Este cambio aplica únicamente a este cargo.</p>
+    <form className="space-y-3" onSubmit={e => { e.preventDefault(); guardar.mutate(); }}>
+      <label className="block"><span className="block text-xs font-semibold">Concepto</span><select className="select w-full" disabled={!!cargo.round_id || guardar.isPending} value={concept} onChange={e => setConcept(e.target.value as Cargo['concept'])}>{Object.entries({ INSCRIPTION: 'Inscripción', ROUND: 'Arbitraje por partido', FINE: 'Multa', OTHER: 'Otro' }).map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}</select></label>
+      <label className="block"><span className="block text-xs font-semibold">Descripción</span><input className="input w-full" maxLength={500} value={description} onChange={e => setDescription(e.target.value)} /></label>
+      <label className="block"><span className="block text-xs font-semibold">Monto total (MXN)</span><input className="input w-full" required type="number" step="0.01" min={Math.max(0.01, cargo.paid_cents / 100)} max="20000000" value={amount} onChange={e => setAmount(e.target.value)} /></label>
+      <label className="block"><span className="block text-xs font-semibold">Vencimiento</span><input className="input w-full" required type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} /></label>
+      {guardar.error && <Alert tone="error">{guardar.error.message}</Alert>}
+      <Button type="submit" tone="primary" block loading={guardar.isPending}>Guardar cambios</Button>
+    </form>
+  </Dialog>;
+};
+
+const HojaInferior = ({ titulo, children, onCerrar }: { titulo: string; children: React.ReactNode; onCerrar: () => void }) => <Dialog title={titulo} onClose={onCerrar}>{children}</Dialog>;
