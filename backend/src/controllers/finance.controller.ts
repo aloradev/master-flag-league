@@ -776,7 +776,7 @@ export const getTeamStatement = asyncHandler(async (req: AuthRequest, res: Respo
     estadosDeCuenta(equipo.season_id, [teamId]),
     query(
       `SELECT p.id, p.fee_id, p.amount_cents, to_char(p.paid_on, 'YYYY-MM-DD') AS paid_on,
-              p.method, p.reference, p.voided_at, u.name AS recorded_by_name
+              p.method, p.reference, p.voided_at, p.void_reason, u.name AS recorded_by_name
        FROM payments p LEFT JOIN users u ON u.id = p.recorded_by
        WHERE p.team_id = $1 ORDER BY p.paid_on DESC, p.created_at DESC`,
       [teamId]

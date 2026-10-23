@@ -435,7 +435,7 @@ export default function AdminFinances() {
         />
       )}
 
-      {editando && <EditorCargo cargo={editando} onCerrar={() => setEditando(null)} onListo={() => { setEditando(null); setError(null); setAviso('Cargo actualizado.'); invalidar(); }} />}
+      {editando && <EditorCargo cargo={editando} onCobrar={(cargo) => { setEditando(null); setCobrando(cargo); }} onCerrar={() => setEditando(null)} onListo={() => { setEditando(null); setError(null); setAviso('Cargo actualizado.'); invalidar(); }} />}
       {[catalogo, balance, cuentas, cargos, gastos].some(q => q.isError) && <Alert tone="error">No se pudieron cargar todos los datos financieros. <button className="link" onClick={() => { invalidar(); void catalogo.refetch(); }}>Reintentar</button></Alert>}
       {cobrando && (
         <HojaCobro
@@ -657,10 +657,12 @@ const DetalleEquipo = ({
                   {pesos(p.amount_cents)}
                 </span>
                 <span className={p.voided_at ? 'line-through' : ''}>
+                  <span className="block font-medium">{d.fees.find(f => f.id === p.fee_id)?.description || d.fees.find(f => f.id === p.fee_id)?.concept_label || 'Pago'}{d.fees.find(f => f.id === p.fee_id)?.round_number ? ' · Jornada ' + d.fees.find(f => f.id === p.fee_id)?.round_number : ''}</span>
                   {fechaCorta(p.paid_on)} · {p.method_label}
                   {p.reference ? ` · ${p.reference}` : ''}
                 </span>
-                {p.voided_at && <span className="badge badge-ghost badge-xs">Anulado</span>}
+                {p.voided_at ? <span className="badge badge-ghost badge-xs">Anulado</span> : puedeEscribir && <AnularPago pago={p} />}
+                {p.voided_at && p.void_reason && <span>{p.void_reason}</span>}
               </li>
             ))}
           </ul>
@@ -1342,7 +1344,10 @@ const HojaGasto = ({
   );
 };
 
-const EditorCargo = ({ cargo, onCerrar, onListo }: { cargo: Cargo; onCerrar: () => void; onListo: () => void }) => {
+const EditorCargo = ({ cargo, onCobrar, onCerrar, onListo }: { cargo: Cargo; onCobrar: (cargo: Cargo) => void; onCerrar: () => void; onListo: () => void }) => {
+  const cuenta = useQuery({ queryKey: ['fin-statement', cargo.team_id], queryFn: () => finance.statement(cargo.team_id) });
+  const actual = cuenta.data?.fees.find(f => f.id === cargo.id) ?? cargo;
+  const pagos = cuenta.data?.payments.filter(p => p.fee_id === cargo.id && !p.voided_at) ?? [];
   const [concept, setConcept] = useState(cargo.concept);
   const [description, setDescription] = useState(cargo.description ?? '');
   const [amount, setAmount] = useState((cargo.amount_cents / 100).toFixed(2));
@@ -1350,16 +1355,50 @@ const EditorCargo = ({ cargo, onCerrar, onListo }: { cargo: Cargo; onCerrar: () 
   const guardar = useMutation({ mutationFn: () => finance.updateFee(cargo.id, { concept, description, amount, dueDate }), onSuccess: onListo });
   return <Dialog title="Editar cargo" onClose={() => { if (!guardar.isPending) onCerrar(); }}>
     <p className="font-semibold">{cargo.team_name}</p>
-    <p className="text-sm text-base-content/70">Pagado: {pesos(cargo.paid_cents)}. El monto total debe cubrir los abonos registrados. Este cambio aplica únicamente a este cargo.</p>
-    <form className="space-y-3" onSubmit={e => { e.preventDefault(); guardar.mutate(); }}>
+    <p className="text-sm text-base-content/70">Este formulario cambia el costo total del cargo de inscripción, arbitraje u otro concepto, no el dinero recibido.</p>
+    <p className="text-sm">Total: {pesos(actual.amount_cents)} · Pagado: {pesos(actual.paid_cents)} · Saldo: {pesos(actual.balance_cents)}</p>
+    {actual.balance_cents > 0 && <Button type="button" tone="primary" outline onClick={() => onCobrar(actual)}>Registrar abono</Button>}
+    {pagos.length > 0 && <section className="space-y-2 rounded-box border border-base-300 p-3">
+      <h3 className="text-sm font-semibold">Corregir un pago registrado</h3>
+      <p className="text-xs text-base-content/70">Si capturaste $1,000 y recibiste $300, anula el pago de $1,000 y registra un abono de $300. El costo total del cargo se conserva.</p>
+      {pagos.map(p => <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 text-sm"><span>{pesos(p.amount_cents)} · {fechaCorta(p.paid_on)} · {p.method_label}</span><AnularPago pago={p} /></div>)}
+    </section>}
+    {cuenta.error && <Alert tone="error">No se pudieron consultar los pagos. <button className="link" onClick={() => void cuenta.refetch()}>Reintentar</button></Alert>}
+    <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (Math.round(Number(amount) * 100) >= actual.paid_cents) guardar.mutate(); }}>
       <label className="block"><span className="block text-xs font-semibold">Concepto</span><select className="select w-full" disabled={!!cargo.round_id || guardar.isPending} value={concept} onChange={e => setConcept(e.target.value as Cargo['concept'])}>{Object.entries({ INSCRIPTION: 'Inscripción', ROUND: 'Arbitraje por partido', FINE: 'Multa', OTHER: 'Otro' }).map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}</select></label>
       <label className="block"><span className="block text-xs font-semibold">Descripción</span><input className="input w-full" maxLength={500} value={description} onChange={e => setDescription(e.target.value)} /></label>
-      <label className="block"><span className="block text-xs font-semibold">Monto total (MXN)</span><input className="input w-full" required type="number" step="0.01" min={Math.max(0.01, cargo.paid_cents / 100)} max="20000000" value={amount} onChange={e => setAmount(e.target.value)} /></label>
+      <label className="block"><span className="block text-xs font-semibold">Monto total (MXN)</span><input className="input w-full" required type="number" step="0.01" min="0.01" max="20000000" value={amount} onChange={e => setAmount(e.target.value)} /></label>
       <label className="block"><span className="block text-xs font-semibold">Vencimiento</span><input className="input w-full" required type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} /></label>
+      {Math.round(Number(amount) * 100) < actual.paid_cents && <Alert tone="error">El costo total no puede ser menor que los {pesos(actual.paid_cents)} registrados como pagados. Si el pago es incorrecto, anúlalo arriba y registra la cantidad recibida.</Alert>}
       {guardar.error && <Alert tone="error">{guardar.error.message}</Alert>}
-      <Button type="submit" tone="primary" block loading={guardar.isPending}>Guardar cambios</Button>
+      <Button type="submit" tone="primary" block disabled={Math.round(Number(amount) * 100) < actual.paid_cents} loading={guardar.isPending}>Guardar cambios</Button>
     </form>
   </Dialog>;
 };
 
 const HojaInferior = ({ titulo, children, onCerrar }: { titulo: string; children: React.ReactNode; onCerrar: () => void }) => <Dialog title={titulo} onClose={onCerrar}>{children}</Dialog>;
+
+const AnularPago = ({ pago }: { pago: import('../../lib/finance').Pago }) => {
+  const qc = useQueryClient();
+  const [abierto, setAbierto] = useState(false);
+  const [motivo, setMotivo] = useState('');
+  const anular = useMutation({
+    mutationFn: () => finance.voidPayment(pago.id, motivo.trim()),
+    onSuccess: () => {
+      setAbierto(false); setMotivo('');
+      for (const k of ['fin-statement', 'fin-fees', 'fin-accounts', 'fin-balance', 'fin-payments']) void qc.invalidateQueries({ queryKey: [k] });
+    },
+  });
+  return <>
+    <Button type="button" size="sm" tone="error" outline onClick={() => { anular.reset(); setAbierto(true); }}>Anular pago</Button>
+    {abierto && <Dialog title="Anular pago incorrecto" onClose={() => { if (!anular.isPending) setAbierto(false); }}>
+      <p className="text-sm">Se anulará el pago de <strong>{pesos(pago.amount_cents)}</strong> del {fechaCorta(pago.paid_on)}. El saldo del cargo aumentará por esa cantidad y el movimiento quedará en el historial.</p>
+      <p className="text-sm">Después podrás registrar el abono correcto desde «Cobrar» o «Registrar abono».</p>
+      <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (motivo.trim()) anular.mutate(); }}>
+        <label className="block"><span className="block text-xs font-semibold">Motivo de la corrección</span><input className="input w-full" required maxLength={500} value={motivo} placeholder="Registré 1,000; recibí 300" onChange={e => setMotivo(e.target.value)} /></label>
+        {anular.error && <Alert tone="error">{anular.error.message}</Alert>}
+        <Button type="submit" tone="error" block loading={anular.isPending} disabled={!motivo.trim()}>Confirmar anulación</Button>
+      </form>
+    </Dialog>}
+  </>;
+};
