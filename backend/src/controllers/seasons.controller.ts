@@ -308,6 +308,7 @@ export const updateSetting = asyncHandler(async (req: AuthRequest, res: Response
       if (!fields.rows.some(f => f.id === id) || !validSlots(slots) || !(slots as string[]).every(t => value.slots.includes(t))) throw new AppError('Campo u horarios inválidos para esta temporada', 400);
     }
   }
+  if (key === 'competition' && value?.round_robin_legs !== undefined && ![1, 2].includes(value.round_robin_legs)) throw new AppError('Selecciona una o dos vueltas', 400);
   if (key === 'competition' && value?.playoff_count !== undefined && ![3,4,6,8,10,12].includes(value.playoff_count)) throw new AppError('Cantidad de clasificados inválida', 400);
   if (key === 'competition' && (!Number.isInteger(value?.rounds_planned) || value.rounds_planned < 1 || value.rounds_planned > 104)) {
     throw new AppError('Indica entre 1 y 104 jornadas previstas', 400);

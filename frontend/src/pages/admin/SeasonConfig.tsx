@@ -55,15 +55,17 @@ export default function SeasonConfig() {
   const [newCategory, setNewCategory] = useState('');
   const [newField, setNewField] = useState('');
   const [plannedRounds, setPlannedRounds] = useState(10);
+  const [legs, setLegs] = useState(1);
   const [playoffCount, setPlayoffCount] = useState(4);
   useEffect(() => {
-    const competition = settings.data?.competition as { rounds_planned?: number; playoff_count?: number } | undefined;
+    const competition = settings.data?.competition as { rounds_planned?: number; playoff_count?: number; round_robin_legs?: number } | undefined;
+    setLegs(competition?.round_robin_legs ?? 1);
     setPlayoffCount(competition?.playoff_count ?? 4);
     if (competition?.rounds_planned) setPlannedRounds(competition.rounds_planned);
   }, [settings.data]);
   const saveCalendar = useMutation({
     mutationFn: () => api.put(`/admin/seasons/${seasonId}/settings/competition`, {
-      value: { ...(settings.data?.competition as Record<string, unknown> ?? {}), rounds_planned: plannedRounds, playoff_count: playoffCount },
+      value: { ...(settings.data?.competition as Record<string, unknown> ?? {}), round_robin_legs: legs, rounds_planned: plannedRounds, playoff_count: playoffCount },
     }),
     onSuccess: () => { setMessage({ tone: 'success', text: 'Calendario actualizado' }); refresh(); },
     onError: (err) => fail(err, 'No se pudo actualizar el calendario'),
@@ -220,6 +222,11 @@ export default function SeasonConfig() {
         <Field label="Jornadas de fase regular" hint="Una jornada semanal. No incluye playoffs; una reprogramación posterior actualiza la estimación.">
           <input type="number" min={1} max={104} className="input w-full" value={plannedRounds}
             onChange={(e) => setPlannedRounds(Number(e.target.value))} disabled={!isSuperAdmin} />
+        </Field>
+        <Field label="Vueltas de la competición" hint="Cada par de equipos se enfrenta una o dos veces en fase regular. Se aplica a las nuevas jornadas.">
+          <select className="select w-full" value={legs} disabled={!isSuperAdmin} onChange={e => setLegs(Number(e.target.value))}>
+            <option value={1}>Una vuelta</option><option value={2}>Dos vueltas</option>
+          </select>
         </Field>
         <Field label="Clasificados a playoffs por categoría" hint="Con 3: el primer lugar pasa a la final; segundo y tercero juegan la semifinal. No modifica playoffs ya creados.">
           <select className="select w-full" value={playoffCount} disabled={!isSuperAdmin} onChange={e => setPlayoffCount(Number(e.target.value))}>

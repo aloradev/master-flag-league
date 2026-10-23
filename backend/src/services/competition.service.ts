@@ -53,6 +53,7 @@ export const esJugadaValida = (tipo: string): boolean =>
 // ─────────────────────────── REGLAS DE LA LIGA ────────────────────────────
 
 export interface ReglasCompetencia {
+  round_robin_legs: 1 | 2;
   points_win: number;
   points_draw: number;
   points_loss: number;
@@ -62,6 +63,7 @@ export interface ReglasCompetencia {
 }
 
 const REGLAS_POR_OMISION: ReglasCompetencia = {
+  round_robin_legs: 1,
   points_win: 3,
   points_draw: 1,
   points_loss: 0,
@@ -423,7 +425,9 @@ export const construirPropuesta = async (
     clubReservations.push(...[home.id,away.id].map(id=>({...seasonClubs.get(id)!,time:slot.time})));
     fieldSlots[slot.field.id]=fieldSlots[slot.field.id].filter((time:string)=>time!==slot.time);
   }
+  const reglas = await cargarReglas(seasonId);
   const propuesta = proponerJornada({
+    roundRobinLegs: reglas.round_robin_legs,
     clubReservations,
     firstLegPendingCategoryIds: categorias.filter(c=>c.teams.some((a,i)=>c.teams.slice(i+1).some(b=>
       !historial.vecesEnfrentados[pairKey(a.id,b.id)]))).map(c=>c.id),
@@ -532,6 +536,23 @@ export const guardarPropuesta = async (
       used.add(id);
       appearances.set(id,(appearances.get(id) ?? 0)+1);
     };
+    const reglas = await cargarReglas(propuesta.seasonId, query);
+    const meetings = await query(`SELECT g.home_team_id, g.away_team_id FROM games g JOIN rounds r ON r.id=g.round_id
+      WHERE g.season_id=$1 AND g.status<>'CANCELLED' AND r.status<>'CANCELLED'
+      AND g.game_type='OFFICIAL' AND r.round_type='OFFICIAL' AND r.playoff_id IS NULL
+      AND g.postponed_game_id IS NULL`, [propuesta.seasonId]);
+    const pairCounts = new Map<string, number>();
+    for (const game of meetings.rows) {
+      const key = pairKey(game.home_team_id, game.away_team_id);
+      pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
+    }
+    for (const game of propuesta.games) {
+      if (game.postponedGameId) continue;
+      const key = pairKey(game.homeTeamId, game.awayTeamId);
+      const count = (pairCounts.get(key) ?? 0) + 1;
+      if (count > reglas.round_robin_legs) throw new AppError('Este enfrentamiento supera las vueltas configuradas. Recalcula la propuesta.', 409);
+      pairCounts.set(key, count);
+    }
     // Normal fixtures first, regardless of their display order by time.
     for (const g of [...propuesta.games].sort((a,b)=>Number(Boolean(a.recovery))-Number(Boolean(b.recovery)))) {
       if (g.postponedGameId) {

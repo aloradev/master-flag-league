@@ -40,6 +40,7 @@ export interface Historial {
 }
 
 export interface EntradaPropuesta {
+  roundRobinLegs?: 1 | 2;
   clubReservations?: ClubReservation[];
   firstLegPendingCategoryIds?: string[];
   recoveryDeficits?: Record<string, number>;
@@ -239,7 +240,8 @@ const emparejarCategoria = (
   deficits: Record<string, number> = {},
   spareCapacity = false,
   firstLegPending = false,
-  capacity = Infinity
+  capacity = Infinity,
+  maxMeetings = Infinity
 ): { pares: [string, string][]; libres: string[]; encuentroMinimo: number } => {
   const ids = cat.teams.map((t) => t.id);
   if (ids.length < 2) return { pares: [], libres: ids, encuentroMinimo: 0 };
@@ -274,7 +276,7 @@ const emparejarCategoria = (
   for (let techo = minimo; techo <= minimo + ids.length; techo++) {
     const { pares, libres } = emparejar(
       ids,
-      (a, b) => vistos(a, b) <= techo,
+      (a, b) => vistos(a, b) <= techo && vistos(a, b) < maxMeetings,
       peso
     );
     if (pares.length === maximoPosible || techo === minimo + ids.length) {
@@ -407,7 +409,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
     }
 
     const { pares, libres } = emparejarCategoria(cat, h, entrada.recoveryDeficits,
-      capacidad > categories.reduce((sum,c)=>sum+Math.floor(c.teams.length/2),0),firstLeg.has(cat.id),capacidad);
+      capacidad > categories.reduce((sum,c)=>sum+Math.floor(c.teams.length/2),0),firstLeg.has(cat.id),capacidad,entrada.roundRobinLegs);
 
     for (const [a, b] of pares) {
       const { home, away } = orientar(a, b, h);
@@ -445,7 +447,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
       // With limited capacity, choose the teams before optimizing full-night
       // pairings; otherwise a trailing team can be split into a discarded pair.
       const ranked = categories.filter(c=>c.teams.length<=LIMITE_EQUIPOS_POR_CATEGORIA).flatMap(cat=>
-        cat.teams.flatMap((a,i)=>cat.teams.slice(i+1).filter(b=>!firstLeg.has(cat.id)||cuenta(h.vecesEnfrentados,pairKey(a.id,b.id))===0).map(b=>({cat,a,b}))));
+        cat.teams.flatMap((a,i)=>cat.teams.slice(i+1).filter(b=>cuenta(h.vecesEnfrentados,pairKey(a.id,b.id)) < (entrada.roundRobinLegs ?? Infinity) && (!firstLeg.has(cat.id)||cuenta(h.vecesEnfrentados,pairKey(a.id,b.id))===0)).map(b=>({cat,a,b}))));
       const deficit = (id:string)=>entrada.recoveryDeficits?.[id] ?? 0;
       ranked.sort((x,y)=>Number(cuenta(h.vecesEnfrentados,pairKey(x.a.id,x.b.id))>0)-Number(cuenta(h.vecesEnfrentados,pairKey(y.a.id,y.b.id))>0) ||
         (deficit(y.a.id)+deficit(y.b.id))-(deficit(x.a.id)+deficit(x.b.id)) ||
@@ -544,7 +546,7 @@ export const proponerJornada = (entrada: EntradaPropuesta): Propuesta => {
   const occupied = (fieldId: string, time: string) => games.some(g => g.fieldId === fieldId && g.time === time);
   const busy = (id: string, time: string) => games.some(g => g.time === time && [g.homeTeamId, g.awayTeamId].includes(id));
   const pairs = categories.flatMap(cat => cat.teams.flatMap((a, i) => cat.teams.slice(i + 1).map(b => ({ cat, a, b }))))
-    .filter(({cat,a,b}) => deficits[a.id] > 0 && deficits[b.id] > 0 &&
+    .filter(({cat,a,b}) => cuenta(h.vecesEnfrentados,pairKey(a.id,b.id)) < (entrada.roundRobinLegs ?? Infinity) && deficits[a.id] > 0 && deficits[b.id] > 0 &&
       (!firstLeg.has(cat.id)||cuenta(h.vecesEnfrentados,pairKey(a.id,b.id))===0))
     .sort((x,y) => (deficits[y.a.id]+deficits[y.b.id])-(deficits[x.a.id]+deficits[x.b.id]) ||
       cuenta(h.vecesEnfrentados,pairKey(x.a.id,x.b.id))-cuenta(h.vecesEnfrentados,pairKey(y.a.id,y.b.id)));
