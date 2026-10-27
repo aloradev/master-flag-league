@@ -157,6 +157,7 @@ const q = (filtros: Record<string, string | undefined>) => {
 };
 
 export const finance = {
+  reset: (seasonId: string, confirmation: string) => api.post<{ fees: number; payments: number; expenses: number }>('/finance/reset', { seasonId, confirmation }),
   catalog: (seasonId?: string) => api.get<Catalogo>(`/finance/catalog${q({ seasonId })}`),
   fees: (filtros: { seasonId?: string; teamId?: string; concept?: string; pending?: string }) =>
     api.get<Cargo[]>(`/finance/fees${q(filtros)}`),

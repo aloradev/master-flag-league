@@ -155,7 +155,7 @@ export default function AdminAudit() {
               setFilter(option.value);
               setPage(0);
             }}
-            className={`shrink-0 rounded-full border px-3 py-1 text-xs ${
+            className={`min-h-11 shrink-0 rounded-full border px-3 py-2 text-xs ${
               filter === option.value
                 ? 'border-primary bg-primary/15 text-primary'
                 : 'border-base-content/20 text-base-content/60'

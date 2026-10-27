@@ -776,8 +776,10 @@ export const getTeamStatement = asyncHandler(async (req: AuthRequest, res: Respo
     estadosDeCuenta(equipo.season_id, [teamId]),
     query(
       `SELECT p.id, p.fee_id, p.amount_cents, to_char(p.paid_on, 'YYYY-MM-DD') AS paid_on,
-              p.method, p.reference, p.voided_at, p.void_reason, u.name AS recorded_by_name
-       FROM payments p LEFT JOIN users u ON u.id = p.recorded_by
+              p.method, p.reference, p.voided_at, p.void_reason, u.name AS recorded_by_name,
+              f.concept, f.description AS fee_description
+       FROM payments p JOIN fees f ON f.id = p.fee_id
+       LEFT JOIN users u ON u.id = p.recorded_by
        WHERE p.team_id = $1 ORDER BY p.paid_on DESC, p.created_at DESC`,
       [teamId]
     ),
@@ -791,6 +793,7 @@ export const getTeamStatement = asyncHandler(async (req: AuthRequest, res: Respo
       fees: cargos,
       payments: pagos.rows.map((p) => ({
         ...p,
+        concept_label: CONCEPTOS[p.concept as keyof typeof CONCEPTOS] ?? p.concept,
         method_label: METODOS[p.method as keyof typeof METODOS] ?? p.method,
       })),
     },
@@ -808,4 +811,22 @@ export const getBalance = asyncHandler(async (req: AuthRequest, res: Response) =
     pagosPorArbitro(seasonId),
   ]);
   res.json({ success: true, data: { ...balance, referees: arbitros } });
+});
+
+export const resetFinance = asyncHandler(async (req: AuthRequest, res: Response) => {
+  exigirEscritura(req);
+  const { seasonId, confirmation } = req.body ?? {};
+  if (typeof seasonId !== 'string' || !seasonId || confirmation !== 'REINICIAR') throw new AppError('Indica la temporada y escribe REINICIAR para confirmar', 400);
+  const result = await withTransaction(async (q) => {
+    await q('LOCK TABLE fees, payments, expenses IN SHARE ROW EXCLUSIVE MODE');
+    const season = await q("SELECT id FROM seasons WHERE id = $1 AND league_id = $2 AND status = 'ACTIVE' FOR UPDATE", [seasonId, req.user?.leagueId]);
+    if (!season.rows.length) throw new AppError('No se encontró la temporada activa de tu liga', 404);
+    const payments = await q('DELETE FROM payments WHERE season_id = $1 RETURNING id', [seasonId]);
+    const fees = await q('DELETE FROM fees WHERE season_id = $1 RETURNING id', [seasonId]);
+    const expenses = await q('DELETE FROM expenses WHERE season_id = $1 RETURNING id', [seasonId]);
+    const counts = { fees: fees.rows.length, payments: payments.rows.length, expenses: expenses.rows.length };
+    await audit(req, { action: 'RESET_FINANCE', entityType: 'season', entityId: seasonId, oldValue: counts }, q);
+    return counts;
+  });
+  res.json({ success: true, data: result });
 });

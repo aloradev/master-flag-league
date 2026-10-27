@@ -7,6 +7,7 @@ import PublicHome from './pages/publico/Home';
 import { useEffect, useMemo, useState } from 'react';
 import {
   BrowserRouter,
+  Link,
   Routes,
   Route,
   Navigate,
@@ -96,6 +97,7 @@ const ScrimmageEntry = () => {
     {token
       ? <RefereeGameMode key={`${location.pathname}:${token}`} client={client} temporary />
       : <Alert tone="error">El enlace está incompleto. Solicita a administración que copie el acceso completo desde Scrimmages.</Alert>}
+    <Link className="btn btn-ghost" to="/jornada">Volver a la jornada</Link>
   </main>;
 };
 

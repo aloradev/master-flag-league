@@ -419,8 +419,9 @@ export default function AdminUsers() {
 
       <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         <button
+          aria-pressed={roleFilter === ''}
           onClick={() => setRoleFilter('')}
-          className={`shrink-0 rounded-full border px-3 py-1 text-xs ${
+          className={`min-h-11 shrink-0 rounded-full border px-3 py-2 text-xs ${
             roleFilter === ''
               ? 'border-primary bg-primary/15 text-primary'
               : 'border-base-content/20 text-base-content/60'
@@ -431,8 +432,9 @@ export default function AdminUsers() {
         {ROLE_OPTIONS.map((option) => (
           <button
             key={option.value}
+            aria-pressed={roleFilter === option.value}
             onClick={() => setRoleFilter(option.value)}
-            className={`shrink-0 rounded-full border px-3 py-1 text-xs ${
+            className={`min-h-11 shrink-0 rounded-full border px-3 py-2 text-xs ${
               roleFilter === option.value
                 ? 'border-primary bg-primary/15 text-primary'
                 : 'border-base-content/20 text-base-content/60'

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { Dialog } from './Dialog';
 import { fetchProtectedBlob, documentPath, mediaUrl } from '../lib/api';
 import { IconDocument } from './icons';
 
@@ -25,14 +25,6 @@ const VisorDocumento = ({
   esPdf: boolean;
   onCerrar: () => void;
 }) => {
-  useEffect(() => {
-    const alTeclear = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCerrar();
-    };
-    window.addEventListener('keydown', alTeclear);
-    return () => window.removeEventListener('keydown', alTeclear);
-  }, [onCerrar]);
-
   const nombre = `${titulo.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.${esPdf ? 'pdf' : 'jpg'}`;
 
   /**
@@ -45,29 +37,8 @@ const VisorDocumento = ({
    * recortado, el fondo oscuro no cubría nada, y el encabezado y la
    * barra inferior de la aplicación quedaban encima.
    */
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      {/* Oculto del árbol de accesibilidad: anunciado como botón, se oiría
-          un segundo control "Cerrar" invisible antes del real. */}
-      <div aria-hidden="true" onClick={onCerrar} className="mfl-fondo absolute inset-0 bg-black/70" />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={titulo}
-        className="mfl-hoja relative flex max-h-[92vh] w-full max-w-3xl flex-col rounded-t-box
-                   border-t border-base-300 bg-base-200 shadow-2xl sm:rounded-box sm:border"
-      >
-        <div className="flex items-center justify-between border-b border-base-300/60 px-4 py-3">
-          <h2 className="truncate text-sm font-bold">{titulo}</h2>
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="btn btn-ghost btn-sm min-h-11 px-3"
-          >
-            Cerrar
-          </button>
-        </div>
-
+  return (
+    <Dialog title={titulo} onClose={onCerrar} wide>
         <div className="min-h-0 flex-1 overflow-auto bg-base-300/40 p-2">
           {esPdf ? (
             <iframe
@@ -90,9 +61,7 @@ const VisorDocumento = ({
             </p>
           )}
         </div>
-      </div>
-    </div>,
-    document.body
+    </Dialog>
   );
 };
 

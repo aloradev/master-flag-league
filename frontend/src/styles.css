@@ -610,3 +610,16 @@ main:focus { outline:none; }
 .ux-steps li { flex:1; border-bottom:3px solid var(--color-base-300); padding:10px 0; font-size:12px; font-weight:700; color:var(--color-base-content); }
 .ux-steps li[aria-current=step] { color:var(--color-primary); border-color:var(--color-primary); }
 @media(max-width:767px) { .input,.select,.textarea { font-size:16px; } .btn { min-height:44px; } }
+
+/* Controles compartidos: lectura, tacto y contenido largo en todas las pantallas. */
+:where(.input,.select,.textarea) { max-width:100%; }
+:where(.input,.select,.textarea)[aria-invalid='true'] { border-color:var(--color-error); }
+:where(.input,.textarea)::placeholder { opacity:1; color:color-mix(in oklab,var(--color-base-content) 55%,transparent); }
+.ui-alert { overflow-wrap:anywhere; }
+.ui-empty-state { text-wrap:pretty; }
+.tabular { font-variant-numeric:tabular-nums; }
+.mfl-hoja { overscroll-behavior:contain; padding-bottom:max(1rem,env(safe-area-inset-bottom)); }
+@media (pointer:coarse) { .btn.btn-xs,.btn.btn-sm { min-height:44px; } }
+@media (max-width:767px) {
+  .public-shell .input, .public-shell .select, .public-shell .textarea { font-size:16px; }
+}

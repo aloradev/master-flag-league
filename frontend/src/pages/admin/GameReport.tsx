@@ -1,3 +1,4 @@
+import { fechaTexto } from '../../lib/format';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
@@ -42,7 +43,7 @@ export default function GameReport() {
     <header className="space-y-2">
       <span className="badge badge-outline">Captura temporal</span>
       <h1 className="text-2xl font-bold">Estadísticas y acta</h1>
-      <p className="text-sm text-base-content/70">Jornada {g.round_number} · {g.category_name} · {g.scheduled_date.slice(0, 10)} · {g.scheduled_time?.slice(0, 5)} · {g.field_name || 'Campo por asignar'}</p>
+      <p className="text-sm text-base-content/70">Jornada {g.round_number} · {g.category_name} · {fechaTexto(g.scheduled_date)} · {g.scheduled_time?.slice(0, 5)} · {g.field_name || 'Campo por asignar'}</p>
     </header>
     <ReportAccess gameId={g.id} />
     <Card className="space-y-3 p-4">

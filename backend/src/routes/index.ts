@@ -232,6 +232,7 @@ router.get('/finance/balance', loadManagedTeams, finance.getBalance);
 // comprobación vive además dentro de cada controlador, porque una ruta
 // nueva puede olvidarse de poner el middleware.
 const soloFinanzas = requireRole(ROLES.SUPER_ADMIN, ROLES.FINANCE_ADMIN);
+router.post('/finance/reset', soloFinanzas, finance.resetFinance);
 router.put('/finance/settings', soloFinanzas, finance.updateFinanceSettings);
 router.post('/finance/fees', soloFinanzas, finance.createFee);
 router.put('/finance/fees/:id', soloFinanzas, finance.updateFee);

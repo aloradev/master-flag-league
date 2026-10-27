@@ -45,7 +45,8 @@
     "test:all": "node tests/fixture.mjs && node tests/cors.mjs && node tests/integration.mjs && node tests/competition.mjs && node tests/finance.mjs && node tests/edicion.mjs && node tests/bajas.mjs && node tests/almacenamiento.mjs && node tests/recuperacion.mjs && node tests/publico.mjs && node tests/esquema.mjs && node tests/respaldo.mjs && node tests/cabeceras.mjs && node tests/playoffs.mjs && node tests/arbitros-admin.mjs && node tests/transactions.mjs && node tests/historical-results.mjs && node tests/registration-progress.mjs && node tests/team-progress.mjs && node tests/generator-entry.mjs && node tests/email-queue.mjs && node tests/operations.mjs",
     "test:email-queue": "node tests/email-queue.mjs",
     "test:operations": "node tests/operations.mjs",
-    "test:finance-edit": "node tests/finance-edit.mjs"
+    "test:finance-edit": "node tests/finance-edit.mjs",
+    "test:finance-reset": "node tests/finance-reset.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

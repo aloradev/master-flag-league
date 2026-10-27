@@ -235,6 +235,7 @@ const GameMode = ({ client = competition, temporary = false }: { client?: typeof
 
   return (
     <div className="space-y-4 pb-24">
+      {!temporary && <h1 className="sr-only">Modo árbitro: {game.home_team_name} vs {game.away_team_name}</h1>}
       {connectionLost && <Alert tone="warning">Reconectando… El marcador puede estar desactualizado. Verifica la bitácora antes de repetir una jugada.</Alert>}
       {lastSync && <p className="text-xs text-base-content/60" role="status">Última actualización: {lastSync.toLocaleTimeString("es-MX", { timeZone: "America/Cancun" })} · Cancún</p>}
       {/* ─────────────── MARCADOR ─────────────── */}

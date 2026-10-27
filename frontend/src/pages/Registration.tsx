@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../store/auth';
-import { Alert, Spinner } from '../components/ui';
+import { Alert, Field, Spinner } from '../components/ui';
 import { Marco } from './publico/Marco';
 
 type Option = { id: string; name: string; league_id: string; league_name: string; category_id: string; category_name: string };
@@ -60,7 +60,7 @@ export default function Registration({ team = false }: { team?: boolean }) {
         </> : <>
           <label className="block">Liga donde jugarás<select name="league" className="select mt-1 w-full">{leagues.map(o => <option key={o.league_id} value={o.league_id}>{o.league_name}</option>)}</select><span className="mt-1 block text-sm text-base-content/60">Aquí eliges una liga existente. La creación y configuración de ligas está reservada al Super Administrador.</span></label>
           <label className="block">Correo<input name="email" type="email" required maxLength={255} autoComplete="email" className="input mt-1 w-full" /></label>
-          <label className="block">Contraseña<PasswordInput name="password" pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}" title="Usa al menos 8 caracteres, una letra y un número" required minLength={8} maxLength={72} autoComplete="new-password" className="input mt-1 w-full" /><span className="text-sm text-base-content/60">Al menos 8 caracteres, una letra y un número.</span></label>
+          <Field label="Contraseña" required hint="Al menos 8 caracteres, una letra y un número."><PasswordInput name="password" pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}" title="Usa al menos 8 caracteres, una letra y un número" required minLength={8} maxLength={72} autoComplete="new-password" className="input mt-1 w-full" /></Field>
         </>}
         {error && <Alert tone="error">{error}</Alert>}
         <button className="btn btn-primary w-full" disabled={busy || Boolean(nameCheck.data?.exists)}>{busy ? 'Guardando…' : team ? 'Inscribir equipo' : 'Crear cuenta'}</button>

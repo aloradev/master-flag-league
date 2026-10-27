@@ -81,20 +81,21 @@ export default function Roster() {
 
       <Card className="p-5 print:border-0 print:bg-transparent print:p-0">
         {/* Encabezado del documento */}
-        <div className="flex items-start justify-between gap-4 border-b border-base-300 pb-3 print:border-black/20">
+        <div className="flex flex-col items-start justify-between gap-3 border-b border-base-300 pb-3 sm:flex-row print:flex-row print:border-black/20">
           <div>
             <h1 className="text-lg font-bold print:text-xl">{data.name}</h1>
             <p className="text-sm text-base-content/60 print:text-black/60">
               {data.category_name} · {data.season_name}
             </p>
           </div>
-          <div className="text-right text-xs text-base-content/50 print:text-black/50">
+          <div className="shrink-0 text-xs text-base-content/60 sm:text-right print:text-right print:text-black/50">
             <div>Roster oficial</div>
             <div className="tabular">
               {new Date().toLocaleDateString('es-MX', {
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric',
+                timeZone: 'America/Cancun',
               })}
             </div>
           </div>
@@ -120,14 +121,16 @@ export default function Roster() {
             Sin jugadores registrados
           </p>
         ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="mt-4">
+            <p className="mb-2 text-xs text-base-content/60 sm:hidden print:hidden">Desliza la tabla para ver todas las columnas.</p>
+            <div role="region" aria-label="Plantilla del equipo" tabIndex={0} className="overflow-x-auto rounded-field print:overflow-visible">
+            <table className="w-full min-w-[34rem] text-sm print:min-w-0">
               <thead>
                 <tr className="border-b border-base-300 text-left text-xs uppercase tracking-wide text-base-content/50 print:border-black/20 print:text-black/60">
-                  <th className="w-12 py-2 font-medium">Núm.</th>
-                  <th className="py-2 font-medium">Jugador</th>
-                  <th className="w-14 py-2 font-medium">Pos.</th>
-                  <th className="w-24 py-2 text-right font-medium">Estatus</th>
+                  <th scope="col" className="w-12 py-2 pr-3 font-medium">Núm.</th>
+                  <th scope="col" className="py-2 pr-3 font-medium">Jugador</th>
+                  <th scope="col" className="w-14 py-2 pr-3 font-medium">Pos.</th>
+                  <th scope="col" className="w-24 py-2 text-right font-medium">Estatus</th>
                 </tr>
               </thead>
               <tbody>
@@ -162,6 +165,7 @@ export default function Roster() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 

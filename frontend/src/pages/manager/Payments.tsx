@@ -5,7 +5,7 @@ import type { TeamSummary } from '../../lib/types';
 import { Alert, Card, EmptyState, Spinner, Stat } from '../../components/ui';
 import { IconCheckCircle, IconWarning } from '../../components/icons';
 import { TeamCrest } from '../../components/AuthImage';
-import { fechaLarga } from '../../lib/competition';
+import { fechaCorta, fechaLarga } from '../../lib/competition';
 import { ETIQUETA_CARGO, finance, pesos, pesosCortos } from '../../lib/finance';
 import { activeTeamId, rememberTeam } from '../../lib/teamContext';
 
@@ -104,7 +104,7 @@ export default function ManagerPayments() {
             </Alert>
           )}
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-3">
             <Stat value={pesosCortos(resumen.charged_cents)} label="Total del período" />
             <Stat value={pesosCortos(resumen.paid_cents)} label="Pagado" tone="success" />
             <Stat
@@ -186,8 +186,9 @@ export default function ManagerPayments() {
       {pagosVigentes.length > 0 && (
         <section className="space-y-2">
           <h2 className="text-sm font-bold">Pagos registrados</h2>
-          <Card className="overflow-x-auto">
-            <table className="table table-sm">
+          <p className="text-xs text-base-content/60 sm:hidden">Desliza la tabla para ver todos los datos del pago.</p>
+          <Card role="region" aria-label="Pagos registrados" tabIndex={0} className="overflow-x-auto">
+            <table className="table table-sm min-w-[30rem]">
               <thead>
                 <tr className="text-[11px] uppercase">
                   <th>Fecha</th>
@@ -199,7 +200,7 @@ export default function ManagerPayments() {
               <tbody>
                 {pagosVigentes.map((p) => (
                   <tr key={p.id}>
-                    <td className="tabular text-xs">{fechaLarga(p.paid_on).replace(/^\w+ /, '')}</td>
+                    <td className="tabular whitespace-nowrap text-xs">{fechaCorta(p.paid_on)}</td>
                     <td className="text-xs">
                       {p.fee_description || p.concept_label}
                       {p.reference && (

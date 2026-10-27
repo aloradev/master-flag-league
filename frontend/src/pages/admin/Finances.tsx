@@ -33,6 +33,8 @@ export default function AdminFinances() {
   const { user } = useAuth();
   const puedeEscribir = user?.role === 'SUPER_ADMIN' || user?.role === 'FINANCE_ADMIN';
 
+  const [reiniciando, setReiniciando] = useState(false);
+  const [confirmacion, setConfirmacion] = useState('');
   const [pestana, setPestana] = useState<Pestana>('cuentas');
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export default function AdminFinances() {
   const seasonId = season.data?.id;
 
   const invalidar = () => {
-    for (const k of ['fin-accounts', 'fin-balance', 'fin-fees', 'fin-expenses', 'fin-statement', 'fin-payments']) {
+    for (const k of ['fin-catalog', 'fin-accounts', 'fin-balance', 'fin-fees', 'fin-expenses', 'fin-statement', 'fin-payments']) {
       void qc.invalidateQueries({ queryKey: [k] });
     }
   };
@@ -145,6 +147,15 @@ export default function AdminFinances() {
     onError: (e: Error) => { setAviso(null); setError(e.message); },
   });
 
+  const reiniciar = useMutation({
+    mutationFn: () => finance.reset(seasonId!, confirmacion),
+    onSuccess: (r) => {
+      setReiniciando(false); setConfirmacion(''); setExpandido(null); setError(null);
+      setCobrando(null); setEditando(null);
+      setAviso(`Finanzas reiniciadas: ${r.fees} cargos, ${r.payments} pagos y ${r.expenses} gastos eliminados.`);
+      invalidar();
+    },
+  });
   if (season.isLoading) return <Spinner />;
   if (season.error) return <Alert tone="error">No hay temporada activa.</Alert>;
 
@@ -172,6 +183,18 @@ export default function AdminFinances() {
         </div>
       )}
 
+      {puedeEscribir && <Button size="sm" tone="error" outline onClick={() => { reiniciar.reset(); setConfirmacion(''); setReiniciando(true); }}>Reiniciar finanzas</Button>}
+      {reiniciando && <Dialog title="Reiniciar finanzas" onClose={() => { if (!reiniciar.isPending) setReiniciando(false); }}>
+        <Alert tone="warning" title={season.data?.name}>Se eliminarán todos los cargos, pagos y gastos de esta temporada, incluidos los anulados. Esta acción no se puede deshacer.</Alert>
+        <p className="text-sm text-base-content/70">Se conservan equipos, calendario y montos configurados. Después podrás generar los cargos de nuevo.</p>
+        <form className="space-y-4" onSubmit={e => { e.preventDefault(); if (confirmacion === 'REINICIAR' && !reiniciar.isPending) reiniciar.mutate(); }}>
+          <label className="block"><span className="mb-1 block text-sm font-semibold">Escribe REINICIAR para confirmar</span><input className="input w-full" autoComplete="off" value={confirmacion} disabled={reiniciar.isPending} onChange={e => setConfirmacion(e.target.value)} /></label>
+          {reiniciar.error && <Alert tone="error">{reiniciar.error.message}</Alert>}
+          <div className="flex flex-wrap justify-end gap-2"><Button type="button" disabled={reiniciar.isPending} onClick={() => setReiniciando(false)}>Cancelar</Button><Button type="submit" tone="error" disabled={confirmacion !== 'REINICIAR'} loading={reiniciar.isPending}>Eliminar movimientos y reiniciar</Button></div>
+        </form>
+      </Dialog>}
+      {(balance.error || cuentas.error || catalogo.error || cargos.error || gastos.error) && <Alert tone="error">No se pudieron cargar algunos datos financieros. <button className="link font-semibold" onClick={invalidar}>Reintentar</button></Alert>}
+      {(balance.isLoading || cuentas.isLoading || catalogo.isLoading) && <Spinner label="Cargando finanzas…" />}
       {sinConfigurar && (
         <Alert tone="warning" title="Los montos están en cero">
           El sistema se niega a cobrar una cantidad que nadie decidió. Configúralos en
@@ -350,7 +373,12 @@ export default function AdminFinances() {
       )}
 
       {/* ─────────── PESTAÑAS ─────────── */}
-      <div role="tablist" className="tabs tabs-box">
+      <div role="tablist" aria-label="Secciones de finanzas" className="tabs tabs-box" onKeyDown={e => {
+        const tabs = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+        const index = tabs.indexOf(document.activeElement as HTMLButtonElement);
+        const next = e.key === 'ArrowRight' ? (index + 1) % tabs.length : e.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1;
+        if (next >= 0) { e.preventDefault(); tabs[next].focus(); tabs[next].click(); }
+      }}>
         {([
           ['cuentas', 'Cuentas por cobrar'],
           ['cargos', 'Cargos'],
@@ -358,8 +386,11 @@ export default function AdminFinances() {
         ] as const).map(([id, etiqueta]) => (
           <button
             key={id}
+            id={`fin-tab-${id}`}
+            aria-controls={`fin-panel-${id}`}
             role="tab"
             aria-selected={pestana === id}
+            tabIndex={pestana === id ? 0 : -1}
             type="button"
             onClick={() => setPestana(id)}
             className={`tab ${pestana === id ? 'tab-active' : ''}`}
@@ -369,6 +400,7 @@ export default function AdminFinances() {
         ))}
       </div>
 
+      <section role="tabpanel" id={`fin-panel-${pestana}`} aria-labelledby={`fin-tab-${pestana}`} tabIndex={0}>
       {pestana === 'cuentas' && (
         <CuentasPorCobrar
           cuentas={cuentas.data ?? []}
@@ -435,8 +467,8 @@ export default function AdminFinances() {
         />
       )}
 
+      </section>
       {editando && <EditorCargo cargo={editando} onCobrar={(cargo) => { setEditando(null); setCobrando(cargo); }} onCerrar={() => setEditando(null)} onListo={() => { setEditando(null); setError(null); setAviso('Cargo actualizado.'); invalidar(); }} />}
-      {[catalogo, balance, cuentas, cargos, gastos].some(q => q.isError) && <Alert tone="error">No se pudieron cargar todos los datos financieros. <button className="link" onClick={() => { invalidar(); void catalogo.refetch(); }}>Reintentar</button></Alert>}
       {cobrando && (
         <HojaCobro
           cargo={cobrando}
@@ -444,10 +476,10 @@ export default function AdminFinances() {
           onCerrar={() => setCobrando(null)}
           onListo={(mensaje) => {
             setCobrando(null);
+            setError(null);
             setAviso(mensaje);
             invalidar();
           }}
-          onError={setError}
         />
       )}
 
@@ -459,11 +491,11 @@ export default function AdminFinances() {
           onCerrar={() => setAjustando(false)}
           onListo={(mensaje) => {
             setAjustando(false);
+            setError(null);
             setAviso(mensaje);
             void qc.invalidateQueries({ queryKey: ['fin-catalog'] });
             invalidar();
           }}
-          onError={setError}
         />
       )}
 
@@ -475,10 +507,10 @@ export default function AdminFinances() {
           onCerrar={() => setNuevoGasto(false)}
           onListo={(mensaje) => {
             setNuevoGasto(false);
+            setError(null);
             setAviso(mensaje);
             invalidar();
           }}
-          onError={setError}
         />
       )}
     </div>
@@ -532,6 +564,8 @@ const CuentasPorCobrar = ({
             <Card as="li" key={c.team_id}>
               <button
                 type="button"
+                aria-expanded={abierto}
+                aria-controls={`fin-equipo-${c.team_id}`}
                 onClick={() => onExpandir(c.team_id)}
                 className="mfl-toque flex w-full items-center gap-3 p-3 text-left"
               >
@@ -562,7 +596,7 @@ const CuentasPorCobrar = ({
               </button>
 
               {abierto && (
-                <DetalleEquipo teamId={c.team_id} puedeEscribir={puedeEscribir} onCobrar={onCobrar} />
+                <div id={`fin-equipo-${c.team_id}`}><DetalleEquipo teamId={c.team_id} puedeEscribir={puedeEscribir} onCobrar={onCobrar} /></div>
               )}
             </Card>
           );
@@ -941,21 +975,22 @@ const HojaCobro = ({
   metodos,
   onCerrar,
   onListo,
-  onError,
 }: {
   cargo: Cargo;
   metodos: Record<string, string>;
   onCerrar: () => void;
   onListo: (mensaje: string) => void;
-  onError: (m: string) => void;
 }) => {
   const [monto, setMonto] = useState((cargo.balance_cents / 100).toFixed(2));
   const [metodo, setMetodo] = useState('CASH');
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [referencia, setReferencia] = useState('');
   const [ocupado, setOcupado] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const enviar = async () => {
+    if (ocupado) return;
+    setFormError(null);
     setOcupado(true);
     try {
       const r = await finance.createPayment({
@@ -972,15 +1007,15 @@ const HojaCobro = ({
             : `Quedan ${pesos(r.fee.balance_cents)} por cobrar.`)
       );
     } catch (e) {
-      onError((e as Error).message);
-      onCerrar();
+      setFormError((e as Error).message);
     } finally {
       setOcupado(false);
     }
   };
 
   return (
-    <HojaInferior titulo={`Cobrar a ${cargo.team_name}`} onCerrar={onCerrar}>
+    <HojaInferior titulo={`Cobrar a ${cargo.team_name}`} onCerrar={() => { if (!ocupado) onCerrar(); }}>
+      {formError && <Alert tone="error">{formError}</Alert>}
       <Card className="px-3 py-2 text-sm">
         <p className="font-semibold">{cargo.description || cargo.concept_label}</p>
         <p className="text-xs text-base-content/60">
@@ -1069,14 +1104,12 @@ const HojaMontos = ({
   proyeccion,
   onCerrar,
   onListo,
-  onError,
 }: {
   seasonId: string;
   reglas: import('../../lib/finance').ReglasFinanzas;
   proyeccion: import('../../lib/finance').Proyeccion | null;
   onCerrar: () => void;
   onListo: (m: string) => void;
-  onError: (m: string) => void;
 }) => {
   const enPesos = (c: number) => (c / 100).toFixed(2);
   const [inscripcion, setInscripcion] = useState(enPesos(reglas.inscription_cents));
@@ -1084,6 +1117,7 @@ const HojaMontos = ({
   const [pagoArbitro, setPagoArbitro] = useState(enPesos(reglas.referee_fee_cents));
   const [jornadas, setJornadas] = useState(String(proyeccion?.rounds_planned ?? ''));
   const [guardando, setGuardando] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const nInscripcion = Number(inscripcion) || 0;
   const nArbitraje = Number(arbitraje) || 0;
@@ -1091,6 +1125,8 @@ const HojaMontos = ({
   const totalProyectado = Math.round((nInscripcion + nArbitraje * nJornadas) * 100);
 
   const enviar = async () => {
+    if (guardando) return;
+    setFormError(null);
     setGuardando(true);
     try {
       const r = await finance.updateSettings({
@@ -1108,15 +1144,15 @@ const HojaMontos = ({
             : '')
       );
     } catch (e) {
-      onError((e as Error).message);
-      onCerrar();
+      setFormError((e as Error).message);
     } finally {
       setGuardando(false);
     }
   };
 
   return (
-    <HojaInferior titulo="Cuánto se cobra" onCerrar={onCerrar}>
+    <HojaInferior titulo="Cuánto se cobra" onCerrar={() => { if (!guardando) onCerrar(); }}>
+      {formError && <Alert tone="error">{formError}</Alert>}
       <label className="block">
         <span className="mb-1 block text-xs font-semibold text-base-content/70">
           Inscripción <span className="font-normal opacity-60">(una vez por equipo)</span>
@@ -1203,14 +1239,12 @@ const HojaGasto = ({
   jornadas,
   onCerrar,
   onListo,
-  onError,
 }: {
   seasonId: string;
   categorias: Record<string, string>;
   jornadas: { id: string; number: number }[];
   onCerrar: () => void;
   onListo: (m: string) => void;
-  onError: (m: string) => void;
 }) => {
   const [categoria, setCategoria] = useState('REFEREES');
   const [descripcion, setDescripcion] = useState('');
@@ -1219,6 +1253,7 @@ const HojaGasto = ({
   const [roundId, setRoundId] = useState('');
   const [refereeId, setRefereeId] = useState('');
   const [ocupado, setOcupado] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const arbitros = useQuery({
     queryKey: ['referees', seasonId],
@@ -1226,6 +1261,8 @@ const HojaGasto = ({
   });
 
   const enviar = async () => {
+    if (ocupado) return;
+    setFormError(null);
     setOcupado(true);
     try {
       await finance.createExpense({
@@ -1239,15 +1276,15 @@ const HojaGasto = ({
       });
       onListo('Gasto registrado.');
     } catch (e) {
-      onError((e as Error).message);
-      onCerrar();
+      setFormError((e as Error).message);
     } finally {
       setOcupado(false);
     }
   };
 
   return (
-    <HojaInferior titulo="Registrar gasto" onCerrar={onCerrar}>
+    <HojaInferior titulo="Registrar gasto" onCerrar={() => { if (!ocupado) onCerrar(); }}>
+      {formError && <Alert tone="error">{formError}</Alert>}
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
           <span className="mb-1 block text-xs font-semibold text-base-content/70">Categoría</span>

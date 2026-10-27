@@ -120,6 +120,10 @@ export const Layout = () => {
    *  activo: sin eso, en el celular ninguna pestaña queda marcada y se
    *  pierde el "dónde estoy". */
   const restoActivo = restoItems.some((item) => activa(item.to));
+  const sectionLabel = location.pathname.startsWith('/admin/partidos/') ? 'Jornadas · Acta'
+    : location.pathname === '/equipo/nuevo' ? 'Inscribir equipo'
+    : location.pathname.startsWith('/equipo/jugadores/') && !location.pathname.endsWith('/nuevo') ? 'Jugadores'
+    : items.find(item => activa(item.to))?.label ?? 'Mi espacio';
 
   // Cambiar de ruta cierra la hoja, incluido el botón atrás del celular.
   useEffect(() => {
@@ -223,7 +227,7 @@ export const Layout = () => {
         </header>
 
         <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-4 pb-24 pt-4 md:px-8 md:pb-10 md:pt-6">
-          <div className="mb-5 flex items-center justify-between gap-3 border-b border-base-300 pb-3 text-xs text-base-content/60"><span>{items.find(item => activa(item.to))?.label ?? 'Mi espacio'}</span><Link to="/" className="link">Ver sitio público ↗</Link></div><Outlet />
+          <div className="mb-5 flex items-center justify-between gap-3 border-b border-base-300 pb-3 text-xs text-base-content/60"><span>{sectionLabel}</span><Link to="/" className="link">Ver sitio público ↗</Link></div><Outlet />
         </main>
 
         {/* Navegación inferior — celular */}

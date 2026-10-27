@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import React from 'react';
+import React, { useId } from 'react';
 import { IconInbox } from './icons';
 
 export const Spinner = ({ label = 'Cargando…' }: { label?: string }) => (
@@ -21,13 +21,15 @@ export const Card = ({
   children,
   className = '',
   as: Tag = 'div',
+  ...rest
 }: {
   children: ReactNode;
   className?: string;
   as?: 'div' | 'section' | 'li';
-}) => (
+} & Omit<React.HTMLAttributes<HTMLElement>, 'children'>) => (
   <Tag
-    className={`rounded-box border border-base-300/70 bg-base-200/60 backdrop-blur-sm ${className}`}
+    {...rest}
+    className={`min-w-0 rounded-box border border-base-300/70 bg-base-200/60 backdrop-blur-sm ${className}`}
   >
     {children}
   </Tag>
@@ -89,20 +91,33 @@ interface FieldProps {
   required?: boolean;
 }
 
-export const Field = ({ label, children, hint, error, required }: FieldProps) => (
-  <label className="block">
-    <span className="mb-1.5 flex items-center gap-1 text-sm font-medium text-base-content/80">
+export const Field = ({ label, children, hint, error, required }: FieldProps) => {
+  const fieldId = useId();
+  const descriptionId = `${fieldId}-description`;
+  const child = React.isValidElement<React.InputHTMLAttributes<HTMLInputElement>>(children) ? children : null;
+  const controlId = child?.props.id ?? fieldId;
+  const control = React.isValidElement<React.InputHTMLAttributes<HTMLInputElement>>(children)
+    ? React.cloneElement(children, {
+      id: controlId,
+      'aria-invalid': error ? true : children.props['aria-invalid'],
+      'aria-describedby': [children.props['aria-describedby'], (error || hint) && descriptionId].filter(Boolean).join(' ') || undefined,
+      required: required || children.props.required,
+    }) : children;
+  return (
+  <div className="min-w-0">
+    <label htmlFor={controlId} className="mb-1.5 flex items-center gap-1 text-sm font-medium text-base-content/80">
       {label}
-      {required && <span className="text-error">*</span>}
-    </span>
-    {children}
+      {required && <span aria-hidden="true" className="text-error">*</span>}
+    </label>
+    {control}
     {error ? (
-      <span className="mt-1 block text-xs text-error">{error}</span>
+      <span id={descriptionId} className="mt-1 block text-xs text-error">{error}</span>
     ) : (
-      hint && <span className="mt-1 block text-xs text-base-content/50">{hint}</span>
+      hint && <span id={descriptionId} className="mt-1 block text-xs text-base-content/60">{hint}</span>
     )}
-  </label>
+  </div>
 );
+};
 
 /** Métrica grande. Los números son tabulares para que no salten al cambiar. */
 export const Stat = ({
@@ -192,7 +207,7 @@ export const Button = ({
       className={[
         // La respuesta al toque vive en el CSS, sobre `.btn`, para que
         // también la tengan los botones crudos que no pasan por aquí.
-        'btn',
+        'btn h-auto min-w-0 max-w-full whitespace-normal',
         TONE_CLASS[tone],
         outline && 'btn-outline',
         sizeClass,

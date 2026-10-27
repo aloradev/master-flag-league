@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useRef } from 'react';
+import { Dialog } from '../../components/Dialog';
 import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
@@ -8,7 +8,7 @@ import { Alert, Button, Card, Spinner } from '../../components/ui';
 import { StatusBadge, EligibilityBadge } from '../../components/StatusBadge';
 import { AuthImage, PlayerAvatar } from '../../components/AuthImage';
 import { IconCheckCircle, IconCircleX, IconPlus } from '../../components/icons';
-import { fileSize } from '../../lib/format';
+import { fechaTexto, fileSize } from '../../lib/format';
 import { useAuth, isAdmin } from '../../store/auth';
 
 /** Orden de captura del flujo del manager (req. 48). */
@@ -154,29 +154,12 @@ const HojaBaja = ({
 }) => {
   const [motivo, setMotivo] = useState('');
 
-  useEffect(() => {
-    const alTeclear = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !enviando) onCerrar();
-    };
-    window.addEventListener('keydown', alTeclear);
-    return () => window.removeEventListener('keydown', alTeclear);
-  }, [onCerrar, enviando]);
-
   const MOTIVOS = ['Dejó el equipo', 'Se cambió de equipo', 'Lesión', 'Registro equivocado'];
 
   // En `document.body`: dentro de una tarjeta con `backdrop-blur`, un
   // `fixed` se mide contra la tarjeta y no contra la pantalla.
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div aria-hidden="true" onClick={onCerrar} className="mfl-fondo absolute inset-0 bg-black/60" />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Dar de baja a ${nombre}`}
-        className="mfl-hoja relative w-full max-w-md space-y-3 rounded-t-box border-t
-                   border-base-300 bg-base-200 p-4 shadow-2xl sm:rounded-box sm:border"
-      >
-        <h2 className="text-sm font-bold">Dar de baja a {nombre}</h2>
+  return (
+    <Dialog title={`Dar de baja a ${nombre}`} onClose={() => { if (!enviando) onCerrar(); }}>
         <p className="text-xs text-base-content/60">
           Sale del roster, de las listas y de los conteos, y su número queda libre. Si ya jugó
           algún partido, sus anotaciones se conservan en el historial.
@@ -203,6 +186,7 @@ const HojaBaja = ({
           value={motivo}
           onChange={(e) => setMotivo(e.target.value)}
           rows={2}
+          aria-label="Motivo de la baja"
           placeholder="Motivo de la baja"
           className="textarea textarea-bordered w-full text-sm"
         />
@@ -223,9 +207,7 @@ const HojaBaja = ({
             Dar de baja
           </Button>
         </div>
-      </div>
-    </div>,
-    document.body
+    </Dialog>
   );
 };
 
@@ -355,7 +337,7 @@ export default function PlayerDetail() {
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-base-300 pt-3 text-sm sm:grid-cols-4">
           <div>
             <dt className="text-xs text-base-content/50">Nacimiento</dt>
-            <dd className="tabular">{(data.date_of_birth ?? '').slice(0, 10) || '—'}</dd>
+            <dd className="tabular">{fechaTexto(data.date_of_birth, { day: 'numeric', month: 'long', year: 'numeric' })}</dd>
           </div>
           <div>
             <dt className="text-xs text-base-content/50">Posición</dt>

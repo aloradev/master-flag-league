@@ -1,3 +1,4 @@
+import { Dialog } from '../../components/Dialog';
 import { useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -116,7 +117,7 @@ export default function AdminTeamDetail() {
 
       {/* Identidad */}
       <Card className="p-4">
-        <div className="flex items-center gap-4">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4 sm:flex">
           <TeamCrest
             logoUrl={data.logo_url}
             name={data.name}
@@ -125,7 +126,7 @@ export default function AdminTeamDetail() {
             className="size-16 text-lg"
           />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold">{data.name}</h1>
+            <h1 className="break-words text-xl font-bold leading-tight">{data.name}</h1>
             <p className="text-sm text-base-content/60">
               {data.category_name} · {data.season_name}
             </p>
@@ -154,7 +155,7 @@ export default function AdminTeamDetail() {
               </Button>
             </div>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="col-span-2 flex flex-wrap gap-2 sm:shrink-0">
             <Button size="sm" onClick={() => { setEditando(true); setError(null); }}>
               Editar
             </Button>
@@ -411,22 +412,7 @@ const EditarEquipo = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div aria-hidden="true" onClick={onCerrar} className="mfl-fondo absolute inset-0 bg-black/60" />
-      <div
-        role="dialog"
-        aria-label="Editar equipo"
-        className="mfl-hoja relative max-h-[85vh] w-full max-w-lg space-y-4
-                   overflow-y-auto rounded-t-box border-t border-base-300
-                   bg-base-200 p-4 shadow-2xl sm:rounded-box sm:border"
-      >
-        <div className="flex items-center justify-between border-b border-base-300/60 pb-3">
-          <h2 className="text-sm font-bold">Editar equipo</h2>
-          <Button size="sm" tone="ghost" className="min-h-11 px-3" onClick={onCerrar}>
-            Cerrar
-          </Button>
-        </div>
-
+    <Dialog title="Editar equipo" onClose={() => { if (!guardando) onCerrar(); }}>
         <Field label="Nombre" required>
           <input
             className="input input-bordered w-full"
@@ -490,7 +476,6 @@ const EditarEquipo = ({
         >
           Guardar cambios
         </Button>
-      </div>
-    </div>
+    </Dialog>
   );
 };

@@ -28,7 +28,7 @@ const Partido = ({ g }: { g: Game }) => {
 
   return (
     <Card as="li" className={g.status === 'CANCELLED' ? 'opacity-50' : undefined}>
-      <div className="flex items-center justify-between gap-2 border-b border-base-300/60 px-3 py-1.5 text-[11px]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-base-300/60 px-3 py-1.5 text-[11px]">
         <span className="font-semibold" style={{ color: g.category_color }}>
           {g.category_name}
         </span>
@@ -53,7 +53,7 @@ const Partido = ({ g }: { g: Game }) => {
               color={e.color ?? undefined}
               className="size-7"
             />
-            <span className={`min-w-0 flex-1 truncate text-sm ${e.gano ? 'font-bold' : ''}`}>
+            <span className={`min-w-0 flex-1 break-words text-sm ${e.gano ? 'font-bold' : ''}`}>
               {e.name}
             </span>
             {cerrado && (
