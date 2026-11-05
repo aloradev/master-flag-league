@@ -30,8 +30,8 @@ const Forma = ({ form }: { form: ('W' | 'D' | 'L')[] }) => {
 };
 
 const Fila = ({ f, destacar }: { f: StandingRow; destacar: boolean }) => (
-  <tr className={`mfl-standing-row ${destacar ? 'bg-primary/5' : ''} ${f.position <= 3 ? `mfl-podium-${f.position}` : ''}`}>
-    <td className="tabular w-8 text-center font-bold"><span className="mfl-rank-badge">{f.position}</span></td>
+  <tr className={`mfl-standing-row ${destacar ? 'bg-primary/5' : ''} ${!f.excluded_from_standings && f.position <= 3 ? `mfl-podium-${f.excluded_from_standings ? '—' : f.position}` : ''}`}>
+    <td className="tabular w-8 text-center font-bold"><span className="mfl-rank-badge">{f.excluded_from_standings ? '—' : f.position}</span></td>
     <td>
       <div className="flex items-center gap-2">
         <TeamCrest
@@ -41,7 +41,7 @@ const Fila = ({ f, destacar }: { f: StandingRow; destacar: boolean }) => (
           className="size-7"
         />
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold leading-tight">{f.team_name}</span>
+          <span className="block truncate text-sm font-semibold leading-tight">{f.team_name}{f.excluded_from_standings && <small className="block text-xs font-normal text-base-content/60">Fuera de clasificación</small>}</span>
           {f.tiebreak_pending && <span className="block text-xs text-warning">Empate deportivo</span>}
           <span className="block text-[11px] text-base-content/50 sm:hidden">
             {f.played} JJ · {f.wins}G · {f.draws}E · {f.losses}P · DIF {f.point_diff >= 0 ? '+' : ''}{f.point_diff}
@@ -151,8 +151,8 @@ export default function Standings() {
 
             {g.rows.length === 0 && <Card className="p-4 text-sm text-base-content/60">Todavía no hay equipos registrados en esta categoría.</Card>}
             <div className="space-y-2 sm:hidden">
-              {g.rows.map((f) => <Card key={f.team_id} className={`mfl-mobile-standing p-3 ${f.position <= 3 ? `mfl-podium-${f.position}` : ''}`}>
-                <div className="flex items-center gap-3"><span className="mfl-rank-badge text-lg font-black text-primary">{f.position}</span><TeamCrest name={f.team_name} shortName={f.short_name} logoUrl={f.logo_url} className="size-9" /><div className="min-w-0 flex-1"><p className="truncate font-bold">{f.team_name}</p><p className="text-xs text-base-content/60">{f.played} JJ · {f.wins} JG · {f.draws} JE · {f.losses} JP</p></div><span className="text-right"><strong className="block tabular">{f.point_diff > 0 ? '+' : ''}{f.point_diff}</strong><small className="text-[10px] uppercase text-base-content/50">DIF</small></span></div>
+              {g.rows.map((f) => <Card key={f.team_id} className={`mfl-mobile-standing p-3 ${!f.excluded_from_standings && f.position <= 3 ? `mfl-podium-${f.excluded_from_standings ? '—' : f.position}` : ''}`}>
+                <div className="flex items-center gap-3"><span className="mfl-rank-badge text-lg font-black text-primary">{f.excluded_from_standings ? '—' : f.position}</span><TeamCrest name={f.team_name} shortName={f.short_name} logoUrl={f.logo_url} className="size-9" /><div className="min-w-0 flex-1"><p className="truncate font-bold">{f.team_name}{f.excluded_from_standings && <small className="block text-xs font-normal text-base-content/60">Fuera de clasificación</small>}</p><p className="text-xs text-base-content/60">{f.played} JJ · {f.wins} JG · {f.draws} JE · {f.losses} JP</p></div><span className="text-right"><strong className="block tabular">{f.point_diff > 0 ? '+' : ''}{f.point_diff}</strong><small className="text-[10px] uppercase text-base-content/50">DIF</small></span></div>
                 <div className="mt-2 grid grid-cols-3 gap-2 border-t border-base-300/60 pt-2 text-center text-xs"><span><b className="block tabular text-sm">{f.points_for}</b>PF</span><span><b className="block tabular text-sm">{f.points_against}</b>PC</span><span><b className="block text-sm">{f.form.map((r) => r === 'W' ? 'G' : r === 'D' ? 'E' : 'P').join(' ') || '—'}</b>FORMA</span></div>
               </Card>)}
             </div>

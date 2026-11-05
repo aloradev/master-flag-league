@@ -189,6 +189,7 @@ export interface Proposal {
 }
 
 export interface StandingRow {
+  excluded_from_standings?: boolean;
   team_id: string;
   team_name: string;
   short_name: string | null;

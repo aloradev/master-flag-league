@@ -20,6 +20,7 @@ const NewTeamForm = ({
   onCancel: () => void;
 }) => {
   const [name, setName] = useState('');
+  const [excludedFromStandings, setExcludedFromStandings] = useState(false);
   const [categoryId, setCategoryId] = useState(season.categories[0]?.id ?? '');
   const [color, setColor] = useState(PALETTE[0]);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,7 @@ const NewTeamForm = ({
         categoryId,
         name: name.trim(),
         colorPrimary: color,
+        excludedFromStandings,
       }),
     onSuccess: () => {
       setName('');
@@ -69,6 +71,7 @@ const NewTeamForm = ({
         </select>
       </Field>
 
+      <label className="flex items-center gap-3"><input type="checkbox" className="checkbox" checked={excludedFromStandings} onChange={e => setExcludedFromStandings(e.target.checked)} /><span>Fuera de clasificación<small className="block text-base-content/60">Conserva estadísticas, aparece al final y no clasifica a playoffs.</small></span></label>
       <Field label="Color del equipo">
         <div className="flex flex-wrap gap-2">
           {PALETTE.map((option) => (
@@ -210,7 +213,7 @@ export default function AdminTeams() {
                   />
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{team.name}</p>
+                    <p className="truncate font-medium">{team.name}</p>{team.excluded_from_standings && <span className="badge badge-sm">Fuera de clasificación</span>}
                     <p className="text-xs text-base-content/60">
                       {team.category_name} ·{' '}
                       <span className="tabular">

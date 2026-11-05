@@ -16,6 +16,15 @@ try {
     VALUES ('test_game','season_2026','test_round','cat_varonil_2026','test_home','test_away','FINISHED',24,18,'19:00');`);
   const home = async () => (await calcularPosiciones('season_2026')).find(x => x.team_id === 'test_home');
   assert.equal((await home()).wins, 1);
+  await db.exec("UPDATE teams SET excluded_from_standings=TRUE WHERE id='test_home'");
+  const excluded = await calcularPosiciones('season_2026', 'cat_varonil_2026');
+  assert.equal(excluded.at(-1).team_id, 'test_home');
+  assert.equal(excluded.at(-1).position, 0);
+  assert.equal(excluded.at(-1).wins, 1);
+  assert.equal(excluded.at(-1).points_for, 24);
+  assert.equal(excluded.find(x => x.team_id === 'test_away').losses, 1);
+  await db.exec("UPDATE teams SET excluded_from_standings=FALSE WHERE id='test_home'");
+  assert.equal((await home()).position, 1);
   await db.exec("UPDATE games SET home_score=12,away_score=18 WHERE id='test_game'");
   assert.equal((await home()).losses, 1);
   for (const status of ['SCHEDULED', 'CANCELLED', 'LIVE']) {

@@ -36,5 +36,15 @@ try {
   assert.equal((await calcularPosiciones('s')).find(x => x.team_id === 'furia').position, 1);
   rows = rows.filter(x => x.team_id !== 'furia');
   assert.equal((await calcularPosiciones('s'))[0].team_id, 'alphas');
+  rows = [row('regular', 0, 2, 0, 20), { ...row('guest', 10, 0, 200, 0), excluded_from_standings: true }];
+  const guests = await calcularPosiciones('s');
+  assert.deepEqual(guests.map(x => [x.team_id, x.position]), [['regular', 1], ['guest', 0]]);
+  assert.equal(guests[1].wins, 10);
+  assert.equal(guests[1].points_for, 200);
+  assert.equal(guests[1].tiebreak_pending, false);
+  rows = [row('regular', 0, 0, 0, 0), { ...row('guest', 0, 0, 0, 0), excluded_from_standings: true }];
+  assert.ok((await calcularPosiciones('s')).every(x => !x.tiebreak_pending));
+  rows[1].excluded_from_standings = false;
+  assert.ok((await calcularPosiciones('s')).every(x => x.position === 1 && x.tiebreak_pending));
   console.log('PASS: JG, DIF, PF, empate deportivo, orden alfabetico, JJ y porcentaje excluidos, cero juegos, directo excluido, categorias y recalculo.');
 } finally { await pool.end(); }

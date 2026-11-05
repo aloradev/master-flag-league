@@ -741,3 +741,6 @@ ALTER TABLE round_byes ADD CONSTRAINT round_byes_reason_check CHECK (reason IN (
 
 -- Club identity for avoiding simultaneous cross-category fixtures.
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS club_name VARCHAR(150);
+
+-- Equipos con estadísticas, sin clasificación competitiva.
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS excluded_from_standings BOOLEAN NOT NULL DEFAULT FALSE;

@@ -34,6 +34,7 @@ export interface SessionUser {
 }
 
 export interface TeamSummary {
+  excluded_from_standings?: boolean;
   club_name?: string | null;
   id: string;
   name: string;

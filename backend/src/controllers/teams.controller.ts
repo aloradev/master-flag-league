@@ -20,7 +20,7 @@ import { makeLogo, isProcessableImage } from '../services/image.service.js';
 const TEAM_COLUMNS = `
   t.id, t.season_id, t.category_id, t.name, t.short_name, t.club_name,
   t.logo_url, t.image_url, t.color_primary, t.color_secondary,
-  t.status, t.created_at, t.updated_at
+  t.status, t.excluded_from_standings, t.created_at, t.updated_at
 `;
 
 /** Máximo de encargados por equipo (req. 4). Configurable a futuro. */
@@ -140,12 +140,14 @@ export const getTeam = asyncHandler(async (req: AuthRequest, res: Response) => {
 
 /** POST /api/v1/admin/teams */
 export const createTeam = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { seasonId, categoryId, name, shortName, colorPrimary, colorSecondary, logoUrl } =
+  const { seasonId, categoryId, name, shortName, colorPrimary, colorSecondary, logoUrl, excludedFromStandings } =
     req.body ?? {};
 
   if (!seasonId || !categoryId || !name) {
     throw new AppError('seasonId, categoryId y name son obligatorios', 400);
   }
+
+  if (excludedFromStandings !== undefined && typeof excludedFromStandings !== 'boolean') throw new AppError('excludedFromStandings debe ser booleano', 400);
 
   // La categoría debe pertenecer a la temporada indicada.
   const category = await query('SELECT id FROM categories WHERE id = $1 AND season_id = $2', [
@@ -159,8 +161,8 @@ export const createTeam = asyncHandler(async (req: AuthRequest, res: Response) =
   const id = newPrefixedId('team');
   await query(
     `INSERT INTO teams (id, season_id, category_id, name, short_name,
-                        color_primary, color_secondary, logo_url)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                        color_primary, color_secondary, logo_url, excluded_from_standings)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
     [
       id,
       seasonId,
@@ -170,6 +172,7 @@ export const createTeam = asyncHandler(async (req: AuthRequest, res: Response) =
       colorPrimary ?? '#1f2937',
       colorSecondary ?? '#f9fafb',
       logoUrl ?? null,
+      excludedFromStandings ?? false,
     ]
   );
 
@@ -188,10 +191,12 @@ export const updateTeam = asyncHandler(async (req: AuthRequest, res: Response) =
   const before = await query('SELECT * FROM teams WHERE id = $1', [id]);
   if (!before.rows[0]) throw new AppError('Equipo no encontrado', 404);
 
-  const { name, shortName, colorPrimary, colorSecondary, logoUrl, imageUrl, status, clubName } = req.body ?? {};
+  const { name, shortName, colorPrimary, colorSecondary, logoUrl, imageUrl, status, clubName, excludedFromStandings } = req.body ?? {};
 
   // Solo administración cambia el estado del equipo (activo/suspendido).
   const isAdmin = req.user!.role === ROLES.SUPER_ADMIN || req.user!.role === ROLES.SPORTS_ADMIN;
+  if (excludedFromStandings !== undefined && !isAdmin) throw new AppError('Solo administración puede cambiar la clasificación del equipo', 403);
+  if (excludedFromStandings !== undefined && typeof excludedFromStandings !== 'boolean') throw new AppError('excludedFromStandings debe ser booleano', 400);
   if (clubName !== undefined && !isAdmin) throw new AppError('Solo administración puede asignar el club.',403);
   if (clubName !== undefined && (typeof clubName!=='string' || clubName.length>150)) throw new AppError('Indica un club de hasta 150 caracteres.',400);
   if (status && !isAdmin) {
@@ -208,6 +213,7 @@ export const updateTeam = asyncHandler(async (req: AuthRequest, res: Response) =
        image_url = COALESCE($6, image_url),
        status = COALESCE($7, status),
        club_name = CASE WHEN $9::text IS NULL THEN club_name ELSE NULLIF(trim($9),'') END,
+       excluded_from_standings = COALESCE($10, excluded_from_standings),
        updated_at = NOW()
      WHERE id = $8`,
     [
@@ -220,6 +226,7 @@ export const updateTeam = asyncHandler(async (req: AuthRequest, res: Response) =
       status ?? null,
       id,
       clubName ?? null,
+      excludedFromStandings ?? null,
     ]
   );
 

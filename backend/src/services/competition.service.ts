@@ -697,6 +697,7 @@ export interface FilaPosiciones {
   form: ('W' | 'D' | 'L')[];
   position: number;
   tiebreak_pending?: boolean;
+  excluded_from_standings: boolean;
 }
 
 /**
@@ -730,7 +731,7 @@ export const calcularPosiciones = async (
          AND ro.status <> 'CANCELLED' AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL
          AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
      )
-     SELECT t.id AS team_id, t.name AS team_name, t.short_name, t.logo_url, t.category_id,
+     SELECT t.id AS team_id, t.name AS team_name, t.short_name, t.logo_url, t.category_id, t.excluded_from_standings,
             COUNT(r.team_id)::int                                  AS played,
             COUNT(*) FILTER (WHERE r.pf >  r.pa)::int              AS wins,
             COUNT(*) FILTER (WHERE r.pf =  r.pa)::int              AS draws,
@@ -772,6 +773,7 @@ export const calcularPosiciones = async (
     }
 
     return {
+      excluded_from_standings: row.excluded_from_standings === true,
       team_id: row.team_id,
       team_name: row.team_name,
       short_name: row.short_name,
@@ -799,17 +801,18 @@ export const calcularPosiciones = async (
     b.wins - a.wins || b.point_diff - a.point_diff ||
     b.points_for - a.points_for || a.points_against - b.points_against;
   const ordenadas = filas.sort((a, b) =>
-    a.category_id.localeCompare(b.category_id) || comparar(a, b) ||
+    a.category_id.localeCompare(b.category_id) || Number(a.excluded_from_standings) - Number(b.excluded_from_standings) || comparar(a, b) ||
     a.team_name.localeCompare(b.team_name, 'es'));
   let indice = 0;
   let posicion = 0;
   return ordenadas.map(({ historial: _h, ...fila }, i) => {
     const anterior = ordenadas[i - 1];
     if (!anterior || anterior.category_id !== fila.category_id) indice = 0;
+    if (fila.excluded_from_standings) return { ...fila, position: 0, tiebreak_pending: false };
     indice++;
     if (!anterior || anterior.category_id !== fila.category_id || comparar(anterior, ordenadas[i]) !== 0) posicion = indice;
     const siguiente = ordenadas[i + 1];
-    const empate = [anterior, siguiente].some(otra => otra && otra.category_id === fila.category_id && comparar(otra, ordenadas[i]) === 0);
+    const empate = [anterior, siguiente].some(otra => otra && !otra.excluded_from_standings && otra.category_id === fila.category_id && comparar(otra, ordenadas[i]) === 0);
     return { ...fila, position: posicion, tiebreak_pending: empate };
   });
 };

@@ -77,7 +77,7 @@ export default function TablaPublicaPage() {
         (g) =>
           `${g.category.name}\n` +
           g.rows
-            .map((f) => `${f.position}. ${f.team_name} — ${f.played} JJ · ${f.wins} JG · DIF ${f.point_diff}`)
+            .map((f) => `${f.excluded_from_standings ? '—' : f.position}. ${f.team_name} — ${f.played} JJ · ${f.wins} JG · DIF ${f.point_diff}`)
             .join('\n')
       )
       .join('\n\n') +
@@ -149,8 +149,8 @@ export default function TablaPublicaPage() {
                   </thead>
                   <tbody>
                     {g.rows.map((f) => (
-                      <tr key={f.team_id} className={`mfl-standing-row ${f.position <= 3 ? `mfl-podium-${f.position}` : ''}`}>
-                        <td className="standing-rank tabular font-bold"><span className="mfl-rank-badge">{f.position}</span></td>
+                      <tr key={f.team_id} className={`mfl-standing-row ${!f.excluded_from_standings && f.position <= 3 ? `mfl-podium-${f.excluded_from_standings ? '—' : f.position}` : ''}`}>
+                        <td className="standing-rank tabular font-bold"><span className="mfl-rank-badge">{f.excluded_from_standings ? '—' : f.position}</span></td>
                         <th scope="row" className="standing-team">
                           <div className="flex min-w-0 items-center gap-2">
                             <TeamCrest
@@ -159,7 +159,7 @@ export default function TablaPublicaPage() {
                               logoUrl={f.logo_url}
                               className="size-8 shrink-0"
                             />
-                            <Link to={`/equipos/${f.team_id}`} className="link min-w-0 break-words font-semibold [overflow-wrap:anywhere]">{f.team_name}</Link>
+                            <Link to={`/equipos/${f.team_id}`} className="link min-w-0 break-words font-semibold [overflow-wrap:anywhere]">{f.team_name}{f.excluded_from_standings && <small className="block text-xs font-normal text-base-content/60">Fuera de clasificación</small>}</Link>
                           </div>
                           {f.tiebreak_pending && <p className="text-xs text-warning">Empate deportivo</p>}
                           {/* Las columnas completas ya anuncian estos datos a lectores de pantalla. */}
@@ -191,7 +191,7 @@ export default function TablaPublicaPage() {
                     ))}
                   </tbody>
                 </table>
-              </div><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={[]} tableNotes={[standingsOrder, standingsLegend, standingsNotes]} table={{ headers: ['POS','EQUIPO','JJ','JG','JE','JP','PF','PC','DIF'], rows: g.rows.map(row => [String(row.position) + (row.tiebreak_pending ? '*' : ''), row.team_name, String(row.played), String(row.wins), String(row.draws), String(row.losses), String(row.points_for), String(row.points_against), String(row.point_diff)]) }} filename={`mfl-posiciones-${g.category.id}`} url={window.location.href} /></div>
+              </div><div className="mt-3"><ShareCard title={`Posiciones · ${g.category.name}`} subtitle={season.name} lines={[]} tableNotes={[standingsOrder, standingsLegend, standingsNotes]} table={{ headers: ['POS','EQUIPO','JJ','JG','JE','JP','PF','PC','DIF'], rows: g.rows.map(row => [(row.excluded_from_standings ? 'FC' : String(row.position)) + (row.tiebreak_pending ? '*' : ''), row.team_name, String(row.played), String(row.wins), String(row.draws), String(row.losses), String(row.points_for), String(row.points_against), String(row.point_diff)]) }} filename={`mfl-posiciones-${g.category.id}`} url={window.location.href} /></div>
             </section>
           ))}
         </div>

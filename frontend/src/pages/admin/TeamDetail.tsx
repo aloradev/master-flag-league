@@ -49,6 +49,8 @@ export default function AdminTeamDetail() {
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['team', id] });
     void queryClient.invalidateQueries({ queryKey: ['teams'] });
+    void queryClient.invalidateQueries({ queryKey: ['standings'] });
+    void queryClient.invalidateQueries({ queryKey: ['publico-tabla'] });
     void queryClient.invalidateQueries({ queryKey: ['teams-managed'] });
     void queryClient.invalidateQueries({ queryKey: ['round-teams'] });
     void queryClient.invalidateQueries({ queryKey: ['manual-round-options'] });
@@ -384,6 +386,7 @@ const EditarEquipo = ({
   const [form, setForm] = useState({
     name: equipo.name,
     clubName: equipo.club_name ?? '',
+    excludedFromStandings: equipo.excluded_from_standings ?? false,
     shortName: equipo.short_name ?? '',
     colorPrimary: equipo.color_primary || '#1f2937',
     colorSecondary: equipo.color_secondary || '#f9fafb',
@@ -401,6 +404,7 @@ const EditarEquipo = ({
         colorPrimary: form.colorPrimary,
         colorSecondary: form.colorSecondary,
         status: form.status,
+        excludedFromStandings: form.excludedFromStandings,
       });
       onGuardado();
     } catch (e) {
@@ -453,6 +457,7 @@ const EditarEquipo = ({
           </Field>
         </div>
 
+        <label className="flex items-center gap-3"><input type="checkbox" className="checkbox" checked={form.excludedFromStandings} onChange={e => setForm({ ...form, excludedFromStandings: e.target.checked })} /><span>Fuera de clasificación<small className="block text-base-content/60">Conserva estadísticas, aparece al final y no clasifica a playoffs.</small></span></label>
         <Field
           label="Estado"
           hint="Un equipo suspendido sale del generador de jornadas y de la tabla de posiciones."
