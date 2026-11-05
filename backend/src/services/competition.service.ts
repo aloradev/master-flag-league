@@ -716,17 +716,24 @@ export const calcularPosiciones = async (
   const reglas = await cargarReglas(seasonId);
 
   const r = await query(
+    // El rival competitivo recibe 6-0; el marcador y las estadísticas reales no se modifican.
     `WITH resultados AS (
        SELECT g.category_id, g.home_team_id AS team_id, g.away_team_id AS rival_id,
-              g.home_score AS pf, g.away_score AS pa, ro.number AS jornada
+              CASE WHEN a.excluded_from_standings AND NOT h.excluded_from_standings THEN 6 ELSE g.home_score END AS pf,
+              CASE WHEN a.excluded_from_standings AND NOT h.excluded_from_standings THEN 0 ELSE g.away_score END AS pa,
+              ro.number AS jornada
        FROM games g JOIN rounds ro ON ro.id = g.round_id
+       JOIN teams h ON h.id = g.home_team_id JOIN teams a ON a.id = g.away_team_id
        WHERE g.season_id = $1 AND g.status IN ('FINISHED', 'WALKOVER') AND ro.playoff_id IS NULL
          AND ro.status <> 'CANCELLED' AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL
          AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
        UNION ALL
        SELECT g.category_id, g.away_team_id, g.home_team_id,
-              g.away_score, g.home_score, ro.number
+              CASE WHEN h.excluded_from_standings AND NOT a.excluded_from_standings THEN 6 ELSE g.away_score END,
+              CASE WHEN h.excluded_from_standings AND NOT a.excluded_from_standings THEN 0 ELSE g.home_score END,
+              ro.number
        FROM games g JOIN rounds ro ON ro.id = g.round_id
+       JOIN teams h ON h.id = g.home_team_id JOIN teams a ON a.id = g.away_team_id
        WHERE g.season_id = $1 AND g.status IN ('FINISHED', 'WALKOVER') AND ro.playoff_id IS NULL
          AND ro.status <> 'CANCELLED' AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL
          AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'

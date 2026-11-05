@@ -457,7 +457,7 @@ const EditarEquipo = ({
           </Field>
         </div>
 
-        <label className="flex items-center gap-3"><input type="checkbox" className="checkbox" checked={form.excludedFromStandings} onChange={e => setForm({ ...form, excludedFromStandings: e.target.checked })} /><span>Fuera de clasificación<small className="block text-base-content/60">Conserva estadísticas, aparece al final y no clasifica a playoffs.</small></span></label>
+        <label className="flex items-center gap-3"><input type="checkbox" className="checkbox" checked={form.excludedFromStandings} onChange={e => setForm({ ...form, excludedFromStandings: e.target.checked })} /><span>Fuera de clasificación<small className="block text-base-content/60">Conserva estadísticas, aparece al final y no clasifica a playoffs. Sus rivales reciben victoria 6–0 en la tabla.</small></span></label>
         <Field
           label="Estado"
           hint="Un equipo suspendido sale del generador de jornadas y de la tabla de posiciones."
