@@ -672,8 +672,9 @@ CREATE TRIGGER revoke_changed_user_sessions BEFORE UPDATE ON users
 
 ALTER TABLE rounds ADD COLUMN IF NOT EXISTS round_type VARCHAR(20) NOT NULL DEFAULT 'OFFICIAL';
 ALTER TABLE rounds ADD COLUMN IF NOT EXISTS allow_team_repeats BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS league_friendly boolean NOT NULL DEFAULT false CHECK (NOT league_friendly OR game_type='SCRIMMAGE');
 UPDATE rounds ro SET round_type = 'SCRIMMAGE'
- WHERE EXISTS (SELECT 1 FROM games g WHERE g.round_id = ro.id AND g.game_type = 'SCRIMMAGE')
+ WHERE EXISTS (SELECT 1 FROM games g WHERE g.round_id = ro.id AND g.game_type = 'SCRIMMAGE' AND NOT g.league_friendly)
  AND NOT EXISTS (SELECT 1 FROM games g WHERE g.round_id = ro.id AND g.game_type = 'OFFICIAL');
 ALTER TABLE rounds DROP CONSTRAINT IF EXISTS rounds_season_id_number_key;
 CREATE UNIQUE INDEX IF NOT EXISTS rounds_number_by_type ON rounds(season_id, round_type, number);
@@ -744,3 +745,77 @@ ALTER TABLE teams ADD COLUMN IF NOT EXISTS club_name VARCHAR(150);
 
 -- Equipos con estadísticas, sin clasificación competitiva.
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS excluded_from_standings BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Keep existing fixtures, results and roster IDs addressable across seasons.
+ALTER TABLE rounds ADD COLUMN IF NOT EXISTS competition_event boolean NOT NULL DEFAULT false;
+UPDATE rounds SET competition_event=true WHERE playoff_id IS NOT NULL AND NOT competition_event AND NOT EXISTS (SELECT 1 FROM games g WHERE g.round_id=rounds.id AND g.game_type='OFFICIAL' AND NOT EXISTS (SELECT 1 FROM playoff_games pg WHERE pg.game_id=g.id));
+
+ALTER TABLE games ADD COLUMN IF NOT EXISTS playoff_void_with_history boolean NOT NULL DEFAULT false;
+ALTER TABLE playoffs ADD COLUMN IF NOT EXISTS discarded_at timestamptz;
+ALTER TABLE playoffs DROP CONSTRAINT IF EXISTS playoffs_season_id_category_id_key;
+CREATE UNIQUE INDEX IF NOT EXISTS playoffs_active_category ON playoffs(season_id,category_id) WHERE discarded_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS sports_profiles (
+  id varchar(36) PRIMARY KEY,
+  account_id varchar(36) UNIQUE REFERENCES users(id)
+);
+ALTER TABLE players ADD COLUMN IF NOT EXISTS profile_id varchar(36) REFERENCES sports_profiles(id);
+INSERT INTO sports_profiles(id) SELECT id FROM players WHERE profile_id IS NULL ON CONFLICT DO NOTHING;
+UPDATE players SET profile_id=id WHERE profile_id IS NULL;
+CREATE OR REPLACE FUNCTION ensure_player_profile() RETURNS trigger AS $$
+BEGIN
+  IF NEW.profile_id IS NULL THEN
+    INSERT INTO sports_profiles(id) VALUES(NEW.id);
+    NEW.profile_id := NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS player_profile_insert ON players;
+CREATE TRIGGER player_profile_insert BEFORE INSERT ON players FOR EACH ROW EXECUTE FUNCTION ensure_player_profile();
+ALTER TABLE players ALTER COLUMN profile_id SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS roster_profile_active ON players(team_id,profile_id) WHERE removed_at IS NULL;
+
+-- Serialize reservations even when opponents or courts sit in different rounds.
+CREATE OR REPLACE FUNCTION check_fixture_reservation() RETURNS trigger AS $$
+DECLARE
+  event_date date;
+  current_status text;
+BEGIN
+  IF NEW.status IN ('CANCELLED','POSTPONED') THEN RETURN NEW; END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('fixture:' || NEW.season_id));
+  SELECT scheduled_date,status INTO event_date,current_status FROM rounds WHERE id=NEW.round_id;
+  IF current_status='CANCELLED' THEN RETURN NEW; END IF;
+  IF EXISTS (SELECT 1 FROM games g JOIN rounds r ON r.id=g.round_id
+    WHERE g.season_id=NEW.season_id AND g.id<>NEW.id AND r.scheduled_date=event_date
+      AND r.status<>'CANCELLED' AND g.status NOT IN ('CANCELLED','POSTPONED')
+      AND g.scheduled_time=NEW.scheduled_time AND (g.field_id=NEW.field_id
+        OR g.home_team_id IN (NEW.home_team_id,NEW.away_team_id)
+        OR g.away_team_id IN (NEW.home_team_id,NEW.away_team_id))) THEN
+    RAISE EXCEPTION 'fixture_reservation_conflict' USING ERRCODE='23505';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS fixture_reservation ON games;
+CREATE TRIGGER fixture_reservation BEFORE INSERT OR UPDATE OF round_id,field_id,scheduled_time,home_team_id,away_team_id ON games
+FOR EACH ROW EXECUTE FUNCTION check_fixture_reservation();
+
+CREATE OR REPLACE FUNCTION check_round_reservations() RETURNS trigger AS $$
+BEGIN
+  IF NEW.scheduled_date IS DISTINCT FROM OLD.scheduled_date AND NEW.status<>'CANCELLED' THEN
+    PERFORM pg_advisory_xact_lock(hashtext('fixture:' || NEW.season_id));
+    IF EXISTS (SELECT 1 FROM games a JOIN games b ON b.season_id=a.season_id AND b.round_id<>a.round_id
+      AND b.scheduled_time=a.scheduled_time JOIN rounds r ON r.id=b.round_id
+      WHERE a.round_id=NEW.id AND r.scheduled_date=NEW.scheduled_date AND r.status<>'CANCELLED'
+      AND a.status NOT IN ('CANCELLED','POSTPONED') AND b.status NOT IN ('CANCELLED','POSTPONED')
+      AND (a.field_id=b.field_id OR a.home_team_id IN (b.home_team_id,b.away_team_id)
+        OR a.away_team_id IN (b.home_team_id,b.away_team_id))) THEN
+      RAISE EXCEPTION 'fixture_reservation_conflict' USING ERRCODE='23505';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS round_reservations ON rounds;
+CREATE TRIGGER round_reservations BEFORE UPDATE OF scheduled_date ON rounds FOR EACH ROW EXECUTE FUNCTION check_round_reservations();

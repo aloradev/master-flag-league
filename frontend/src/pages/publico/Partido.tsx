@@ -38,7 +38,7 @@ export default function PartidoPublico() {
     const name = p[`${side}_team_name`];
     const content = <><TeamCrest name={name} shortName={p[`${side}_short_name`]} logoUrl={p[`${side}_logo_url`]} color={p[`${side}_color`] ?? undefined} className="size-16 max-w-full shrink-0 sm:size-24" /><span className="max-w-full break-words text-sm font-bold [overflow-wrap:anywhere] sm:text-lg">{name}</span><span className="max-w-full text-xs text-base-content/55 [overflow-wrap:anywhere]">{side === 'home' ? 'Local' : 'Visitante'}</span></>;
     const className = 'flex min-w-0 flex-col items-center gap-2 text-center';
-    return p.game_type === 'SCRIMMAGE' ? <div className={className}>{content}</div> : <Link className={`${className} hover:text-primary`} to={`/equipos/${p[`${side}_team_id`]}`}>{content}</Link>;
+    return p.game_type === 'SCRIMMAGE' && !p.league_friendly ? <div className={className}>{content}</div> : <Link className={`${className} hover:text-primary`} to={`/equipos/${p[`${side}_team_id`]}`}>{content}</Link>;
   };
   return <Marco titulo={title} subtitulo={p.category_name} seo={{ title: `${p.home_team_name} ${score} ${p.away_team_name}`, description: `${status.texto} · ${p.category_name} · ${p.scheduled_date.slice(0, 10)} · ${p.scheduled_time || 'Hora por confirmar'} · ${p.field_name || 'Cancha por confirmar'}.` }} acciones={<BotonCompartir texto={message} />}>
     <div className="space-y-6">
@@ -46,7 +46,7 @@ export default function PartidoPublico() {
       <DataFreshness label="Partido" query={consulta} />
       <nav aria-label="Volver a la jornada"><Link className="link text-sm" to={p.round_id ? `/jornada/${p.round_id}` : '/jornada'}>{p.round_number ? `Jornada ${p.round_number}` : 'Ver jornada'}</Link></nav>
       {consulta.isError && <Alert tone="warning">No se pudo actualizar el partido. Se muestra la última información recibida.</Alert>}
-      {p.game_type === 'SCRIMMAGE' && <Alert tone="info">Scrimmage. No cuenta para posiciones ni rankings oficiales.</Alert>}
+      {p.game_type === 'SCRIMMAGE' && <Alert tone="info">{p.league_friendly ? 'Amistoso' : 'Scrimmage'}. No cuenta para posiciones ni rankings oficiales.</Alert>}
       <section aria-label="Marcador" className="border-y border-base-300 py-6">
         <p className="mb-5 text-center"><span className={`badge ${status.tono}`}>{status.texto}</span></p>
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-6">

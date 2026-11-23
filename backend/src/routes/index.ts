@@ -32,6 +32,8 @@ import {
   restrictScrimmageToken,
   requireAdmin,
   requireRole,
+  inLeague,
+  loadRosterTeams,
   loadManagedTeams,
   ROLES,
 } from '../middleware/auth.js';
@@ -74,8 +76,8 @@ router.put('/public/game-reports/:id', gameReports.save);
 router.use(requireAuth);
 router.use(restrictScrimmageToken);
 router.get('/admin/games/:id/report', requireAdmin, gameReports.adminRead);
-router.post('/admin/games/:id/report-link', requireAdmin, gameReports.createLink);
-router.delete('/admin/games/:id/report-link', requireAdmin, gameReports.revoke);
+router.post('/admin/games/:id/report-link', requireAdmin, inLeague('games'), gameReports.createLink);
+router.delete('/admin/games/:id/report-link', requireAdmin, inLeague('games'), gameReports.revoke);
 
 // ════════════════════════════════ SESIÓN ══════════════════════════════════
 router.get('/auth/me', auth.me);
@@ -92,14 +94,14 @@ router.get('/seasons/:seasonId/settings', seasons.getSettings);
 router.get('/statistics/players', statistics.playerStats);
 
 // ═════════════════ EQUIPOS (admin: todos · manager: los suyos) ════════════
-router.get('/teams', loadManagedTeams, teams.listTeams);
-router.get('/teams/:id', loadManagedTeams, teams.getTeam);
-router.get('/teams/:id/registration-status', loadManagedTeams, registrationStatus);
-router.put('/teams/:id', loadManagedTeams, teams.updateTeam);
+router.get('/teams', loadRosterTeams, teams.listTeams);
+router.get('/teams/:id', loadRosterTeams, teams.getTeam);
+router.get('/teams/:id/registration-status', loadRosterTeams, registrationStatus);
+router.put('/teams/:id', loadRosterTeams, teams.updateTeam);
 // El logo lo puede subir administración o el propio encargado del equipo.
 router.post(
   '/teams/:id/logo',
-  loadManagedTeams,
+  loadRosterTeams,
   teams.logoUploadMiddleware,
   teams.uploadTeamLogo
 );
@@ -112,24 +114,24 @@ router.get(
 );
 
 // ════════════════════════════════ JUGADORES ═══════════════════════════════
-router.get('/players', loadManagedTeams, players.listPlayers);
-router.post('/players', loadManagedTeams, players.createPlayer);
-router.get('/players/:id', loadManagedTeams, players.getPlayer);
-router.put('/players/:id', loadManagedTeams, players.updatePlayer);
+router.get('/players', loadRosterTeams, players.listPlayers);
+router.post('/players', loadRosterTeams, players.createPlayer);
+router.get('/players/:id', loadRosterTeams, players.getPlayer);
+router.put('/players/:id', loadRosterTeams, players.updatePlayer);
 // Baja o borrado del jugador: lo decide el servidor según haya jugado o
-// no. Con `loadManagedTeams`, un manager solo alcanza a los suyos.
-router.delete('/players/:id', loadManagedTeams, players.removePlayer);
+// no. Con `loadRosterTeams`, un manager solo alcanza a los suyos.
+router.delete('/players/:id', loadRosterTeams, players.removePlayer);
 
 // ═══════════════════════════════ DOCUMENTOS ═══════════════════════════════
 router.post(
   '/players/:id/documents',
-  loadManagedTeams,
+  loadRosterTeams,
   documents.uploadMiddleware,
   documents.uploadDocument
 );
-router.get('/players/:id/documents/history', loadManagedTeams, documents.getDocumentHistory);
+router.get('/players/:id/documents/history', loadRosterTeams, documents.getDocumentHistory);
 // Única puerta de acceso al archivo: valida sesión y alcance (req. 12).
-router.get('/documents/:id/file', loadManagedTeams, documents.serveDocument);
+router.get('/documents/:id/file', loadRosterTeams, documents.serveDocument);
 
 // ══════════════════════════════ ADMINISTRACIÓN ════════════════════════════
 router.get('/admin/validation/queue', requireAdmin, validation.getValidationQueue);
@@ -137,7 +139,7 @@ router.get('/admin/validation/stats', requireAdmin, validation.getValidationStat
 router.get('/admin/pending', requireAdmin, adminPending);
 router.get('/admin/player-interest', requireAdmin, playerInterest.list);
 router.put('/admin/player-interest/:id', requireAdmin, playerInterest.update);
-router.post('/admin/players/:id/review', requireAdmin, validation.reviewPlayer);
+router.post('/admin/players/:id/review', requireAdmin, inLeague('players'), validation.reviewPlayer);
 
 router.get('/admin/users', requireAdmin, users.listUsers);
 router.post('/admin/users', requireAdmin, users.createUser);
@@ -182,6 +184,12 @@ router.get('/rounds/:id', rounds.getRound);
 router.get('/standings', rounds.getStandings);
 router.get('/playoffs', playoffs.list);
 router.post('/admin/playoffs', requireAdmin, playoffs.create);
+router.get('/admin/player-profiles',requireAdmin,players.searchProfiles);
+router.post('/admin/players/:id/link-account', requireAdmin, loadRosterTeams, players.linkAccount);
+router.post('/admin/teams/:id/associate-player', requireAdmin, loadRosterTeams, players.associatePlayer);
+router.post('/admin/playoffs/:id/games/:gameId/schedule', requireAdmin, playoffs.reschedule);
+router.post('/admin/playoffs/:id/discard', requireAdmin, playoffs.discard);
+router.post('/admin/playoffs/schedule-batch', requireAdmin, playoffs.scheduleBatch);
 router.post('/admin/playoffs/:id/advance', requireAdmin, playoffs.advance);
 router.get('/seasons/:seasonId/slots', rounds.getSeasonSlots);
 router.get('/plays', games.listPlays);
@@ -204,16 +212,16 @@ router.post('/games/:id/finish', games.finishGame);
 router.post('/admin/rounds/propose', requireAdmin, rounds.proposeRound);
 router.get('/admin/rounds/options', requireAdmin, rounds.manualOptions);
 router.post('/admin/rounds', requireAdmin, rounds.createRound);
-router.put('/admin/rounds/:id', requireAdmin, rounds.updateRound);
-router.post('/admin/rounds/:id/publish', requireAdmin, rounds.publishRound);
-router.post('/admin/rounds/:id/cancel', requireAdmin, rounds.cancelRound);
-router.delete('/admin/rounds/:id', requireAdmin, rounds.deleteRound);
+router.put('/admin/rounds/:id', requireAdmin, inLeague('rounds'), rounds.updateRound);
+router.post('/admin/rounds/:id/publish', requireAdmin, inLeague('rounds'), rounds.publishRound);
+router.post('/admin/rounds/:id/cancel', requireAdmin, inLeague('rounds'), rounds.cancelRound);
+router.delete('/admin/rounds/:id', requireAdmin, inLeague('rounds'), rounds.deleteRound);
 
-router.put('/admin/games/:id', requireAdmin, games.updateGame);
-router.put('/admin/games/:id/historical-result', requireAdmin, saveHistoricalResult);
-router.post('/admin/games/:id/historical-statistics', requireAdmin, updateHistoricalStatistics);
-router.post('/admin/games/:id/referees', requireAdmin, games.assignReferees);
-router.post('/admin/games/:id/walkover', requireAdmin, games.declareWalkover);
+router.put('/admin/games/:id', requireAdmin, inLeague('games'), games.updateGame);
+router.put('/admin/games/:id/historical-result', requireAdmin, inLeague('games'), saveHistoricalResult);
+router.post('/admin/games/:id/historical-statistics', requireAdmin, inLeague('games'), updateHistoricalStatistics);
+router.post('/admin/games/:id/referees', requireAdmin, inLeague('games'), games.assignReferees);
+router.post('/admin/games/:id/walkover', requireAdmin, inLeague('games'), games.declareWalkover);
 router.post('/admin/referees', requireAdmin, games.createReferee);
 
 // ═══════════════════════════ FINANZAS (FASE 4) ════════════════════════════

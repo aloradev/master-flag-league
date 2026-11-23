@@ -1,3 +1,4 @@
+import { useCompetitionSeason } from './useCompetitionSeason';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -115,11 +116,7 @@ export default function AdminTeams() {
   const [creating, setCreating] = useState(false);
   const [category, setCategory] = useState('ALL');
   const [search, setSearch] = useState('');
-  const season = useQuery({
-    queryKey: ['season-active'],
-    queryFn: () => api.get<Season>('/seasons/active'),
-    retry: false,
-  });
+  const {season,options,setSelected}=useCompetitionSeason();
 
   const teams = useQuery({
     queryKey: ['teams', season.data?.id],
@@ -154,7 +151,7 @@ export default function AdminTeams() {
     <div className="mx-auto max-w-5xl space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">Equipos</h1>
+          <h1 className="text-xl font-bold">Equipos</h1><Field label="Temporada"><select className="select" value={season.data?.id ?? ''} onChange={e=>{setSelected(e.target.value);setCategory('ALL');setCreating(false);}}>{options.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
           <p className="text-sm text-base-content/60">
             {allTeams.length} equipo(s) · {categories.length} categoría(s)
           </p>

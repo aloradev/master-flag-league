@@ -13,6 +13,8 @@ import { JornadaAgenda } from '../../components/JornadaAgenda';
 
 export interface PartidoPublico {
   statistics_status?: 'PENDING' | 'COMPLETE';
+  league_friendly?: boolean;
+  playoff_phase?: string;
   game_type?: 'OFFICIAL' | 'SCRIMMAGE';
   id: string;
   category_name: string;
@@ -95,7 +97,8 @@ export const Partido = ({ p }: { p: PartidoPublico }) => {
             />
           )}
           <span className="break-words">{p.category_name}</span>
-          {p.game_type === 'SCRIMMAGE' && <span className="badge badge-sm badge-info">Scrimmage</span>}
+          {p.playoff_phase && <span className="badge badge-sm">Playoff · {p.playoff_phase}</span>}
+          {p.game_type === 'SCRIMMAGE' && <span className="badge badge-sm badge-info">{p.league_friendly ? 'Amistoso' : 'Scrimmage'}</span>}
         </span>
         <span className={`badge badge-sm shrink-0 ${etiqueta.tono}`}>{etiqueta.texto}</span>
       </div>

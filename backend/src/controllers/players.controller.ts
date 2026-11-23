@@ -1,6 +1,6 @@
 import type { Response } from 'express';
 import { registrationOpen } from '../utils/registration.js';
-import { query } from '../config/database.js';
+import { query, withTransaction } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { audit } from '../services/audit.service.js';
 import { newPrefixedId } from '../utils/id.js';
@@ -292,75 +292,86 @@ export const createPlayer = asyncHandler(async (req: AuthRequest, res: Response)
     throw new AppError('No tienes acceso a este equipo', 403);
   }
 
-  const teamResult = await query<{
-    season_id: string;
-    category_id: string;
-    status: string;
-    registration_deadline: string | null;
-  }>(
-    `SELECT t.season_id, t.category_id, t.status, s.registration_deadline
-     FROM teams t JOIN seasons s ON s.id = t.season_id WHERE t.id = $1`,
-    [teamId]
-  );
-
-  const team = teamResult.rows[0];
-  if (!team) throw new AppError('Equipo no encontrado', 404);
-  if (team.status !== 'ACTIVE') {
-    throw new AppError('El equipo no está activo', 400);
-  }
-
-  // Req. 10: después de la fecha límite solo administración puede dar de alta.
-  if (team.registration_deadline && !isAdmin(req)) {
-    if (!registrationOpen(team.registration_deadline)) {
-      throw new AppError(
-        'El periodo de registro está cerrado. Solicita autorización a administración.',
-        403
-      );
-    }
-  }
-
-  if (jerseyNumber != null) {
-    const taken = await query(
-      'SELECT id FROM players WHERE team_id = $1 AND jersey_number = $2 AND removed_at IS NULL',
-      [teamId, jerseyNumber]
+  const {id,eligibility}=await withTransaction(async query=>{
+    const teamResult = await query<{
+      season_id: string;
+      category_id: string;
+      status: string;
+      registration_deadline: string | null;
+    }>(
+      `SELECT t.season_id, t.category_id, t.status, s.registration_deadline
+       FROM teams t JOIN seasons s ON s.id = t.season_id WHERE t.id = $1 AND t.team_type='OFFICIAL' FOR UPDATE OF t`,
+      [teamId]
     );
-    if (taken.rows[0]) {
-      throw new AppError(`El número ${jerseyNumber} ya está asignado en este equipo`, 409);
+
+    const team = teamResult.rows[0];
+    if (!team) throw new AppError('Equipo no encontrado', 404);
+    if (team.status !== 'ACTIVE') {
+      throw new AppError('El equipo no está activo', 400);
     }
-  }
 
-  const id = newPrefixedId('ply');
-  await query(
-    `INSERT INTO players
-      (id, team_id, season_id, category_id, first_name, last_name_paternal,
-       last_name_maternal, date_of_birth, jersey_number, position, phone, email,
-       extra_fields, status, is_eligible, registered_by_user_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'PENDING',FALSE,$14)`,
-    [
-      id,
-      teamId,
-      team.season_id,
-      team.category_id,
-      firstName,
-      lastNamePaternal,
-      lastNameMaternal ?? null,
-      dateOfBirth,
-      jerseyNumber ?? null,
-      position ?? null,
-      phone ?? null,
-      email ?? null,
-      JSON.stringify(extraFields ?? {}),
-      req.user!.id,
-    ]
-  );
+    // Req. 10: después de la fecha límite solo administración puede dar de alta.
+    if (team.registration_deadline && !isAdmin(req)) {
+      if (!registrationOpen(team.registration_deadline)) {
+        throw new AppError(
+          'El periodo de registro está cerrado. Solicita autorización a administración.',
+          403
+        );
+      }
+    }
 
-  const eligibility = await refreshEligibility(id);
+    if (isAdmin(req) && req.body.confirmDistinct !== true) {
+      await query('SELECT pg_advisory_xact_lock(hashtext($1))',[JSON.stringify([req.user!.leagueId,firstName.trim().toLowerCase(),lastNamePaternal.trim().toLowerCase(),dateOfBirth])]);
+      const possible = await query(`SELECT p.id FROM players p JOIN seasons s ON s.id=p.season_id
+        WHERE s.league_id=$1 AND lower(trim(p.first_name))=lower(trim($2))
+        AND lower(trim(p.last_name_paternal))=lower(trim($3)) AND p.date_of_birth=$4 LIMIT 1`,
+        [req.user!.leagueId,firstName,lastNamePaternal,dateOfBirth]);
+      if (possible.rows.length) throw new AppError('Hay un perfil con el mismo nombre y nacimiento. Revisa los jugadores existentes o confirma que es otra persona.',409);
+    }
+    if (jerseyNumber != null) {
+      const taken = await query(
+        'SELECT id FROM players WHERE team_id = $1 AND jersey_number = $2 AND removed_at IS NULL',
+        [teamId, jerseyNumber]
+      );
+      if (taken.rows[0]) {
+        throw new AppError(`El número ${jerseyNumber} ya está asignado en este equipo`, 409);
+      }
+    }
 
-  await audit(req, {
-    action: 'CREATE_PLAYER',
-    entityType: 'player',
-    entityId: id,
-    newValue: { teamId, firstName, lastNamePaternal, jerseyNumber },
+    const id = newPrefixedId('ply');
+    await query(
+      `INSERT INTO players
+        (id, team_id, season_id, category_id, first_name, last_name_paternal,
+         last_name_maternal, date_of_birth, jersey_number, position, phone, email,
+         extra_fields, status, is_eligible, registered_by_user_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'PENDING',FALSE,$14)`,
+      [
+        id,
+        teamId,
+        team.season_id,
+        team.category_id,
+        firstName,
+        lastNamePaternal,
+        lastNameMaternal ?? null,
+        dateOfBirth,
+        jerseyNumber ?? null,
+        position ?? null,
+        phone ?? null,
+        email ?? null,
+        JSON.stringify(extraFields ?? {}),
+        req.user!.id,
+      ]
+    );
+
+    const eligibility = await refreshEligibility(id,query);
+
+    await audit(req, {
+      action: 'CREATE_PLAYER',
+      entityType: 'player',
+      entityId: id,
+      newValue: { teamId, firstName, lastNamePaternal, jerseyNumber },
+    },query);
+    return {id,eligibility};
   });
 
   res.status(201).json({
@@ -597,7 +608,7 @@ export const removePlayer = asyncHandler(async (req: AuthRequest, res: Response)
 
   const nombre = `${player.first_name} ${player.last_name_paternal}`;
 
-  if (jugo) {
+  if (jugo || isAdmin(req)) {
     await query(
       `UPDATE players
        SET removed_at = NOW(), removed_by_user_id = $2, removal_reason = $3,
@@ -613,7 +624,7 @@ export const removePlayer = asyncHandler(async (req: AuthRequest, res: Response)
       entityType: 'player',
       entityId: id,
       oldValue: { nombre, jersey: player.jersey_number, status: player.status },
-      newValue: { baja: true, motivo, conservado: 'tiene partidos jugados' },
+      newValue: { baja: true, motivo, conservado: jugo ? 'tiene partidos jugados' : 'historial de plantilla' },
     });
 
     return res.json({
@@ -691,4 +702,62 @@ export const getTeamEligibility = asyncHandler(async (req: AuthRequest, res: Res
       players,
     },
   });
+});
+
+/** Reuse a sporting identity. Each roster entry keeps its own season and game references. */
+export const associatePlayer = asyncHandler(async (req: AuthRequest,res: Response) => {
+  const teamId = req.params.id;
+  if (!canAccessTeam(req,teamId)) throw new AppError('Equipo fuera de tu liga',403);
+  const id = await withTransaction(async q => {
+    const team = (await q("SELECT * FROM teams WHERE id=$1 AND status='ACTIVE' AND team_type='OFFICIAL' FOR UPDATE",[teamId])).rows[0];
+    const source = (await q('SELECT * FROM players WHERE id=$1',[req.body.playerId])).rows[0];
+    if (!team || !source || !canAccessTeam(req,source.team_id)) throw new AppError('Equipo o jugador no disponible',404);
+    const existing = (await q('SELECT id,removed_at FROM players WHERE profile_id=$1 AND team_id=$2 ORDER BY removed_at NULLS FIRST LIMIT 1',[source.profile_id,teamId])).rows[0];
+    if (existing) {
+      if (!existing.removed_at) return existing.id;
+      await q(`UPDATE players p SET removed_at=NULL,removed_by_user_id=NULL,removal_reason=NULL,
+        jersey_number=CASE WHEN EXISTS (SELECT 1 FROM players active WHERE active.team_id=p.team_id
+        AND active.jersey_number=p.jersey_number AND active.removed_at IS NULL) THEN NULL ELSE p.jersey_number END,
+        updated_at=NOW() WHERE p.id=$1`,[existing.id]);
+      await refreshEligibility(existing.id,q);
+      await audit(req,{action:'RESTORE_ROSTER_PLAYER',entityType:'player',entityId:existing.id,newValue:{teamId}},q);
+      return existing.id;
+    }
+    const membership = newPrefixedId('ply');
+    await q(`INSERT INTO players(id,profile_id,team_id,season_id,category_id,first_name,last_name_paternal,last_name_maternal,date_of_birth,registered_by_user_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[membership,source.profile_id,teamId,team.season_id,team.category_id,source.first_name,source.last_name_paternal,source.last_name_maternal,source.date_of_birth,req.user!.id]);
+    await refreshEligibility(membership,q);
+    await audit(req,{action:'ASSOCIATE_PLAYER',entityType:'player',entityId:membership,newValue:{profileId:source.profile_id,teamId}},q);
+    return membership;
+  });
+  res.json({success:true,data:{id}});
+});
+
+export const linkAccount = asyncHandler(async (req: AuthRequest,res: Response) => {
+  const email = String(req.body.email ?? '').trim();
+  if (!email || req.body.verified !== true) throw new AppError('Verifica la identidad y confirma el correo de la cuenta.',400);
+  await withTransaction(async q => {
+    const player = (await q('SELECT team_id,profile_id FROM players WHERE id=$1',[req.params.id])).rows[0];
+    if (!player || !canAccessTeam(req,player.team_id)) throw new AppError('Jugador no encontrado',404);
+    const account = (await q('SELECT id FROM users WHERE lower(email)=lower($1) AND active AND league_id=$2',[email,req.user!.leagueId])).rows[0];
+    if (!account) throw new AppError('Cuenta activa no encontrada en la liga',404);
+    const result = await q('UPDATE sports_profiles SET account_id=$2 WHERE id=$1 AND (account_id IS NULL OR account_id=$2::varchar) RETURNING id',[player.profile_id,account.id]);
+    if (!result.rows.length) throw new AppError('Este perfil ya tiene otra cuenta vinculada.',409);
+    await audit(req,{action:'LINK_PLAYER_ACCOUNT',entityType:'player',entityId:req.params.id,newValue:{accountId:account.id}},q);
+  });
+  res.json({success:true,data:{linked:true}});
+});
+
+export const searchProfiles = asyncHandler(async (req:AuthRequest,res:Response)=>{
+  const term=String(req.query.search??'').trim();
+  if(term.length<2) return res.json({success:true,data:[]});
+  const result=await query(`SELECT DISTINCT ON (p.profile_id) p.id,p.first_name,p.last_name_paternal,
+    p.last_name_maternal,t.name AS team_name,c.name AS category_name,s.name AS season_name,
+    EXTRACT(YEAR FROM p.date_of_birth)::int AS birth_year
+    FROM players p JOIN teams t ON t.id=p.team_id JOIN categories c ON c.id=p.category_id
+    JOIN seasons s ON s.id=p.season_id WHERE s.league_id=$1 AND
+    concat_ws(' ',p.first_name,p.last_name_paternal,p.last_name_maternal) ILIKE $2
+    ORDER BY p.profile_id,(p.removed_at IS NULL) DESC,s.start_date DESC,p.created_at DESC LIMIT 50`,
+    [req.user!.leagueId,'%'+term+'%']);
+  res.json({success:true,data:result.rows});
 });

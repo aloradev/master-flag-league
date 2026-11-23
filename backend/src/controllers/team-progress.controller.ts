@@ -20,7 +20,7 @@ export const teamProgress = asyncHandler(async (req: AuthRequest, res: Response)
       WHERE t.season_id=$1 AND t.team_type='OFFICIAL' ORDER BY c.sort_order,t.name`,[seasonId]),
     query(`SELECT id,number,status,to_char(scheduled_date,'YYYY-MM-DD') AS date,
       scheduled_date < (NOW() AT TIME ZONE 'America/Cancun')::date AS elapsed
-      FROM rounds WHERE season_id=$1 AND round_type='OFFICIAL' AND playoff_id IS NULL
+      FROM rounds WHERE season_id=$1 AND round_type='OFFICIAL' AND NOT competition_event
       AND status IN ('PUBLISHED','IN_PROGRESS','FINISHED') ORDER BY scheduled_date,number`,[seasonId]),
     query(`SELECT g.id,g.round_id,g.home_team_id,g.away_team_id,g.status,
       h.name AS home_name,a.name AS away_name FROM games g
@@ -69,7 +69,7 @@ export const updateCompetitionEntry = asyncHandler(async (req: AuthRequest,res: 
     if (!team) throw new AppError('Equipo no encontrado',404);
     if (date && (date<team.season_start || (team.season_end && date>team.season_end))) throw new AppError('La incorporación debe estar dentro de las fechas de la temporada',400);
     if (date && (await q(`SELECT 1 FROM rounds r WHERE r.scheduled_date<$2::date
-      AND r.round_type='OFFICIAL' AND r.playoff_id IS NULL AND r.status IN ('DRAFT','PUBLISHED','IN_PROGRESS','FINISHED')
+      AND r.round_type='OFFICIAL' AND NOT r.competition_event AND r.status IN ('DRAFT','PUBLISHED','IN_PROGRESS','FINISHED')
       AND (EXISTS (SELECT 1 FROM games g WHERE g.round_id=r.id AND g.game_type='OFFICIAL'
         AND g.status<>'CANCELLED' AND (g.home_team_id=$1 OR g.away_team_id=$1))
         OR EXISTS (SELECT 1 FROM round_byes b WHERE b.round_id=r.id AND b.team_id=$1)) LIMIT 1`,[team.id,date])).rows.length) {

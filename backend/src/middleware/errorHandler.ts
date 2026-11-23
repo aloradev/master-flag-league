@@ -39,6 +39,7 @@ export const errorHandler = (
 
   // Violaciones de integridad de PostgreSQL traducidas a mensajes útiles.
   const pgCode = (err as any).code;
+  if (pgCode === '23505' && err.message.includes('fixture_reservation_conflict')) return res.status(409).json({ success:false,error:'La cancha o un equipo ya tiene partido en esa fecha y hora.' });
   if (pgCode === '23505') {
     return res.status(409).json({ success: false, error: 'El registro ya existe' });
   }

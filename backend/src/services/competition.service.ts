@@ -152,7 +152,7 @@ export const cargarHistorial = async (seasonId: string): Promise<Historial> => {
      FROM games g
      JOIN rounds r ON r.id = g.round_id
      WHERE g.season_id = $1
-       AND r.status <> 'CANCELLED' AND r.round_type = 'OFFICIAL' AND r.playoff_id IS NULL
+       AND r.status <> 'CANCELLED' AND r.round_type = 'OFFICIAL' AND NOT EXISTS (SELECT 1 FROM playoff_games pk WHERE pk.game_id=g.id)
        AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
        AND g.status <> 'CANCELLED' AND g.postponed_game_id IS NULL`,
     [seasonId]
@@ -187,7 +187,7 @@ export const cargarHistorial = async (seasonId: string): Promise<Historial> => {
     `SELECT rb.team_id
      FROM round_byes rb
      JOIN rounds r ON r.id = rb.round_id
-     WHERE r.season_id = $1 AND r.status <> 'CANCELLED' AND r.round_type = 'OFFICIAL' AND r.playoff_id IS NULL`,
+     WHERE r.season_id = $1 AND r.status <> 'CANCELLED' AND r.round_type = 'OFFICIAL' AND NOT r.competition_event`,
     [seasonId]
   );
   for (const d of descansos.rows) sube(h.descansos, d.team_id);
@@ -258,7 +258,7 @@ async function reservasDeFecha(seasonId: string, date: string, q = query) {
     to_char(g.scheduled_time,'HH24:MI') AS time
     FROM games g JOIN rounds r ON r.id=g.round_id
     WHERE g.season_id=$1 AND r.scheduled_date=$2::date AND r.status<>'CANCELLED'
-      AND g.status<>'CANCELLED' AND COALESCE(g.game_type,'OFFICIAL')='OFFICIAL'
+      AND g.status<>'CANCELLED' AND (g.game_type='OFFICIAL' OR g.league_friendly)
     UNION ALL SELECT NULL,NULL,b.team_id,NULL,NULL FROM round_byes b JOIN rounds r ON r.id=b.round_id
     WHERE r.season_id=$1 AND r.scheduled_date=$2::date AND r.status<>'CANCELLED' AND r.round_type='OFFICIAL'`,[seasonId,date])).rows;
 }
@@ -280,7 +280,7 @@ export async function validarClubesJornada(roundId:string,date:string,q=query,ga
   const teams=await clubesTemporada(round.season_id,q);
   const rows=(await q(`SELECT g.id,g.round_id,g.home_team_id,g.away_team_id,g.category_id,to_char(g.scheduled_time,'HH24:MI') AS time
     FROM games g JOIN rounds r ON r.id=g.round_id WHERE g.season_id=$1 AND g.status<>'CANCELLED'
-    AND r.status<>'CANCELLED' AND g.game_type='OFFICIAL' AND (g.round_id=$2 OR r.scheduled_date=$3::date)`,[round.season_id,roundId,date])).rows;
+    AND r.status<>'CANCELLED' AND (g.game_type='OFFICIAL' OR g.league_friendly) AND (g.round_id=$2 OR r.scheduled_date=$3::date)`,[round.season_id,roundId,date])).rows;
   for (const g of rows.filter(g=>g.round_id===roundId && g.time && (!gameId || g.id===gameId))) {
     for (const id of [g.home_team_id,g.away_team_id]) {
       if (rows.filter(other=>[other.home_team_id,other.away_team_id].includes(id)).length>2)
@@ -317,7 +317,7 @@ export interface OpcionesPropuesta {
 export async function cargarRecuperaciones(seasonId: string, categories: CategoriaEntrada[], q = query) {
   const result = await q(`SELECT g.home_team_id,g.away_team_id FROM games g
     JOIN rounds r ON r.id=g.round_id WHERE g.season_id=$1 AND r.status<>'CANCELLED'
-    AND r.round_type='OFFICIAL' AND r.playoff_id IS NULL
+    AND r.round_type='OFFICIAL' AND NOT EXISTS (SELECT 1 FROM playoff_games pk WHERE pk.game_id=g.id)
     AND COALESCE(g.game_type,'OFFICIAL')='OFFICIAL' AND g.status<>'CANCELLED'
     AND g.postponed_game_id IS NULL`,[seasonId]);
   const counts: Record<string,number> = {};
@@ -338,7 +338,7 @@ export async function cargarRecuperaciones(seasonId: string, categories: Categor
  */
 const siguienteFecha = async (seasonId: string): Promise<string> => {
   const ultima = await query(
-    `SELECT scheduled_date FROM rounds WHERE season_id = $1 AND round_type = 'OFFICIAL' AND playoff_id IS NULL AND status <> 'CANCELLED' ORDER BY scheduled_date DESC, number DESC LIMIT 1`,
+    `SELECT scheduled_date FROM rounds WHERE season_id = $1 AND round_type = 'OFFICIAL' AND NOT competition_event AND status <> 'CANCELLED' ORDER BY scheduled_date DESC, number DESC LIMIT 1`,
     [seasonId]
   );
   if (ultima.rows[0]?.scheduled_date) {
@@ -396,7 +396,7 @@ export const construirPropuesta = async (
   const postponed = await query(`SELECT g.id,g.home_team_id,g.away_team_id,g.category_id,r.number
     FROM games g JOIN rounds r ON r.id=g.round_id
     WHERE g.season_id=$1 AND g.status='POSTPONED' AND r.status IN ('PUBLISHED','IN_PROGRESS','FINISHED')
-      AND r.scheduled_date<$2::date AND r.round_type='OFFICIAL' AND r.playoff_id IS NULL AND g.game_type='OFFICIAL'
+      AND r.scheduled_date<$2::date AND r.round_type='OFFICIAL' AND NOT EXISTS (SELECT 1 FROM playoff_games pk WHERE pk.game_id=g.id) AND g.game_type='OFFICIAL'
       AND NOT EXISTS(SELECT 1 FROM games reserved WHERE reserved.postponed_game_id=g.id)
     ORDER BY r.scheduled_date,r.number,g.id`,[seasonId,date]);
   const rescheduled: Propuesta['games'] = [];
@@ -492,13 +492,33 @@ export const validarFechaJornada = async (seasonId: string, date: string, q = qu
  * partidos pero sin descansos— haría que el siguiente generador contara
  * mal el historial y arrastrara el error a toda la temporada.
  */
-async function validarCupoJornadas(seasonId: string, executor: typeof defaultQuery = defaultQuery) {
+export async function validarCupoJornadas(seasonId: string, executor: typeof defaultQuery = defaultQuery) {
   const result = await executor(`SELECT st.value->>'rounds_planned' AS planned,
     (SELECT count(*) FROM rounds r WHERE r.season_id=$1 AND r.round_type='OFFICIAL'
-      AND r.playoff_id IS NULL AND r.status <> 'CANCELLED') AS total
+      AND NOT r.competition_event AND r.status <> 'CANCELLED') AS total
     FROM settings st WHERE st.season_id=$1 AND st.key='competition'`, [seasonId]);
   const row = result.rows[0];
   if (Number(row?.planned) > 0 && Number(row.total) >= Number(row.planned)) throw new AppError('Ya se alcanzaron las jornadas configuradas. Ajusta el calendario de temporada si necesitas más.', 409);
+}
+
+export async function validarVueltas(seasonId:string,games:{homeTeamId:string;awayTeamId:string;postponedGameId?:string|null}[],query:typeof defaultQuery) {
+  const reglas = await cargarReglas(seasonId, query);
+  const meetings = await query(`SELECT g.home_team_id, g.away_team_id FROM games g JOIN rounds r ON r.id=g.round_id
+    WHERE g.season_id=$1 AND g.status<>'CANCELLED' AND r.status<>'CANCELLED'
+    AND g.game_type='OFFICIAL' AND r.round_type='OFFICIAL' AND NOT EXISTS (SELECT 1 FROM playoff_games pk WHERE pk.game_id=g.id)
+    AND g.postponed_game_id IS NULL`, [seasonId]);
+  const pairCounts = new Map<string, number>();
+  for (const game of meetings.rows) {
+    const key = pairKey(game.home_team_id, game.away_team_id);
+    pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
+  }
+  for (const game of games) {
+    if (game.postponedGameId) continue;
+    const key = pairKey(game.homeTeamId, game.awayTeamId);
+    const count = (pairCounts.get(key) ?? 0) + 1;
+    if (count > reglas.round_robin_legs) throw new AppError('Este enfrentamiento supera las vueltas configuradas. Recalcula la propuesta.', 409);
+    pairCounts.set(key, count);
+  }
 }
 
 export const guardarPropuesta = async (
@@ -536,30 +556,14 @@ export const guardarPropuesta = async (
       used.add(id);
       appearances.set(id,(appearances.get(id) ?? 0)+1);
     };
-    const reglas = await cargarReglas(propuesta.seasonId, query);
-    const meetings = await query(`SELECT g.home_team_id, g.away_team_id FROM games g JOIN rounds r ON r.id=g.round_id
-      WHERE g.season_id=$1 AND g.status<>'CANCELLED' AND r.status<>'CANCELLED'
-      AND g.game_type='OFFICIAL' AND r.round_type='OFFICIAL' AND r.playoff_id IS NULL
-      AND g.postponed_game_id IS NULL`, [propuesta.seasonId]);
-    const pairCounts = new Map<string, number>();
-    for (const game of meetings.rows) {
-      const key = pairKey(game.home_team_id, game.away_team_id);
-      pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
-    }
-    for (const game of propuesta.games) {
-      if (game.postponedGameId) continue;
-      const key = pairKey(game.homeTeamId, game.awayTeamId);
-      const count = (pairCounts.get(key) ?? 0) + 1;
-      if (count > reglas.round_robin_legs) throw new AppError('Este enfrentamiento supera las vueltas configuradas. Recalcula la propuesta.', 409);
-      pairCounts.set(key, count);
-    }
+    await validarVueltas(propuesta.seasonId,propuesta.games,query);
     // Normal fixtures first, regardless of their display order by time.
     for (const g of [...propuesta.games].sort((a,b)=>Number(Boolean(a.recovery))-Number(Boolean(b.recovery)))) {
       if (g.postponedGameId) {
         const original=await query(`SELECT g.id FROM games g JOIN rounds r ON r.id=g.round_id
           WHERE g.id=$1 AND g.season_id=$2 AND g.status='POSTPONED' AND g.home_team_id=$3
           AND g.away_team_id=$4 AND g.category_id=$5 AND g.game_type='OFFICIAL'
-          AND r.round_type='OFFICIAL' AND r.playoff_id IS NULL AND r.status IN ('PUBLISHED','IN_PROGRESS','FINISHED')
+          AND r.round_type='OFFICIAL' AND NOT EXISTS (SELECT 1 FROM playoff_games pk WHERE pk.game_id=g.id) AND r.status IN ('PUBLISHED','IN_PROGRESS','FINISHED')
           AND r.scheduled_date<$6::date AND NOT EXISTS(SELECT 1 FROM games reserved WHERE reserved.postponed_game_id=g.id)
           FOR UPDATE OF g`,[g.postponedGameId,propuesta.seasonId,g.homeTeamId,g.awayTeamId,g.categoryId,propuesta.scheduledDate]);
         if (!original.rows.length) throw new AppError('El partido pospuesto cambió o ya está reservado. Recalcula la propuesta.',409);
@@ -724,7 +728,7 @@ export const calcularPosiciones = async (
               ro.number AS jornada
        FROM games g JOIN rounds ro ON ro.id = g.round_id
        JOIN teams h ON h.id = g.home_team_id JOIN teams a ON a.id = g.away_team_id
-       WHERE g.season_id = $1 AND g.status IN ('FINISHED', 'WALKOVER') AND ro.playoff_id IS NULL
+       WHERE g.season_id = $1 AND g.status IN ('FINISHED', 'WALKOVER') AND NOT EXISTS (SELECT 1 FROM playoff_games pg WHERE pg.game_id=g.id)
          AND ro.status <> 'CANCELLED' AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL
          AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
        UNION ALL
@@ -734,7 +738,7 @@ export const calcularPosiciones = async (
               ro.number
        FROM games g JOIN rounds ro ON ro.id = g.round_id
        JOIN teams h ON h.id = g.home_team_id JOIN teams a ON a.id = g.away_team_id
-       WHERE g.season_id = $1 AND g.status IN ('FINISHED', 'WALKOVER') AND ro.playoff_id IS NULL
+       WHERE g.season_id = $1 AND g.status IN ('FINISHED', 'WALKOVER') AND NOT EXISTS (SELECT 1 FROM playoff_games pg WHERE pg.game_id=g.id)
          AND ro.status <> 'CANCELLED' AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL
          AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
      )

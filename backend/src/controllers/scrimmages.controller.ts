@@ -1,3 +1,4 @@
+import { eventRound, scheduleFixture } from '../services/event-schedule.service.js';
 import type { Response } from 'express';
 import { query, withTransaction } from '../config/database.js';
 import { AppError, asyncHandler } from '../middleware/errorHandler.js';
@@ -19,8 +20,8 @@ export const list = asyncHandler(async (req: AuthRequest, res: Response) => {
     JOIN teams h ON h.id = g.home_team_id
     JOIN teams a ON a.id = g.away_team_id
     JOIN categories c ON c.id = g.category_id
-    WHERE g.game_type = 'SCRIMMAGE' AND ($1::text = '' OR g.season_id = $1)
-    ORDER BY r.scheduled_date DESC, g.scheduled_time DESC`, [seasonId]);
+    WHERE EXISTS (SELECT 1 FROM seasons s WHERE s.id=g.season_id AND s.league_id=$2) AND g.game_type = 'SCRIMMAGE' AND NOT g.league_friendly AND ($1::text = '' OR g.season_id = $1)
+    ORDER BY r.scheduled_date DESC, g.scheduled_time DESC`, [seasonId, req.user!.leagueId]);
   const base = process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'https://master-flag-league.vercel.app';
   const data = result.rows.map((row) => {
     if (row.scrimmage_access_revoked_at) {
@@ -40,9 +41,10 @@ export const list = asyncHandler(async (req: AuthRequest, res: Response) => {
 export const remove = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   await withTransaction(async (q) => {
-    const game = await q(`SELECT id, round_id, home_team_id, away_team_id, game_type FROM games WHERE id = $1 FOR UPDATE`, [id]);
+    const game = await q(`SELECT id, round_id, home_team_id, away_team_id, game_type, league_friendly FROM games WHERE id = $1 AND season_id IN (SELECT id FROM seasons WHERE league_id=$2) FOR UPDATE`, [id,req.user!.leagueId]);
     if (!game.rows[0]) throw new AppError('Scrimmage no encontrado', 404);
     if (game.rows[0].game_type !== 'SCRIMMAGE') throw new AppError('Solo se pueden eliminar partidos de scrimmage desde aquí', 409);
+    if (game.rows[0].league_friendly) throw new AppError('El amistoso forma parte del historial de la liga.',409);
     await q('DELETE FROM games WHERE id = $1', [id]);
     const remaining = await q('SELECT 1 FROM games WHERE round_id = $1 LIMIT 1', [game.rows[0].round_id]);
     if (!remaining.rows[0]) await q('DELETE FROM rounds WHERE id = $1', [game.rows[0].round_id]);
@@ -62,8 +64,8 @@ export const revokeAccess = asyncHandler(async (req: AuthRequest, res: Response)
   const { id } = req.params;
   const result = await query(
     `UPDATE games SET scrimmage_access_revoked_at = NOW(), updated_at = NOW()
-     WHERE id = $1 AND game_type = 'SCRIMMAGE' AND status <> 'CANCELLED'
-     RETURNING id`, [id]
+     WHERE id = $1 AND season_id IN (SELECT id FROM seasons WHERE league_id=$2) AND game_type = 'SCRIMMAGE' AND status <> 'CANCELLED'
+     RETURNING id`, [id,req.user!.leagueId]
   );
   if (!result.rows[0]) throw new AppError('Scrimmage no encontrado o ya cancelado', 404);
   await audit(req, { action: 'REVOKE_SCRIMMAGE_ACCESS', entityType: 'game', entityId: id });
@@ -77,7 +79,7 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new AppError('Indica una fecha y hora válidas. La hora se interpreta como hora local de Cancún.', 400);
   if ((!homeTeamId && !homeTeamName) || (!awayTeamId && !awayTeamName)) throw new AppError('Escribe los nombres de ambos equipos', 400);
   if (homeTeamId && awayTeamId && homeTeamId === awayTeamId) throw new AppError('Los equipos deben ser distintos', 400);
-  let roundId = newPrefixedId('round'); const gameId = newPrefixedId('game');
+  let roundId = newPrefixedId('round'); let gameId = newPrefixedId('game');
   let createdTeams: { homeTeamId: string; awayTeamId: string } = { homeTeamId: '', awayTeamId: '' };
   await withTransaction(async (q) => {
     const resolveTeam = async (id: string | undefined, label: string | undefined) => {
@@ -97,6 +99,12 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
     if (!season.rows.length) throw new AppError('Temporada no encontrada', 404);
     const category = await q('SELECT id FROM categories WHERE id = $1 AND season_id = $2', [categoryId, seasonId]);
     if (!category.rows.length) throw new AppError('La categoría no pertenece a la temporada', 400);
+    if (req.body.leagueFriendly === true) {
+      roundId=(await eventRound(q,seasonId,date,req.user!.id,req.body.roundId)).id;
+      gameId=await scheduleFixture(q,seasonId,date,roundId,{...req.body,kind:'FRIENDLY'});
+      await audit(req,{action:'CREATE_FRIENDLY',entityType:'game',entityId:gameId,newValue:{roundId,date,time}},q);
+      return;
+    }
     const home = await resolveTeam(homeTeamId, homeTeamName);
     const away = await resolveTeam(awayTeamId, awayTeamName);
     if (home === away) throw new AppError('Los equipos deben ser distintos', 400);
@@ -115,6 +123,7 @@ export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
     }
     await q(`INSERT INTO games(id,season_id,round_id,category_id,home_team_id,away_team_id,scheduled_time,game_type) VALUES($1,$2,$3,$4,$5,$6,$7,'SCRIMMAGE')`, [gameId, seasonId, roundId, categoryId, home, away, time]);
   });
+  if (req.body.leagueFriendly === true) return res.status(201).json({success:true,data:{gameId,roundId}});
   await audit(req, { action: 'CREATE_SCRIMMAGE', entityType: 'game', entityId: gameId, newValue: { seasonId, categoryId, ...createdTeams, date, time } });
   const accessToken = generateAccessToken({
     sessionVersion: req.user!.sessionVersion,

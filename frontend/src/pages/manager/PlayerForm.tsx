@@ -1,3 +1,4 @@
+import { useAuth, isAdmin } from '../../store/auth';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -39,12 +40,14 @@ export default function PlayerForm() {
   const qc = useQueryClient();
   const { id } = useParams();
   const [searchParams] = useSearchParams();
+  const admin = isAdmin(useAuth(state=>state.user?.role));
+  const [confirmDistinct,setConfirmDistinct]=useState(false);
   const editando = Boolean(id);
   const requestedTeamId = searchParams.get('equipo');
 
   const teams = useQuery({
-    queryKey: ['teams-managed'],
-    queryFn: () => api.get<TeamSummary[]>('/teams?managed=true'),
+    queryKey: [admin ? 'roster-admin-teams' : 'teams-managed'],
+    queryFn: () => api.get<TeamSummary[]>(admin ? '/teams' : '/teams?managed=true'),
     enabled: !editando,
   });
 
@@ -135,7 +138,7 @@ export default function PlayerForm() {
         });
       } else {
         const created = await api.post<{ id: string }>('/players', {
-          teamId: selectedTeam,
+          teamId: selectedTeam, confirmDistinct,
           ...cuerpo,
         });
         void qc.invalidateQueries({ queryKey: ['registration-status'] });
@@ -183,6 +186,7 @@ export default function PlayerForm() {
         </p>
       </div>
 
+      {admin && error?.includes("mismo nombre") && <label><input type="checkbox" checked={confirmDistinct} onChange={e=>setConfirmDistinct(e.target.checked)} /> Verifiqué que es otra persona</label>}
       {bloqueados.length > 0 && (
         <Alert tone="info" title="Algunos datos solo los cambia administración">
           Este jugador ya fue revisado, así que su nombre, apellidos, fecha de nacimiento y

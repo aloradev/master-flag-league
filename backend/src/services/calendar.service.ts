@@ -12,7 +12,7 @@ export async function regularSeasonEnd(seasonId: string): Promise<string | null>
     st.value->>'rounds_planned' AS planned,
     COALESCE((SELECT json_agg(json_build_object('date',to_char(r.scheduled_date,'YYYY-MM-DD'),'number',r.number))
       FROM rounds r WHERE r.season_id=s.id AND r.round_type='OFFICIAL'
-      AND r.playoff_id IS NULL AND r.status <> 'CANCELLED'),'[]') AS rounds
+      AND NOT r.competition_event AND r.status <> 'CANCELLED'),'[]') AS rounds
     FROM seasons s LEFT JOIN settings st ON st.season_id=s.id AND st.key='competition'
     WHERE s.id=$1`, [seasonId]);
   const row = result.rows[0];
@@ -35,7 +35,7 @@ export async function seasonFinalEstimate(seasonId: string) {
       FROM playoff_games pg JOIN games g ON g.id=pg.game_id
       JOIN rounds r ON r.id=g.round_id WHERE pg.playoff_id=p.id
       AND r.status <> 'CANCELLED' AND g.status <> 'CANCELLED'),'[]') AS games
-    FROM playoffs p JOIN categories c ON c.id=p.category_id WHERE p.season_id=$1`, [seasonId]);
+    FROM playoffs p JOIN categories c ON c.id=p.category_id WHERE p.season_id=$1 AND p.discarded_at IS NULL`, [seasonId]);
   const categories = result.rows.map((p) => {
     const phases = Math.ceil(Math.log2(p.seeds.length));
     let finalDate = regularEnd ? addWeeks(regularEnd, phases) : null;

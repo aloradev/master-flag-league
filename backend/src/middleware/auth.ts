@@ -149,6 +149,31 @@ export const loadManagedTeams = async (
 /** Verifica que el usuario pueda operar sobre un equipo concreto. */
 export const canAccessTeam = (req: AuthRequest, teamId: string): boolean => {
   if (!req.user) return false;
-  if (ADMIN_ROLES.includes(req.user.role as any)) return true;
+  if (ADMIN_ROLES.includes(req.user.role as any) && req.managedTeamIds === undefined) return true;
   return (req.managedTeamIds ?? []).includes(teamId);
 };
+
+/** Scope roster and document operations to league teams, including unassigned teams. */
+export const loadRosterTeams = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user || !ADMIN_ROLES.includes(req.user.role as any))
+    return loadManagedTeams(req,res,next);
+  try {
+    const teams = await query(`SELECT t.id FROM teams t JOIN seasons s ON s.id=t.season_id
+      WHERE s.league_id=$1 AND (NOT $2::boolean OR EXISTS (
+        SELECT 1 FROM team_users tu WHERE tu.team_id=t.id AND tu.user_id=$3))`,
+      [req.user.leagueId, req.query.managed==='true', req.user.id]);
+    req.managedTeamIds = teams.rows.map(t=>t.id);
+    next();
+  } catch (e) { next(e); }
+};
+
+/** Validate the league of a resource addressed by its ID on administrative routes. */
+export const inLeague = (table:'games'|'rounds'|'players') =>
+  async (req:AuthRequest,res:Response,next:NextFunction) => {
+    try {
+      const result=await query(`SELECT 1 FROM ${table} item JOIN seasons s ON s.id=item.season_id
+        WHERE item.id=$1 AND s.league_id=$2`,[req.params.id,req.user?.leagueId]);
+      if (!result.rows.length) return res.status(404).json({success:false,error:'Registro no encontrado en tu liga'});
+      next();
+    } catch(e){next(e);}
+  };

@@ -27,7 +27,7 @@ import {
  */
 const GAME_COLUMNS = `g.id, g.season_id, g.round_id, g.category_id, g.field_id,
   g.home_team_id, g.away_team_id, to_char(g.scheduled_time, 'HH24:MI') AS scheduled_time,
-  g.status, g.home_score, g.away_score, g.score_source, g.statistics_status, g.walkover_team_id,
+  g.game_type, g.status, g.home_score, g.away_score, g.score_source, g.statistics_status, g.walkover_team_id,
   g.mvp_offensive_player_id, g.mvp_defensive_player_id,
   g.started_at, g.ended_at, g.notes, g.created_at, g.updated_at`;
 
@@ -53,7 +53,7 @@ const partidosDeJornada = async (roundId: string) => {
      JOIN teams aw ON aw.id = g.away_team_id
      LEFT JOIN fields f ON f.id = g.field_id
      WHERE g.round_id = $1
-       AND COALESCE(g.game_type, 'OFFICIAL') = 'OFFICIAL'
+       AND (g.game_type='OFFICIAL' OR g.league_friendly)
      ORDER BY g.scheduled_time, f.name, c.sort_order`,
     [roundId]
   );
@@ -88,8 +88,8 @@ export const listRounds = asyncHandler(async (req: AuthRequest, res: Response) =
   const r = await query(
     `SELECT ro.id, ro.season_id, ro.number, ro.name, ro.scheduled_date, ro.status,
             ro.notes, ro.published_at, ro.created_at,
-            (SELECT COUNT(*) FROM games   WHERE round_id = ro.id AND status <> 'CANCELLED' AND COALESCE(game_type, 'OFFICIAL') = 'OFFICIAL')::int AS games_count,
-            (SELECT COUNT(*) FROM games   WHERE round_id = ro.id AND status IN ('FINISHED','WALKOVER') AND COALESCE(game_type, 'OFFICIAL') = 'OFFICIAL')::int AS finished_count,
+            (SELECT COUNT(*) FROM games   WHERE round_id = ro.id AND status <> 'CANCELLED' AND (game_type='OFFICIAL' OR league_friendly))::int AS games_count,
+            (SELECT COUNT(*) FROM games   WHERE round_id = ro.id AND status IN ('FINISHED','WALKOVER') AND (game_type='OFFICIAL' OR league_friendly))::int AS finished_count,
             (SELECT COUNT(*) FROM round_byes WHERE round_id = ro.id)::int AS byes_count,
             COALESCE((SELECT json_agg(to_char(start_time,'HH24:MI') ORDER BY sort_order, start_time)
                       FROM round_time_slots WHERE round_id = ro.id), '[]') AS slots
@@ -219,46 +219,49 @@ export const createRound = asyncHandler(async (req: AuthRequest, res: Response) 
 /** PUT /api/v1/admin/rounds/:id — fecha, nombre, notas y horarios */
 export const updateRound = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const actual = await query(`SELECT * FROM rounds WHERE id = $1`, [id]);
-  const round = actual.rows[0];
-  if (!round) throw new AppError('Jornada no encontrada', 404);
-  if (round.status === 'FINISHED') throw new AppError('La jornada ya terminó', 409);
+  const r = await withTransaction(async query=>{
+    const actual = await query(`SELECT * FROM rounds WHERE id = $1 FOR UPDATE`, [id]);
+    const round = actual.rows[0];
+    if (!round) throw new AppError('Jornada no encontrada', 404);
+    if (round.status === 'FINISHED') throw new AppError('La jornada ya terminó', 409);
 
-  const { name, scheduledDate, notes, slots } = req.body ?? {};
-  if (scheduledDate !== undefined) await validarFechaJornada(round.season_id, scheduledDate);
-  if (scheduledDate !== undefined) await validarIncorporacionesJornada(id, scheduledDate);
-  if (scheduledDate !== undefined) await validarClubesJornada(id,scheduledDate);
+    const { name, scheduledDate, notes, slots } = req.body ?? {};
+    if (scheduledDate !== undefined) await validarFechaJornada(round.season_id, scheduledDate,query);
+    if (scheduledDate !== undefined) await validarIncorporacionesJornada(id, scheduledDate,query);
+    if (scheduledDate !== undefined) await validarClubesJornada(id,scheduledDate,query);
 
-  await query(
-    `UPDATE rounds SET
-       name = COALESCE($1, name),
-       scheduled_date = COALESCE($2::date, scheduled_date),
-       notes = COALESCE($3, notes),
-       updated_at = NOW()
-     WHERE id = $4`,
-    [name ?? null, scheduledDate ?? null, notes ?? null, id]
-  );
+    await query(
+      `UPDATE rounds SET
+         name = COALESCE($1, name),
+         scheduled_date = COALESCE($2::date, scheduled_date),
+         notes = COALESCE($3, notes),
+         updated_at = NOW()
+       WHERE id = $4`,
+      [name ?? null, scheduledDate ?? null, notes ?? null, id]
+    );
 
-  if (Array.isArray(slots)) {
-    const horas = [...new Set(slots.map((s: string) => String(s).slice(0, 5)))].sort();
-    await query(`DELETE FROM round_time_slots WHERE round_id = $1`, [id]);
-    for (let i = 0; i < horas.length; i++) {
-      await query(
-        `INSERT INTO round_time_slots (id, round_id, start_time, sort_order) VALUES ($1, $2, $3, $4)`,
-        [newPrefixedId('slot'), id, horas[i], i]
-      );
+    if (Array.isArray(slots)) {
+      const horas = [...new Set(slots.map((s: string) => String(s).slice(0, 5)))].sort();
+      await query(`DELETE FROM round_time_slots WHERE round_id = $1`, [id]);
+      for (let i = 0; i < horas.length; i++) {
+        await query(
+          `INSERT INTO round_time_slots (id, round_id, start_time, sort_order) VALUES ($1, $2, $3, $4)`,
+          [newPrefixedId('slot'), id, horas[i], i]
+        );
+      }
     }
-  }
 
-  await audit(req, {
-    action: 'UPDATE_ROUND',
-    entityType: 'round',
-    entityId: id,
-    oldValue: { scheduled_date: round.scheduled_date, name: round.name },
-    newValue: { scheduled_date: scheduledDate, name, slots },
+    await audit(req, {
+      action: 'UPDATE_ROUND',
+      entityType: 'round',
+      entityId: id,
+      oldValue: { scheduled_date: round.scheduled_date, name: round.name },
+      newValue: { scheduled_date: scheduledDate, name, slots },
+    });
+
+    const r = await query(`SELECT * FROM rounds WHERE id = $1`, [id]);
+    return r;
   });
-
-  const r = await query(`SELECT * FROM rounds WHERE id = $1`, [id]);
   res.json({ success: true, data: r.rows[0] });
 });
 
@@ -333,23 +336,25 @@ export const publishRound = asyncHandler(async (req: AuthRequest, res: Response)
 /** DELETE /api/v1/admin/rounds/:id — solo borradores */
 export const deleteRound = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const r = await query(`SELECT * FROM rounds WHERE id = $1`, [id]);
-  const round = r.rows[0];
-  if (!round) throw new AppError('Jornada no encontrada', 404);
-  if (round.playoff_id) throw new AppError('Una fase de playoffs no se puede borrar. Reprograma su fecha y partidos.', 409);
-  if (round.status !== 'DRAFT') {
-    throw new AppError(
-      'Solo se puede descartar una jornada en borrador. Una publicada se cancela, no se borra.',
-      409
-    );
-  }
+  await withTransaction(async query=>{
+    const r = await query(`SELECT *, EXISTS(SELECT 1 FROM games g WHERE g.round_id=$1 AND (g.league_friendly OR EXISTS(SELECT 1 FROM playoff_games pg WHERE pg.game_id=g.id))) AS has_special_games FROM rounds WHERE id = $1 FOR UPDATE`, [id]);
+    const round = r.rows[0];
+    if (!round) throw new AppError('Jornada no encontrada', 404);
+    if (round.competition_event || round.has_special_games) throw new AppError('Una jornada con llaves o amistosos no se puede borrar. Reprograma su fecha y partidos.', 409);
+    if (round.status !== 'DRAFT') {
+      throw new AppError(
+        'Solo se puede descartar una jornada en borrador. Una publicada se cancela, no se borra.',
+        409
+      );
+    }
 
-  await query(`DELETE FROM rounds WHERE id = $1`, [id]);
-  await audit(req, {
-    action: 'DELETE_ROUND',
-    entityType: 'round',
-    entityId: id,
-    oldValue: { number: round.number },
+    await query(`DELETE FROM rounds WHERE id = $1`, [id]);
+    await audit(req, {
+      action: 'DELETE_ROUND',
+      entityType: 'round',
+      entityId: id,
+      oldValue: { number: round.number },
+    },query);
   });
   res.json({ success: true, data: { id } });
 });
@@ -359,10 +364,10 @@ export const cancelRound = asyncHandler(async (req: AuthRequest, res: Response) 
   const { id } = req.params;
   const { reason } = req.body ?? {};
   const round = await withTransaction(async (query) => {
-  const r = await query(`SELECT * FROM rounds WHERE id = $1 FOR UPDATE`, [id]);
+  const r = await query(`SELECT *, EXISTS(SELECT 1 FROM games g WHERE g.round_id=$1 AND (g.league_friendly OR EXISTS(SELECT 1 FROM playoff_games pg WHERE pg.game_id=g.id))) AS has_special_games FROM rounds WHERE id = $1 FOR UPDATE`, [id]);
   const round = r.rows[0];
   if (!round) throw new AppError('Jornada no encontrada', 404);
-  if (round.playoff_id) throw new AppError('Una fase de playoffs no se puede cancelar. Reprograma su fecha y partidos.', 409);
+  if (round.competition_event || round.has_special_games) throw new AppError('Una jornada con llaves o amistosos no se puede cancelar. Reprograma su fecha y partidos.', 409);
 
     // Los partidos ya jugados se conservan: cancelar la jornada por lluvia
     // no debe borrar el resultado del que sí alcanzó a jugarse.

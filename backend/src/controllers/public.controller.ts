@@ -27,7 +27,7 @@ import { calcularPosiciones } from '../services/competition.service.js';
 /** Solo lo que hace falta para leer un partido en la calle. */
 const COLUMNAS_PARTIDO = `
   g.id, g.category_id, to_char(g.scheduled_time, 'HH24:MI') AS scheduled_time,
-  g.status, g.game_type, g.home_score, g.away_score, g.score_source, g.statistics_status, g.walkover_team_id,
+  g.status, g.game_type, g.league_friendly, (SELECT CASE ceil(log(2,jsonb_array_length(bracket.seeds)::numeric))::int - pg.stage WHEN 0 THEN 'Final' WHEN 1 THEN 'Semifinal' WHEN 2 THEN 'Cuartos de final' ELSE 'Octavos de final' END FROM playoff_games pg JOIN playoffs bracket ON bracket.id=pg.playoff_id WHERE pg.game_id=g.id) AS playoff_phase, g.home_score, g.away_score, g.score_source, g.statistics_status, g.walkover_team_id,
   g.home_team_id, g.away_team_id
 `;
 
@@ -49,7 +49,7 @@ const partidos = async (roundId: string, gameType = 'OFFICIAL') => {
      LEFT JOIN fields f ON f.id = g.field_id
      WHERE g.round_id = $1
        AND g.status <> 'CANCELLED'
-       AND COALESCE(g.game_type, 'OFFICIAL') = $2
+       AND ((g.game_type = $2 AND NOT g.league_friendly) OR ($2 = 'OFFICIAL' AND g.league_friendly))
      ORDER BY g.scheduled_time, f.name, c.sort_order`,
      [roundId, gameType]
   );
@@ -59,7 +59,7 @@ const partidos = async (roundId: string, gameType = 'OFFICIAL') => {
 export const getPublicGame = asyncHandler(async (req: Request, res: Response) => {
   const id = (req.params as Record<string, string>).id;
   const r = await query(`
-    SELECT g.id, g.season_id, g.round_id, g.status, g.game_type, g.home_score, g.away_score, g.score_source, g.statistics_status,
+    SELECT g.id, g.season_id, g.round_id, g.status, g.game_type, g.league_friendly, g.home_score, g.away_score, g.score_source, g.statistics_status,
            to_char(g.scheduled_time, 'HH24:MI') AS scheduled_time,
            g.home_team_id, g.away_team_id,
            c.name AS category_name, c.color AS category_color,
@@ -129,7 +129,7 @@ export const getPublicTeam = asyncHandler(async (req: Request, res: Response) =>
       JOIN teams h ON h.id=g.home_team_id JOIN teams a ON a.id=g.away_team_id
       LEFT JOIN fields f ON f.id=g.field_id
       WHERE (g.home_team_id=$1 OR g.away_team_id=$1) AND g.season_id=$2
-        AND COALESCE(g.game_type,'OFFICIAL')='OFFICIAL' AND g.status<>'CANCELLED'
+        AND (g.game_type='OFFICIAL' OR g.league_friendly) AND g.status<>'CANCELLED'
         AND r.status IN ('PUBLISHED','IN_PROGRESS','FINISHED')
       ORDER BY r.scheduled_date, g.scheduled_time, g.id`, [id, team.season_id]),
     calcularPosiciones(team.season_id, team.category_id),
@@ -175,7 +175,7 @@ export const getPublicScrimmages = asyncHandler(async (req: Request, res: Respon
     FROM rounds ro WHERE ro.season_id = $1
       AND ro.status IN ('PUBLISHED', 'IN_PROGRESS', 'FINISHED')
       AND EXISTS (SELECT 1 FROM games g WHERE g.round_id = ro.id
-        AND g.game_type = 'SCRIMMAGE' AND g.status <> 'CANCELLED'
+        AND g.game_type = 'SCRIMMAGE' AND NOT g.league_friendly AND g.status <> 'CANCELLED'
         AND ro.scheduled_date = (NOW() AT TIME ZONE 'America/Cancun')::date)
     ORDER BY ro.scheduled_date, ro.number`, [season.id]);
   const groups = await Promise.all(rounds.rows.map(async (round) =>
@@ -204,7 +204,7 @@ export const getPublicRound = asyncHandler(async (req: Request, res: Response) =
        AND EXISTS (
          SELECT 1 FROM games official_game
          WHERE official_game.round_id = ro.id
-           AND COALESCE(official_game.game_type, 'OFFICIAL') = 'OFFICIAL'
+           AND (official_game.game_type='OFFICIAL' OR official_game.league_friendly)
            AND official_game.status <> 'CANCELLED'
        )
        AND ($2::text IS NULL OR ro.id = $2)
@@ -248,7 +248,7 @@ export const listPublicRounds = asyncHandler(async (req: Request, res: Response)
        AND EXISTS (
          SELECT 1 FROM games official_game
          WHERE official_game.round_id = ro.id
-           AND COALESCE(official_game.game_type, 'OFFICIAL') = 'OFFICIAL'
+           AND (official_game.game_type='OFFICIAL' OR official_game.league_friendly)
            AND official_game.status <> 'CANCELLED'
        )
      ORDER BY ro.number ASC`,

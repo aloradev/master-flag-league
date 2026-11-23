@@ -1,3 +1,4 @@
+import RosterActions, { LinkPlayerAccount } from './RosterActions';
 import { Dialog } from '../../components/Dialog';
 import { useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -206,7 +207,7 @@ export default function AdminTeamDetail() {
 
         {data.managers.length === 0 && !assigning && (
           <Alert tone="warning">
-            Este equipo no tiene encargados. Sin uno, nadie puede registrar a sus jugadores.
+            Este equipo no tiene encargados. Administración puede completar su plantilla.
           </Alert>
         )}
 
@@ -304,6 +305,7 @@ export default function AdminTeamDetail() {
           Plantilla ({data.roster.length})
         </h2>
 
+        <RosterActions teamId={data.id} />
         {data.roster.length === 0 ? (
           <Card className="p-4 text-center text-sm text-base-content/50">
             Sin jugadores registrados
@@ -340,8 +342,10 @@ export default function AdminTeamDetail() {
                     <StatusBadge status={player.status} />
                   </div>
                 </div>
+                {!player.avatar_url && <span className="text-xs">Sin foto</span>}
                 <EligibilityBadge isEligible={player.is_eligible} />
                 </Link>
+                  <LinkPlayerAccount id={player.id} />
               </Card>
             ))}
           </ul>
