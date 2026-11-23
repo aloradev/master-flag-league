@@ -1,3 +1,4 @@
+import { useDiscardPlayoff } from '../../lib/useDiscardPlayoff';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import RoundGames from './RoundGames';
@@ -94,6 +95,7 @@ export default function AdminRounds() {
     onError: (e: Error) => setError(e.message),
   });
 
+  const { mutation: discardPlayoff, confirmDiscard } = useDiscardPlayoff();
   const descartar = useMutation({
     mutationFn: (id: string) => competition.deleteRound(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['rounds', seasonId] }),
@@ -128,6 +130,8 @@ export default function AdminRounds() {
       <Alert tone="info" title="¿Todavía no registraron jugadores?">Puedes publicar la jornada y, después de jugar, abrirla para capturar únicamente el marcador final. El resultado actualiza posiciones aunque las estadísticas individuales queden pendientes.</Alert>
 
       {error && <Alert tone="error">{error}</Alert>}
+      {discardPlayoff.error && <Alert tone="error">{discardPlayoff.error.message}</Alert>}
+      {discardPlayoff.isSuccess && <Alert tone="success">Playoff descartado.</Alert>}
       {season.data && <TeamProgress season={season.data} onOpenRound={setEditingId} />}
       {manual && season.data && <ManualRound initialProposal={manualProposal} season={season.data} onCancel={() => setManual(false)} onSaved={() => {
         setManual(false); void qc.invalidateQueries({ queryKey: ['rounds', seasonId] });
@@ -316,6 +320,12 @@ export default function AdminRounds() {
                         Compartir por WhatsApp
                       </a>
                     )}
+                    {j.playoffs?.map(playoff => (
+                      <Button key={playoff.id} size="xs" tone="error" outline disabled={discardPlayoff.isPending}
+                        onClick={() => { setError(null); confirmDiscard(playoff.id, playoff.category); }}>
+                        Descartar playoff · {playoff.category}
+                      </Button>
+                    ))}
                     {j.status === 'DRAFT' && (
                       <>
                         <Button
@@ -326,7 +336,7 @@ export default function AdminRounds() {
                         >
                           Publicar
                         </Button>
-                        <Button
+                        {j.protected_round === false && <Button
                           size="xs"
                           tone="error"
                           outline
@@ -334,7 +344,7 @@ export default function AdminRounds() {
                           onClick={() => descartar.mutate(j.id)}
                         >
                           Descartar
-                        </Button>
+                        </Button>}
                       </>
                     )}
                   </div>

@@ -819,3 +819,19 @@ END;
 $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS round_reservations ON rounds;
 CREATE TRIGGER round_reservations BEFORE UPDATE OF scheduled_date ON rounds FOR EACH ROW EXECUTE FUNCTION check_round_reservations();
+ALTER TABLE rounds ADD COLUMN IF NOT EXISTS playoff_archived_at timestamptz;
+
+-- Retire a fixture date only when its last match has been cancelled.
+CREATE OR REPLACE FUNCTION archive_empty_playoff_rounds(targets text[]) RETURNS void AS $$
+  UPDATE rounds r SET status='CANCELLED', playoff_archived_at=now(), updated_at=now()
+  WHERE r.id=ANY(targets) AND r.playoff_archived_at IS NULL
+    AND EXISTS (SELECT 1 FROM games g JOIN playoff_games pg ON pg.game_id=g.id WHERE g.round_id=r.id)
+    AND NOT EXISTS (SELECT 1 FROM games g WHERE g.round_id=r.id AND g.status<>'CANCELLED')
+    AND NOT EXISTS (SELECT 1 FROM round_byes b WHERE b.round_id=r.id);
+$$ LANGUAGE sql;
+
+-- Include rounds left behind by discards made before this release.
+SELECT archive_empty_playoff_rounds(ARRAY(
+  SELECT DISTINCT g.round_id FROM games g JOIN playoff_games pg ON pg.game_id=g.id
+  WHERE g.status='CANCELLED'
+));

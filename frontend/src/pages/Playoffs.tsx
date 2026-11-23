@@ -1,3 +1,4 @@
+import { useDiscardPlayoff } from '../lib/useDiscardPlayoff';
 import { useCompetitionSeason } from './admin/useCompetitionSeason';
 import { EventInputs, FixtureForm, type FixtureDraft, useEventEditor } from './admin/EventEditor';
 import { useState, useEffect } from 'react';
@@ -22,17 +23,10 @@ export function PlayoffList({ seasonId, manage = false }: { seasonId: string; ma
   const qc = useQueryClient();
   const editor=useEventEditor(seasonId,manage);
   const {date,time,fieldId,roundId}=editor;
-  const superAdmin=useAuth(state=>state.user?.role==='SUPER_ADMIN');
   const [slots,setSlots]=useState<Record<string,{fieldId:string;time:string}>>({});
   const refresh=()=>{void qc.invalidateQueries({queryKey:['playoffs']});void qc.invalidateQueries({queryKey:['rounds']});};
-  const discard=useMutation({mutationFn:(v:{id:string;gameId?:string;reason:string;confirmHistory:boolean})=>api.post('/admin/playoffs/'+v.id+'/discard',v),onSuccess:refresh});
+  const { mutation: discard, confirmDiscard } = useDiscardPlayoff();
   const move=useMutation({mutationFn:(v:{id:string;gameId:string})=>api.post('/admin/playoffs/'+v.id+'/games/'+v.gameId+'/schedule',{date,time,fieldId,roundId:roundId||undefined}),onSuccess:refresh});
-  function confirmDiscard(id:string, gameId?:string) {
-    const reason=window.prompt(gameId?'Motivo para descartar el partido':'Motivo para descartar toda la llave');
-    if (!reason || !window.confirm('¿Confirmas el descarte?')) return;
-    const confirmHistory=superAdmin && window.confirm('Si hay estadísticas, ¿autorizas anular el resultado deportivo y conservar el historial?');
-    discard.mutate({id,gameId,reason,confirmHistory});
-  }
   function matches(p:Playoff) {
     const teams=p.stage===0?p.slots:p.slots.filter((_,i)=>i%2===0).map((home,i)=>{
       const away=p.slots[i*2+1], g=p.games.find(g=>g.stage===p.stage && g.slot===i);
@@ -67,9 +61,9 @@ export function PlayoffList({ seasonId, manage = false }: { seasonId: string; ma
       <details><summary className="cursor-pointer">Clasificación inicial</summary><ol>{p.seeds.map((s, i) => <li key={s.id}>{i + 1}. {s.name}</li>)}</ol></details>
       {p.stage <= 1 && p.slots.some((s) => s === null) && <p className="text-sm">Pase directo: {p.slots.filter((s, i) => s && !p.slots[i ^ 1]).map((s) => p.seeds.find((t) => t.id === s)?.name).join(', ')}</p>}
       <div className="flex gap-4 overflow-x-auto pb-2">{Array.from({ length: p.stage }, (_, i) => i + 1).map((stage) => <section key={stage} className="min-w-60 space-y-2"><h3 className="font-semibold">{phaseName(p,stage)}</h3>{p.games.filter((g) => g.stage === stage).map((g) => <div key={g.id} className="rounded-box border border-base-300 p-3 text-sm"><p>{g.home} <strong>{g.home_score}</strong></p><p>{g.away} <strong>{g.away_score}</strong></p><p className="text-xs text-base-content/60">{g.status==='CANCELLED'?'Descartado':g.round_status==='DRAFT'?'Borrador':g.status==='SCHEDULED'?'Programado':g.status==='FINISHED'?'Finalizado':g.status} · {g.date.slice(0,10)} · {g.time.slice(0,5)}</p>
-      {manage && g.stage===p.stage && !p.champion_name && <>{['CANCELLED','SCHEDULED'].includes(g.status) && <Button size="sm" disabled={!date || !fieldId || move.isPending} onClick={()=>move.mutate({id:p.id,gameId:g.id})}>Aplicar fecha, hora y cancha</Button>}{g.status!=='CANCELLED' && <Button size="sm" onClick={()=>confirmDiscard(p.id,g.id)}>Descartar partido</Button>}</>}{p.champion_name && stage === p.stage && <><p>MVP ofensivo de la final: {g.offensive_mvp || 'Sin seleccionar'}</p><p>MVP defensivo de la final: {g.defensive_mvp || 'Sin seleccionar'}</p></>}</div>)}</section>)}</div>
+      {manage && g.stage===p.stage && !p.champion_name && <>{['CANCELLED','SCHEDULED'].includes(g.status) && <Button size="sm" disabled={!date || !fieldId || move.isPending} onClick={()=>move.mutate({id:p.id,gameId:g.id})}>Aplicar fecha, hora y cancha</Button>}{g.status!=='CANCELLED' && <Button size="sm" onClick={()=>confirmDiscard(p.id,p.category_name,g.id)}>Descartar partido</Button>}</>}{p.champion_name && stage === p.stage && <><p>MVP ofensivo de la final: {g.offensive_mvp || 'Sin seleccionar'}</p><p>MVP defensivo de la final: {g.defensive_mvp || 'Sin seleccionar'}</p></>}</div>)}</section>)}</div>
       {manage && matches(p).length>0 && <label className="flex gap-2"><input type="checkbox" checked={selected.includes(p.id)} onChange={e=>setSelected(v=>e.target.checked?[...v,p.id]:v.filter(id=>id!==p.id))} /> Incluir {p.category_name} en la programación conjunta</label>}
-      {manage && <Button tone="error" outline onClick={()=>confirmDiscard(p.id)}>Descartar playoff</Button>}
+      {manage && <Button tone="error" outline onClick={()=>confirmDiscard(p.id,p.category_name)}>Descartar playoff</Button>}
       {manage && !p.champion_name && matches(p).map(m=>{
         const current=option(p,m.slot);
         const update=(value:Partial<typeof current>)=>setSlots(prev=>({...prev,[key(p,m.slot)]:{...current,...value}}));

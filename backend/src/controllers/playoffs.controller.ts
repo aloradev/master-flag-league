@@ -133,6 +133,11 @@ export const discard = asyncHandler(async (req: AuthRequest,res: Response) => {
       WHERE p.id=$1 AND s.league_id=$2 FOR UPDATE OF p`,[req.params.id,req.user!.leagueId])).rows[0];
     if (!playoff) throw new AppError('Playoff no encontrado',404);
     if (playoff.discarded_at) return;
+    // Serialize discards from different brackets sharing a date and scheduling into that round.
+    const rounds = await q(`SELECT r.id FROM rounds r WHERE EXISTS (
+      SELECT 1 FROM games g JOIN playoff_games pg ON pg.game_id=g.id
+      WHERE g.round_id=r.id AND pg.playoff_id=$1 AND ($2::text IS NULL OR g.id=$2))
+      ORDER BY r.id FOR UPDATE`,[playoff.id,gameId ?? null]);
     const games = (await q(`SELECT g.*, pg.stage, EXISTS(SELECT 1 FROM game_events e WHERE e.game_id=g.id)
       OR EXISTS(SELECT 1 FROM game_stat_batches b WHERE b.game_id=g.id)
       OR EXISTS(SELECT 1 FROM game_reports r WHERE r.game_id=g.id AND r.revision>0) AS has_history
@@ -144,6 +149,7 @@ export const discard = asyncHandler(async (req: AuthRequest,res: Response) => {
     if (historical && !(confirmHistory === true && req.user!.role === 'SUPER_ADMIN'))
       throw new AppError('Hay resultados o estadísticas. Se requiere confirmación histórica del superadministrador.',409);
     await q("UPDATE games SET status='CANCELLED', playoff_void_with_history=playoff_void_with_history OR $2, updated_at=NOW() WHERE id=ANY($1::text[]) AND status<>'CANCELLED'",[games.map(g=>g.id),historical]);
+    await q('SELECT archive_empty_playoff_rounds($1::text[])',[rounds.rows.map(r=>r.id)]);
     if (!gameId) await q('UPDATE playoffs SET discarded_at=NOW() WHERE id=$1',[playoff.id]);
     await audit(req,{action:'DISCARD_PLAYOFF',entityType:'playoff',entityId:playoff.id,
       oldValue:games.map(g=>({id:g.id,status:g.status})),newValue:{gameId,reason,historical}},q);

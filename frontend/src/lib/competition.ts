@@ -116,6 +116,8 @@ export interface GameLive {
 }
 
 export interface RoundSummary {
+  protected_round?: boolean;
+  playoffs?: { id: string; category: string }[];
   id: string;
   season_id: string;
   number: number;

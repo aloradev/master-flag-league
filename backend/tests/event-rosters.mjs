@@ -21,6 +21,8 @@ const season='season_2026', league='league_cancun', date='2026-12-05';
 const user={id:'test-admin',name:'Prueba',email:'prueba@example.invalid',role:'SUPER_ADMIN',leagueId:league,sessionVersion:0};
 await db.query("INSERT INTO users(id,league_id,name,email,password_hash,role_id) VALUES($1,$2,$3,$4,'test','role_super_admin')",[user.id,league,user.name,user.email]);
 const call=(fn,body={},params={},extra={})=>new Promise((resolve,reject)=>fn({user,query:{},body,params,...extra},{status(){return this},json(v){resolve(v.data)}},reject));
+const {listRounds,deleteRound}=await import('../dist/controllers/rounds.controller.js');
+const adminRounds=()=>call(listRounds,{}, {},{query:{seasonId:season}});
 const field='field_1_2026', second='field_2_2026';
 let roundId;
 const stages=[];
@@ -94,9 +96,14 @@ await call(po.reschedule,{date,time:'19:00',fieldId:field,roundId},{id:'femenil'
 await db.query("UPDATE games SET status='FINISHED',home_score=12 WHERE id=$1",[game]);
 await assert.rejects(call(po.discard,{reason:'Revisión'},{id:'femenil'}),/confirmación/);
 await assert.rejects(call(po.discard,{reason:'Revisión',confirmHistory:true},{id:'femenil'},{user:{...user,role:'SPORTS_ADMIN'}}),/confirmación/);
+const shared=(await adminRounds()).find(r=>r.id===roundId);
+assert.equal(shared.protected_round,true);
+assert.deepEqual(shared.playoffs.map(p=>p.category),['Femenil','Mixto','Varonil']);
+await assert.rejects(call(deleteRound,{}, {id:roundId}),/jornada/i);
 await call(po.discard,{reason:'Anulación documentada',confirmHistory:true},{id:'femenil'});
 assert.equal((await db.query('SELECT home_score FROM games WHERE id=$1',[game])).rows[0].home_score,12);
 assert.equal((await call(getPublicRound,{}, {id:roundId})).games.length,5);
+assert.deepEqual((await adminRounds()).find(r=>r.id===roundId).playoffs.map(p=>p.id),['mixto','varonil']);
 await call(po.scheduleBatch,{seasonId:season,date,roundId,stages:[],fixtures:[{kind:'REGULAR',categoryId:'cat_varonil_2026',homeTeamId:'varonil0',awayTeamId:'varonil2',fieldId:second,time:'23:00'}]});
 const regular=(await db.query("SELECT id FROM games WHERE scheduled_time='23:00'")).rows[0].id;
 await db.query("UPDATE games SET status='FINISHED',home_score=12 WHERE id=$1",[regular]);
@@ -104,7 +111,18 @@ assert.equal((await calcularPosiciones(season)).find(r=>r.team_id==='varonil0').
 await call(players.removePlayer,{reason:'Baja solicitada'},{id:player});
 assert.equal((await call(players.associatePlayer,{playerId:player},{id:'mixto0'})).id,player);
 assert.equal((await db.query('SELECT player_id FROM game_events WHERE id=$1',[event.id])).rows[0].player_id,player);
+// Move one active category to its own date. Its last discard must retire the round.
+const isolated=(await db.query("SELECT game_id FROM playoff_games WHERE playoff_id='varonil' LIMIT 1")).rows[0].game_id;
+await call(po.reschedule,{date:'2026-12-12',time:'19:00',fieldId:field},{id:'varonil',gameId:isolated});
+const isolatedRound=(await db.query('SELECT round_id FROM games WHERE id=$1',[isolated])).rows[0].round_id;
+await call(po.discard,{reason:'Retirar llave'},{id:'varonil'});
+assert.ok(!(await adminRounds()).some(r=>r.id===isolatedRound));
+assert.ok((await adminRounds()).some(r=>r.id===roundId));
+assert.equal((await db.query('SELECT status FROM rounds WHERE id=$1',[isolatedRound])).rows[0].status,'CANCELLED');
+// Recreate the previous release's orphaned draft and run the migration again.
+await db.query("UPDATE rounds SET status='DRAFT',playoff_archived_at=NULL WHERE id=$1",[isolatedRound]);
 await db.exec(schema);
+assert.ok(!(await adminRounds()).some(r=>r.id===isolatedRound));
 assert.equal((await db.query('SELECT home_score FROM games WHERE id=$1',[game])).rows[0].home_score,12);
 assert.equal((await db.query('SELECT profile_id FROM players WHERE id=$1',[registration])).rows[0].profile_id,player);
 console.log('E–F: descarte, reprogramación, protección histórica y migración repetible');

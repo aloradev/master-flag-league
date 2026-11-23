@@ -81,6 +81,10 @@ const descansosDeJornada = async (roundId: string) => {
  * calendario que todavía puede cambiar genera más llamadas que las que
  * ahorra.
  */
+const protectedRound = `ro.competition_event OR EXISTS (
+  SELECT 1 FROM games g WHERE g.round_id=ro.id AND (g.league_friendly OR EXISTS (
+    SELECT 1 FROM playoff_games pg WHERE pg.game_id=g.id)))`;
+
 export const listRounds = asyncHandler(async (req: AuthRequest, res: Response) => {
   const seasonId = req.query.seasonId as string | undefined;
   const esAdmin = ['SUPER_ADMIN', 'SPORTS_ADMIN'].includes(req.user?.role ?? '');
@@ -88,6 +92,11 @@ export const listRounds = asyncHandler(async (req: AuthRequest, res: Response) =
   const r = await query(
     `SELECT ro.id, ro.season_id, ro.number, ro.name, ro.scheduled_date, ro.status,
             ro.notes, ro.published_at, ro.created_at,
+            (${protectedRound}) AS protected_round,
+            COALESCE((SELECT json_agg(json_build_object('id', item.id, 'category', item.name) ORDER BY item.name)
+              FROM (SELECT DISTINCT p.id, c.name FROM playoff_games pg JOIN playoffs p ON p.id=pg.playoff_id
+                JOIN categories c ON c.id=p.category_id JOIN games g ON g.id=pg.game_id
+                WHERE g.round_id=ro.id AND p.discarded_at IS NULL AND $2::boolean) item), '[]') AS playoffs,
             (SELECT COUNT(*) FROM games   WHERE round_id = ro.id AND status <> 'CANCELLED' AND (game_type='OFFICIAL' OR league_friendly))::int AS games_count,
             (SELECT COUNT(*) FROM games   WHERE round_id = ro.id AND status IN ('FINISHED','WALKOVER') AND (game_type='OFFICIAL' OR league_friendly))::int AS finished_count,
             (SELECT COUNT(*) FROM round_byes WHERE round_id = ro.id)::int AS byes_count,
@@ -95,7 +104,7 @@ export const listRounds = asyncHandler(async (req: AuthRequest, res: Response) =
                       FROM round_time_slots WHERE round_id = ro.id), '[]') AS slots
      FROM rounds ro
      WHERE ($1::text IS NULL OR ro.season_id = $1)
-       AND ro.round_type = 'OFFICIAL'
+       AND ro.round_type = 'OFFICIAL' AND ro.playoff_archived_at IS NULL
        AND ($2::boolean OR ro.status <> 'DRAFT')
      ORDER BY ro.number DESC`,
     [seasonId ?? null, esAdmin]
@@ -337,10 +346,10 @@ export const publishRound = asyncHandler(async (req: AuthRequest, res: Response)
 export const deleteRound = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   await withTransaction(async query=>{
-    const r = await query(`SELECT *, EXISTS(SELECT 1 FROM games g WHERE g.round_id=$1 AND (g.league_friendly OR EXISTS(SELECT 1 FROM playoff_games pg WHERE pg.game_id=g.id))) AS has_special_games FROM rounds WHERE id = $1 FOR UPDATE`, [id]);
+    const r = await query(`SELECT ro.*, (${protectedRound}) AS protected_round FROM rounds ro WHERE ro.id = $1 FOR UPDATE`, [id]);
     const round = r.rows[0];
     if (!round) throw new AppError('Jornada no encontrada', 404);
-    if (round.competition_event || round.has_special_games) throw new AppError('Una jornada con llaves o amistosos no se puede borrar. Reprograma su fecha y partidos.', 409);
+    if (round.protected_round) throw new AppError('Una jornada con llaves o amistosos no se puede borrar. Reprograma su fecha y partidos.', 409);
     if (round.status !== 'DRAFT') {
       throw new AppError(
         'Solo se puede descartar una jornada en borrador. Una publicada se cancela, no se borra.',
@@ -364,10 +373,10 @@ export const cancelRound = asyncHandler(async (req: AuthRequest, res: Response) 
   const { id } = req.params;
   const { reason } = req.body ?? {};
   const round = await withTransaction(async (query) => {
-  const r = await query(`SELECT *, EXISTS(SELECT 1 FROM games g WHERE g.round_id=$1 AND (g.league_friendly OR EXISTS(SELECT 1 FROM playoff_games pg WHERE pg.game_id=g.id))) AS has_special_games FROM rounds WHERE id = $1 FOR UPDATE`, [id]);
+  const r = await query(`SELECT ro.*, (${protectedRound}) AS protected_round FROM rounds ro WHERE ro.id = $1 FOR UPDATE`, [id]);
   const round = r.rows[0];
   if (!round) throw new AppError('Jornada no encontrada', 404);
-  if (round.competition_event || round.has_special_games) throw new AppError('Una jornada con llaves o amistosos no se puede cancelar. Reprograma su fecha y partidos.', 409);
+  if (round.protected_round) throw new AppError('Una jornada con llaves o amistosos no se puede cancelar. Reprograma su fecha y partidos.', 409);
 
     // Los partidos ya jugados se conservan: cancelar la jornada por lluvia
     // no debe borrar el resultado del que sí alcanzó a jugarse.
