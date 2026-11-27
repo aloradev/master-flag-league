@@ -4,13 +4,18 @@ import { AppError } from '../middleware/errorHandler.js';
 import { newPrefixedId } from '../utils/id.js';
 
 /** Caller holds the season lock. Drafts are shared by local competition date. */
-export async function eventRound(q: typeof query, seasonId: string, date: string, userId: string, selection?: string) {
+export async function eventRound(q: typeof query, seasonId: string, date: string, userId: string, selection?: string, forPlayoff = false) {
   await validarFechaJornada(seasonId,date,q);
   const existing = await q(`SELECT id, status FROM rounds WHERE season_id=$1 AND scheduled_date=$2
     AND status IN ('DRAFT','PUBLISHED') AND round_type='OFFICIAL'
     AND ($3::text IS NULL OR id=$3)
     ORDER BY competition_event DESC, number LIMIT 1 FOR UPDATE`, [seasonId, date, selection ?? null]);
-  if (existing.rows.length) return existing.rows[0];
+  if (existing.rows.length) {
+    const round = existing.rows[0];
+    // Shared competition dates follow the same two-game rule as new event rounds.
+    await q('UPDATE rounds SET allow_team_repeats=true WHERE id=$1 AND NOT allow_team_repeats', [round.id]);
+    return round;
+  }
   if (selection && selection !== 'new') throw new AppError('Elige una jornada abierta de la fecha seleccionada.', 409);
   const id = newPrefixedId('rnd');
   await q(`INSERT INTO rounds(id,season_id,number,name,scheduled_date,generated_by,competition_event,allow_team_repeats)

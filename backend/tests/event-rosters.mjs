@@ -49,7 +49,13 @@ const body={leagueFriendly:true,seasonId:season,categoryId:'cat_mixto_2026',home
 await assert.rejects(call(friendly.create,{...body,time:'19:00'}),/cancha|equipos/i);
 await db.query(`INSERT INTO games(id,season_id,round_id,category_id,home_team_id,away_team_id,field_id,scheduled_time,status)
   VALUES('postponed-slot',$1,$2,'cat_femenil_2026','femenil0','femenil1',$3,'22:00','POSTPONED')`,[season,roundId,field]);
-await call(po.scheduleBatch,{seasonId:season,date,stages:[stages[2]],fixtures:[{...body,kind:'FRIENDLY'}]});
+// Reuse an ordinary round that already contains a match for both semifinalists.
+await call(po.scheduleBatch,{seasonId:season,date,stages:[],fixtures:[{...body,kind:'FRIENDLY'}]});
+await db.query('UPDATE rounds SET allow_team_repeats=false WHERE id=$1',[roundId]);
+const simultaneous={...stages[2],matches:{...stages[2].matches,0:{fieldId:second,time:'21:00'}}};
+await assert.rejects(call(po.scheduleBatch,{seasonId:season,date,roundId,stages:[simultaneous]}),/cancha|equipos/i);
+assert.equal((await db.query('SELECT allow_team_repeats FROM rounds WHERE id=$1',[roundId])).rows[0].allow_team_repeats,false);
+assert.equal((await call(po.scheduleBatch,{seasonId:season,date,stages:[stages[2]]})).roundId,roundId);
 assert.deepEqual((await db.query(`SELECT g.field_id FROM games g JOIN playoff_games pg ON pg.game_id=g.id
   WHERE pg.playoff_id='mixto' AND g.scheduled_time='22:00' ORDER BY g.field_id`)).rows.map(g=>g.field_id),[field,second]);
 await db.query("DELETE FROM games WHERE id='postponed-slot'");

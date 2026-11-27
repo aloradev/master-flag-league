@@ -69,7 +69,7 @@ async function scheduleStage(q:typeof query,req:AuthRequest,id:string,input:Stag
       }
     }
     await q('SELECT id FROM seasons WHERE id = $1 FOR UPDATE', [p.season_id]);
-    const round = await eventRound(q,p.season_id,date,req.user!.id,input.roundId);
+    const round = await eventRound(q,p.season_id,date,req.user!.id,input.roundId,true);
     const roundId = round.id;
     for (let i = 0; i < slots.length; i += 2) {
       if (!slots[i] || !slots[i + 1]) continue;
@@ -169,7 +169,7 @@ export const reschedule = asyncHandler(async (req:AuthRequest,res:Response)=>{
       throw new AppError('Hay un resultado o una fase dependiente.',409);
     if ((await q('SELECT 1 FROM game_events WHERE game_id=$1 UNION ALL SELECT 1 FROM game_stat_batches WHERE game_id=$1 UNION ALL SELECT 1 FROM game_reports WHERE game_id=$1 AND revision>0 LIMIT 1',[game.id])).rows.length) throw new AppError('El partido tiene historial registrado.',409);
     await q('SELECT id FROM seasons WHERE id=$1 FOR UPDATE',[game.season_id]);
-    const target=await eventRound(q,game.season_id,date,req.user!.id,roundId);
+    const target=await eventRound(q,game.season_id,date,req.user!.id,roundId,true);
     await checkSlot(q,game.season_id,date,time,game.home_team_id,game.away_team_id,fieldId,game.id);
     await q("UPDATE games SET round_id=$2,scheduled_time=$3,field_id=$4,status='SCHEDULED',updated_at=NOW() WHERE id=$1",[game.id,target.id,time,fieldId]);
     await validarClubesJornada(target.id,date,q,game.id);
