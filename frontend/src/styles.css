@@ -625,13 +625,13 @@ main:focus { outline:none; }
 }
 
 /* The resolved site color-scheme also drives the calendar artwork. */
-.public-shell {
+:where(html[data-calendar-theme]) {
   --season-main: light-dark(#205f83, #9adfff);
   --season-edge: light-dark(#505e98, #899cf4);
   --ribbon-ink: var(--season-main);
   --ribbon-leaf: var(--season-edge);
   --ribbon-gold: light-dark(#a6690c, #ffd781);
-  --ribbon-paper: color-mix(in srgb, var(--color-base-100) 90%, var(--season-main));
+  --ribbon-paper: light-dark(#faf7f1,#1a212c);
 }
 [data-calendar-theme="primavera"] { --season-main: light-dark(#186748,#93eac9); --season-edge: light-dark(#963269,#f38ec7); }
 [data-calendar-theme="verano"] { --season-main: light-dark(#785000,#ffdb75); --season-edge: light-dark(#006b75,#45dcde); }
@@ -685,3 +685,63 @@ main:focus { outline:none; }
   background:var(--season-main); color:light-dark(white,#101820);
 }
 .holiday-frieze ~ footer { border-bottom:3px double var(--season-edge); }
+
+@media screen {
+  html[data-calendar-theme] {
+    --color-primary: var(--season-main);
+    --color-primary-content: light-dark(#fff,#121723);
+    --color-secondary: var(--season-edge);
+    --color-secondary-content: var(--color-primary-content);
+    --color-base-100: color-mix(in srgb,var(--ribbon-paper) 64%,light-dark(white,#080e16));
+    --color-base-200: color-mix(in srgb,var(--color-base-100) 94%,var(--season-edge));
+    --color-base-300: color-mix(in srgb,var(--color-base-100) 80%,var(--season-edge));
+    --season-wash: radial-gradient(ellipse at 95% 0%,color-mix(in srgb,var(--season-edge) 15%,transparent),transparent 55%);
+    --season-card: linear-gradient(115deg,var(--color-base-100) 35%,var(--color-base-200));
+  }
+  [data-calendar-theme="navidad"] {
+    --festive-art:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 104'%3E%3Cg fill='none' stroke='%23000' stroke-linecap='round'%3E%3Cpath stroke-width='3' d='M160 4Q104 13 29 74M143 10l-9 40m-8-35-8 45m-12-34-9 41m-3-31-12 42m-8-28-10 36m-11-24-9 28M135 12l-40-6m25 14-41-7m26 16-42-4m27 14-42-3m28 14-38-2m23 12-34 1'/%3E%3Cpath d='M125 38v22M153 10v24'/%3E%3C/g%3E%3Ccircle cx='125' cy='72' r='12'/%3E%3Ccircle cx='153' cy='42' r='8'/%3E%3Cpath d='m22 17 2 7 7 2-7 2-2 7-2-7-7-2 7-2Z'/%3E%3C/svg%3E");
+  }
+  [data-calendar-theme="nuevo"] { --festive-art:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 80'%3E%3Cpath fill='none' stroke='black' stroke-width='3' stroke-dasharray='8 3' d='M52 4v25m0 12v28M17 36h28m15 0h29M27 12l20 19m12 11 19 19M28 61l19-20m11-12 20-19'/%3E%3C/svg%3E"); }
+  [data-calendar-theme="reyes"] { --festive-art:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 80'%3E%3Cpath d='m12 20 21 14L50 8l17 26 21-14-10 38H22Zm12 42h52v5H24Z'/%3E%3C/svg%3E"); }
+  [data-calendar-theme="amistad"] { --festive-art:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 80'%3E%3Cpath d='M47 70 13 36C-3 14 27-3 47 20 69-4 97 16 81 36Z'/%3E%3C/svg%3E"); }
+  [data-calendar-theme="patrias"] { --festive-art:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 80'%3E%3Cpath fill-rule='evenodd' d='M4 12h92v47l-10 9-9-8-12 9-14-9-13 9-13-9-11 8-10-10Zm46 8-11 13 11 13 11-13ZM24 34l-6 7 6 8 6-8Zm52 0-6 7 6 8 6-8Z'/%3E%3C/svg%3E"); }
+  [data-calendar-theme="muertos"] { --festive-art:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 80'%3E%3Cg transform='translate(50 40)' fill='none' stroke='black' stroke-width='5'%3E%3Cellipse rx='11' ry='34'/%3E%3Cellipse rx='11' ry='34' transform='rotate(45)'/%3E%3Cellipse rx='11' ry='34' transform='rotate(90)'/%3E%3Cellipse rx='11' ry='34' transform='rotate(135)'/%3E%3C/g%3E%3C/svg%3E"); }
+
+  [data-calendar-theme] :is(.public-shell,.mfl-app-shell,.login-screen) {
+    background:var(--season-wash),var(--color-base-100);
+  }
+  [data-calendar-theme] .mfl-campaign {
+    --campaign-cyan:var(--season-edge);
+    --campaign-yellow:var(--season-main);
+    background:var(--color-base-100);
+  }
+  [data-calendar-theme] .mfl-campaign .campaign-hero-shade {
+    background:linear-gradient(90deg,var(--color-base-100) 3%,color-mix(in srgb,var(--color-base-100) 94%,transparent) 25%,transparent 78%),
+      linear-gradient(0deg,var(--color-base-100),transparent 27%);
+  }
+  [data-calendar-theme] .mfl-campaign .campaign-strip {background:var(--season-edge);color:var(--color-primary-content);}
+  [data-calendar-theme] .mfl-campaign .campaign-button-yellow {background:var(--season-main);color:var(--color-primary-content);}
+  [data-calendar-theme] .mfl-campaign .campaign-destination,
+  [data-calendar-theme] :is(.public-match-card,.rounded-box.border) {
+    background:var(--season-card);border-color:var(--color-base-300);border-top:2px solid var(--season-edge);
+  }
+  [data-calendar-theme] .mfl-campaign .campaign-invite,
+  [data-calendar-theme] .login-playfield {background:var(--season-wash),var(--color-base-200);border-color:var(--color-base-300);}
+  [data-calendar-theme] :is(.public-shell > header,.public-bottom-nav,.mfl-app-shell aside,.mfl-app-shell header) {
+    background-color:var(--color-base-200);
+  }
+  [data-calendar-theme] :is(.public-shell,.mfl-app-shell) thead {background:var(--color-base-200);color:var(--color-base-content);}
+  [data-calendar-theme] :is(.campaign-hero,.campaign-invite,.public-page-heading,.campaign-section-heading,.login-playfield,.public-shell footer) {position:relative;isolation:isolate;}
+  [data-calendar-theme] :is(.campaign-hero,.campaign-invite,.public-page-heading,.campaign-section-heading,.login-playfield,.public-shell footer)::after {
+    content:"";position:absolute;inset:0 0 auto auto;width:clamp(80px,15vw,220px);height:100%;max-height:145px;
+    pointer-events:none;z-index:-1;background:var(--season-edge);opacity:.21;
+    mask:var(--festive-art,linear-gradient(transparent,transparent)) right top / contain no-repeat;
+  }
+  [data-calendar-theme] .campaign-hero::after {opacity:.8;background:var(--ribbon-gold);}
+  [data-calendar-theme] .public-shell footer {background:var(--season-wash);max-width:none;}
+  @media (max-width:700px) {
+    [data-calendar-theme] .mfl-campaign .campaign-hero-shade {
+      background:linear-gradient(90deg,var(--color-base-100),color-mix(in srgb,var(--color-base-100) 90%,transparent) 50%,color-mix(in srgb,var(--color-base-100) 72%,transparent));
+    }
+  }
+}
