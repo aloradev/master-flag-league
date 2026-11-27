@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState, type ReactNode } from 'react';
+import { HolidayFrieze } from '../../components/HolidayFrieze';
 import { calendarTheme } from '../../lib/calendarTheme';
 import { Logo } from '../../components/Logo';
 import { PageMetadata } from '../../components/PageMetadata';
@@ -33,7 +34,7 @@ export const Marco = ({
   campaign?: boolean;
   seo?: { title?: string; description?: string; image?: string };
 }) => {
-  const [season, setSeason] = useState(() => calendarTheme());
+  const [season, setSeason] = useState<ReturnType<typeof calendarTheme>>(() => calendarTheme());
   useEffect(() => {
     const refresh = () => setSeason(calendarTheme());
     const timer = window.setInterval(refresh, 60_000);
@@ -95,6 +96,7 @@ export const Marco = ({
           {links.map(link => <Link key={link.to} to={link.to} aria-current={link.active ? 'page' : undefined} className={pestana(link.active)}>{link.desktop}</Link>)}
         </nav>
       </header>
+      <HolidayFrieze season={season} />
 
       <main id="public-content" tabIndex={-1} className={campaign ? 'mfl-campaign' : 'mx-auto max-w-5xl px-4 py-4'}>
         {!campaign && <div className="public-page-heading">
