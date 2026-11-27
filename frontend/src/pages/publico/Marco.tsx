@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { calendarTheme } from '../../lib/calendarTheme';
 import { Logo } from '../../components/Logo';
 import { PageMetadata } from '../../components/PageMetadata';
 import { FavoriteObserver } from '../../components/Favorites';
@@ -32,6 +33,16 @@ export const Marco = ({
   campaign?: boolean;
   seo?: { title?: string; description?: string; image?: string };
 }) => {
+  const [season, setSeason] = useState(() => calendarTheme());
+  useEffect(() => {
+    const refresh = () => setSeason(calendarTheme());
+    const timer = window.setInterval(refresh, 60_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, []);
   const { pathname } = useLocation();
   const { user } = useAuth();
   const { notices } = useFavorites();
@@ -50,7 +61,7 @@ export const Marco = ({
     }`;
 
   return (
-    <div className="public-shell min-h-dvh bg-base-100"><PageMetadata title={seo?.title ?? (campaign ? undefined : titulo)} description={seo?.description ?? subtitulo} image={seo?.image} /><FavoriteObserver /><a href="#public-content" className="skip-link">Saltar al contenido</a>
+    <div data-calendar-theme={season} className="public-shell min-h-dvh bg-base-100"><PageMetadata title={seo?.title ?? (campaign ? undefined : titulo)} description={seo?.description ?? subtitulo} image={seo?.image} /><FavoriteObserver /><a href="#public-content" className="skip-link">Saltar al contenido</a>
       <header className="sticky top-0 z-20 border-b border-base-300 bg-base-100/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-2">
           <div className="flex min-w-0 items-center gap-2.5">

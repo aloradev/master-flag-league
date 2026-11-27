@@ -623,3 +623,39 @@ main:focus { outline:none; }
 @media (max-width:767px) {
   .public-shell .input, .public-shell .select, .public-shell .textarea { font-size:16px; }
 }
+
+/* Calendar accents are scoped to the public site and work with both display modes. */
+.public-shell[data-calendar-theme="invierno"] { --season-main: #9adfff; --season-edge: #899cf4; }
+.public-shell[data-calendar-theme="primavera"] { --season-main: #93eac9; --season-edge: #f38ec7; }
+.public-shell[data-calendar-theme="verano"] { --season-main: #ffdb75; --season-edge: #45dcde; }
+.public-shell[data-calendar-theme="otono"] { --season-main: #ffbc80; --season-edge: #cd7299; }
+.public-shell[data-calendar-theme="fiestas"] { --season-main: #ffdb87; --season-edge: #58d4ae; }
+
+.public-shell > header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  pointer-events: none;
+  background: linear-gradient(100deg, var(--season-edge), var(--season-main) 48%, var(--season-edge));
+}
+.public-shell .campaign-hero h1 em { color: var(--season-main); }
+.public-shell .public-page-heading { border-image: linear-gradient(90deg, var(--season-edge), var(--color-base-300) 70%) 1; }
+
+.public-shell[data-calendar-theme="fiestas"] > header::after {
+  height: 5px;
+  background:
+    radial-gradient(circle at 8px 2px, #ffdda2 2px, transparent 3px) 0 0 / 48px 5px,
+    radial-gradient(circle at 32px 2px, #85ebc6 2px, transparent 3px) 0 0 / 48px 5px,
+    linear-gradient(#234d49, #122c31);
+}
+.public-shell[data-calendar-theme="fiestas"] .campaign-hero::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at 88% 0%, rgb(255 213 133 / 23%), transparent 36%),
+    radial-gradient(ellipse at 100% 90%, rgb(39 185 145 / 22%), transparent 43%);
+}
