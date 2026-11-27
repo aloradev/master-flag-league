@@ -3,11 +3,16 @@ import type { calendarTheme } from '../lib/calendarTheme';
 // Each illustration fits the same tile, including the cut-paper border.
 const motifs = {
   navidad: <g>
-    <path fill="var(--ribbon-leaf)" d="M4 40 35 13 32 22 46 17 39 27 50 24 37 35 39 30 24 39 26 32ZM156 40l-31-27 3 9-14-5 7 10-11-3 13 11-2-5 15 9-2-7Z"/>
-    <path stroke="currentColor" d="M62 0v15m37-15v23"/>
-    <circle cx="62" cy="24" r="9" fill="var(--ribbon-ink)"/><path d="m54 24 4-3 4 4 4-4 4 3" stroke="var(--ribbon-paper)" fill="none"/>
-    <path fill="var(--ribbon-gold)" d="m82 3 2 7 7-2-4 6 6 4-8 1-1 8-4-7-7 4 3-8-6-3 8-2Z"/>
-    <circle cx="99" cy="29" r="6" fill="var(--ribbon-gold)"/>
+    <path d="M0 4q40 10 80 0t80 0M40 9v6m80-14v12" stroke="var(--ribbon-gold)" fill="none"/>
+    <g transform="translate(40 22)">
+      {Array.from({length:7}, (_,i) => <g key={i} transform={`rotate(${i * 360 / 7})`}>
+        <path d="m-4-5 4-12 4 12Z" fill={i % 2 ? 'var(--ribbon-ink)' : 'var(--ribbon-gold)'}/>
+        <path d="M0-17v12l4 1Z" fill="var(--ribbon-leaf)" opacity=".6"/>
+      </g>)}
+      <circle r="6" fill="var(--ribbon-gold)"/>
+    </g>
+    <path d="m114 15 6-5 6 5 2 11-8 8-8-8Z" fill="var(--ribbon-gold)"/>
+    <path d="m117 15-1 11 4 6 4-6-1-11M113 26h14" stroke="var(--ribbon-ink)" fill="none"/>
   </g>,
   nuevo: <g fill="none" stroke="currentColor" strokeWidth="2">
     {[0, 45, 90, 135, 180, 225, 270, 315].map(a => <g key={a}><path transform={`rotate(${a} 58 22)`} d="M58 5v10"/><path transform={`rotate(${a + 20} 104 17)`} stroke="var(--ribbon-gold)" d="M104 5v6"/></g>)}

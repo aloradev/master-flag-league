@@ -636,7 +636,7 @@ main:focus { outline:none; }
 [data-calendar-theme="primavera"] { --season-main: light-dark(#186748,#93eac9); --season-edge: light-dark(#963269,#f38ec7); }
 [data-calendar-theme="verano"] { --season-main: light-dark(#785000,#ffdb75); --season-edge: light-dark(#006b75,#45dcde); }
 [data-calendar-theme="otono"] { --season-main: light-dark(#864414,#ffbc80); --season-edge: light-dark(#823658,#cd7299); }
-[data-calendar-theme="navidad"], [data-calendar-theme="patrias"] {
+[data-calendar-theme="patrias"] {
   --season-main: light-dark(#932d42,#ff9b9e);
   --season-edge: light-dark(#21604d,#78d5ac);
   --ribbon-paper: light-dark(#fff5e3,#182d29);
@@ -750,18 +750,19 @@ main:focus { outline:none; }
 @media screen {
   html[data-calendar-theme="navidad"] {
     --season-main:light-dark(#ae1237,#ff9fac);
-    --season-edge:light-dark(#006449,#73e1b3);
-    --ribbon-paper:light-dark(#fff6dc,#092d27);
-    --hero-panel:light-dark(#fff0cf,#073a2c);
-    --hero-ink:light-dark(#143e30,#fff5dd);
-    --hero-highlight:light-dark(#ad1039,#ffd068);
-    --season-card:linear-gradient(115deg,light-dark(#fffdf5,#102e28) 36%,light-dark(#f6ebcc,#184638));
-    --christmas-ribbon:repeating-linear-gradient(125deg,#bd173e 0 18px,#fff1cb 18px 21px,#006447 21px 36px,#edbb58 36px 41px);
+    --season-edge:light-dark(#284179,#b4caff);
+    --ribbon-paper:light-dark(#fff8ef,#141a31);
+    --hero-panel:light-dark(#fff1db,#152044);
+    --hero-ink:light-dark(#192344,#fff5dd);
+    --hero-highlight:light-dark(#ad1039,#ffdb96);
+    --season-card:linear-gradient(115deg,light-dark(#fffdf5,#181e36) 36%,light-dark(#f3e6df,#2b3152));
+    --christmas-ribbon:repeating-linear-gradient(125deg,#bd173e 0 18px,#fff1cb 18px 21px,#253667 21px 36px,#edbb58 36px 41px);
+    --festive-art:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 104 96'%3E%3Cpath d='m52 3 7 24 22-12-10 23 26 4-24 11 13 21-25-8-9 25-9-25-25 8 13-21L7 42l26-4-10-23 22 12Z'/%3E%3C/svg%3E");
     --christmas-image:url('/navidad-tocho.webp');
   }
   [data-calendar-theme="navidad"] .holiday-frieze {
-    background:linear-gradient(90deg,#004c39,#14674b 48%,#004c39);color:#ffd584;border-bottom:3px solid #be9956;
-    --ribbon-paper:#174b3c;--ribbon-leaf:#88bf88;--ribbon-ink:#e44c58;--ribbon-gold:#ffda87;
+    background:linear-gradient(90deg,#151d3c,#354578 48%,#151d3c);color:#ffd584;border-bottom:3px solid #be9956;
+    --ribbon-paper:#202b50;--ribbon-leaf:#b8c7ff;--ribbon-ink:#e44c58;--ribbon-gold:#ffda87;
   }
   [data-calendar-theme="navidad"] .holiday-frieze span {
     color:#fff5df;background:#952039;border-color:#ebc583;
@@ -791,7 +792,7 @@ main:focus { outline:none; }
     color:var(--color-primary-content);background:var(--season-edge);box-shadow:inset 0 -3px #e6b54e;
   }
   [data-calendar-theme="navidad"] .mfl-campaign .campaign-strip {
-    background:linear-gradient(105deg,#004b37,#006449 65%,#00563d);color:#fff7df;
+    background:linear-gradient(105deg,#191d3d,#284179 65%,#392547);color:#fff7df;
   }
   [data-calendar-theme="navidad"] .public-page-heading {
     padding:18px clamp(118px,24vw,240px) 18px 16px;min-height:100px;

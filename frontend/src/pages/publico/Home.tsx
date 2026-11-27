@@ -30,7 +30,7 @@ export default function Home() {
   return (
     <Marco titulo="Master Flag League" campaign>
       <section className="campaign-hero">
-        <img className="campaign-hero-art" src={christmas ? '/navidad-tocho.webp' : '/mfl-campaign-hero.webp'} alt={christmas ? 'Balón de tocho entre ramas de pino, esferas rojas y listones en la cancha de Cancún' : "Ilustración de jugadoras y jugadores de flag football disputando el balón bajo las luces de la cancha"} fetchPriority="high" width="1536" height="1024" />
+        <img className="campaign-hero-art" src={christmas ? '/navidad-tocho.webp' : '/mfl-campaign-hero.webp'} alt={christmas ? 'Piñata de posada, balón de tocho y banderas cereza bajo los faroles de la cancha' : "Ilustración de jugadoras y jugadores de flag football disputando el balón bajo las luces de la cancha"} fetchPriority="high" width="1536" height="1024" />
         <div className="campaign-hero-shade" aria-hidden="true" />
         <div className="campaign-hero-content">
           <p className="campaign-eyebrow"><span /> CANCÚN, MÉXICO · FLAG FOOTBALL</p>
