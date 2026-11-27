@@ -6,8 +6,10 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { IconFootball, IconTrophy, IconUsers } from '../../components/icons';
 import { Marco } from './Marco';
+import { useCalendarAppearance } from '../../components/CalendarAppearance';
 
 export default function Home() {
+  const christmas = useCalendarAppearance() === 'navidad';
   const [copyStatus, setCopyStatus] = useState('');
   const leagueUrl = new URL('/', window.location.origin).href;
   const invitation = `¿Armamos equipo? Conoce Master Flag League en Cancún, consulta partidos y resultados e inscribe tu equipo: ${leagueUrl}`;
@@ -28,12 +30,12 @@ export default function Home() {
   return (
     <Marco titulo="Master Flag League" campaign>
       <section className="campaign-hero">
-        <img className="campaign-hero-art" src="/mfl-campaign-hero.webp" alt="Ilustración de jugadoras y jugadores de flag football disputando el balón bajo las luces de la cancha" fetchPriority="high" width="1536" height="1024" />
+        <img className="campaign-hero-art" src={christmas ? '/navidad-tocho.webp' : '/mfl-campaign-hero.webp'} alt={christmas ? 'Balón de tocho entre ramas de pino, esferas rojas y listones en la cancha de Cancún' : "Ilustración de jugadoras y jugadores de flag football disputando el balón bajo las luces de la cancha"} fetchPriority="high" width="1536" height="1024" />
         <div className="campaign-hero-shade" aria-hidden="true" />
         <div className="campaign-hero-content">
           <p className="campaign-eyebrow"><span /> CANCÚN, MÉXICO · FLAG FOOTBALL</p>
           <h1>MASTER FLAG<br /><em>LEAGUE.</em></h1>
-          <p className="campaign-hero-description">La cancha es tuya. Tu equipo, tu gente y tu siguiente jugada.</p>
+          <p className="campaign-hero-description">{christmas ? '¡Felices fiestas, familia MFL! Nos vemos en la cancha.' : 'La cancha es tuya. Tu equipo, tu gente y tu siguiente jugada.'}</p>
           <div className="campaign-actions">
             <Link className="campaign-button campaign-button-yellow" to="/jornada">Ver jornada <span aria-hidden="true">→</span></Link>
             <Link className="campaign-button campaign-button-outline" to="/registro">Inscribe tu equipo <span aria-hidden="true">↗</span></Link>
