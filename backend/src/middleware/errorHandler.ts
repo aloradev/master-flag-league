@@ -40,6 +40,18 @@ export const errorHandler = (
   // Violaciones de integridad de PostgreSQL traducidas a mensajes útiles.
   const pgCode = (err as any).code;
   if (pgCode === '23505' && err.message.includes('fixture_reservation_conflict')) return res.status(409).json({ success:false,error:'La cancha o un equipo ya tiene partido en esa fecha y hora.' });
+  if (pgCode === '23505' && err.message.includes('ya tiene partido en esta jornada')) {
+    return res.status(409).json({ success: false, error: 'Uno de los equipos ya juega en la jornada seleccionada. Elige una jornada nueva para programar otro partido a una hora disponible.' });
+  }
+  if (pgCode === '23505' && err.message.includes('uq_games_campo_hora')) {
+    return res.status(409).json({ success: false, error: 'La cancha seleccionada ya tiene partido a esa hora.' });
+  }
+  if (pgCode === '23514' && err.message.includes('máximo dos partidos')) {
+    return res.status(409).json({ success: false, error: 'Uno de los equipos ya tiene dos partidos en esta jornada. Elige otra jornada.' });
+  }
+  if (pgCode === '23505' && (err as { constraint?: string }).constraint === 'playoff_games_pkey') {
+    return res.status(409).json({ success: false, error: 'Este cruce del playoff ya está programado. Actualiza la llave para ver el partido.' });
+  }
   if (pgCode === '23505') {
     return res.status(409).json({ success: false, error: 'El registro ya existe' });
   }

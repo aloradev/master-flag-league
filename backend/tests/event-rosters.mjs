@@ -35,7 +35,7 @@ for (const [index,category] of ['femenil','varonil','mixto'].entries()) {
     slots.push(id);
   }
   await db.query('INSERT INTO playoffs(id,season_id,category_id,seeds,slots) VALUES($1,$2,$3,$4,$5)',[category,season,cat,JSON.stringify(slots.map(id=>({id,name:id}))),JSON.stringify(slots)]);
-  const time=(19+index)+':00';
+  const time=index === 2 ? '22:00' : (19+index)+':00';
   const body={date,time,stage:0,matches:{0:{fieldId:field,time},1:{fieldId:second,time}}};
   stages.push({...body,id:category});
 }
@@ -45,9 +45,14 @@ assert.equal((await db.query('SELECT count(*)::int AS n FROM rounds')).rows[0].n
 roundId=(await call(po.scheduleBatch,{seasonId:season,date,stages:stages.slice(0,2)})).roundId;
 
 assert.equal((await db.query('SELECT count(*)::int AS n FROM rounds')).rows[0].n,1);
-const body={leagueFriendly:true,seasonId:season,categoryId:'cat_mixto_2026',homeTeamId:'mixto0',awayTeamId:'mixto1',fieldId:field,date,time:'22:00'};
+const body={leagueFriendly:true,seasonId:season,categoryId:'cat_mixto_2026',homeTeamId:'mixto0',awayTeamId:'mixto1',fieldId:field,date,time:'21:00'};
 await assert.rejects(call(friendly.create,{...body,time:'19:00'}),/cancha|equipos/i);
+await db.query(`INSERT INTO games(id,season_id,round_id,category_id,home_team_id,away_team_id,field_id,scheduled_time,status)
+  VALUES('postponed-slot',$1,$2,'cat_femenil_2026','femenil0','femenil1',$3,'22:00','POSTPONED')`,[season,roundId,field]);
 await call(po.scheduleBatch,{seasonId:season,date,stages:[stages[2]],fixtures:[{...body,kind:'FRIENDLY'}]});
+assert.deepEqual((await db.query(`SELECT g.field_id FROM games g JOIN playoff_games pg ON pg.game_id=g.id
+  WHERE pg.playoff_id='mixto' AND g.scheduled_time='22:00' ORDER BY g.field_id`)).rows.map(g=>g.field_id),[field,second]);
+await db.query("DELETE FROM games WHERE id='postponed-slot'");
 const match={roundId,gameId:(await db.query('SELECT id FROM games WHERE league_friendly')).rows[0].id};
 assert.equal(match.roundId,roundId);
 await db.query("UPDATE rounds SET status='PUBLISHED' WHERE id=$1",[roundId]);

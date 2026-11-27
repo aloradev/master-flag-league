@@ -320,9 +320,10 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- Un campo no puede tener dos partidos a la misma hora. Esto sí se puede
 -- expresar como índice, así que se expresa: la validación en el servicio
 -- puede olvidarse en un endpoint nuevo, la base no.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_games_campo_hora
+DROP INDEX IF EXISTS uq_games_campo_hora;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_games_campo_hora_activa
   ON games(round_id, field_id, scheduled_time)
-  WHERE field_id IS NOT NULL AND status <> 'CANCELLED';
+  WHERE field_id IS NOT NULL AND status NOT IN ('CANCELLED','POSTPONED');
 
 -- ---------- ÁRBITROS ASIGNADOS ----------
 -- Tabla en lugar de columnas referee1_id/referee2_id: así la consulta de
