@@ -5,6 +5,7 @@ import pool from '../dist/config/database.js';
 import { saveHistoricalResult } from '../dist/controllers/historical-results.controller.js';
 import { refrescarMarcador, calcularPosiciones } from '../dist/services/competition.service.js';
 import { getPublicGame } from '../dist/controllers/public.controller.js';
+import { advance } from '../dist/controllers/playoffs.controller.js';
 
 // Base efímera: ejecuta migraciones y consultas reales, sin tocar datos de la liga.
 const db = new PGlite();
@@ -26,8 +27,8 @@ await db.exec(`
  VALUES ('hist_game','season_2026','hist_round','cat_varonil_2026','hist_home','hist_away','19:00');
 `);
 const user = { id: 'hist_admin', role: 'SUPER_ADMIN', leagueId: 'league_cancun' };
-const invoke = (handler, body={}, actor=user) => new Promise(resolve => handler(
- { params: { id: 'hist_game' }, body, user: actor },
+const invoke = (handler, body={}, actor=user, id='hist_game') => new Promise(resolve => handler(
+ { params: { id }, body, user: actor },
  { json: data => resolve({ data }) }, error => resolve({ error }),
 ));
 const body = { homeScore: 24, awayScore: 18, reason: 'Acta jornada 1' };
@@ -199,6 +200,31 @@ assert.ok(!(await mutateStats(await batch([{...total,count:0}]))).error);
 assert.equal((await db.query("SELECT COUNT(*)::int AS n FROM game_events WHERE game_id='hist_game' AND event_type='TOUCHDOWN' AND voided_at IS NULL")).rows[0].n,0);
 assert.deepEqual(await refrescarMarcador('hist_game'),{home:18,away:0});
 console.log('OK: totales, yardas acumuladas, reemplazo, cero, validaciones, revisión obsoleta, reintentos, publicación y rollback.');
+// Capturar una final desde Jornadas permite coronar al ganador desde Playoffs.
+await db.exec(`
+ INSERT INTO rounds(id,season_id,number,scheduled_date,status)
+ VALUES ('final_round','season_2026',901,'2020-01-08','PUBLISHED');
+ INSERT INTO games(id,season_id,round_id,category_id,home_team_id,away_team_id,scheduled_time)
+ VALUES ('final_game','season_2026','final_round','cat_varonil_2026','hist_home','hist_away','19:00');
+ INSERT INTO playoffs(id,season_id,category_id,seeds,slots,stage)
+ VALUES ('final_bracket','season_2026','cat_varonil_2026','[]','["hist_home","hist_away"]',1);
+ INSERT INTO playoff_games(playoff_id,game_id,stage,slot) VALUES ('final_bracket','final_game',1,0);
+`);
+const finalScore = {homeScore:14,awayScore:13,reason:'ACTA'};
+const recordFinal = score => invoke(saveHistoricalResult,score,user,'final_game');
+const regularTable = await calcularPosiciones('season_2026','cat_varonil_2026');
+assert.match((await recordFinal({...finalScore,awayScore:14})).error.message,/desempate/);
+const finalResult = await recordFinal(finalScore);
+assert.ok(!finalResult.error,finalResult.error?.stack);
+assert.equal(finalResult.data.data.status,'FINISHED');
+assert.deepEqual(await calcularPosiciones('season_2026','cat_varonil_2026'),regularTable);
+const winner = await invoke(advance,{stage:1,date:'2020-01-08',time:'19:00'},user,'final_bracket');
+assert.ok(!winner.error,winner.error?.stack);
+assert.equal(winner.data.data.championId,'hist_home');
+assert.equal((await recordFinal({...finalScore,awayScore:15})).error.statusCode,409);
+const finalStat = await invoke(updateHistoricalStatistics,{...touchdown,reason:'ACTA'},user,'final_game');
+assert.ok(!finalStat.error,finalStat.error?.stack);
+assert.deepEqual(await refrescarMarcador('final_game'),{home:14,away:13});
 await db.close();
 await pool.end();
 console.log('OK: migración repetible, permisos, validación, resultado sin roster, posiciones, vista pública, corrección auditada, rollback y marcador preservado.');

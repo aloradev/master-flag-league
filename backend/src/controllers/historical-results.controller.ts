@@ -4,7 +4,7 @@ import { AppError, asyncHandler } from '../middleware/errorHandler.js';
 import { withLockedGame } from '../services/game-transaction.service.js';
 import { audit } from '../services/audit.service.js';
 
-/** Resultado del acta, independiente de los eventos. Solo temporada regular publicada. */
+/** Resultado del acta, independiente de los eventos del partido. */
 export const saveHistoricalResult = asyncHandler(async (req: AuthRequest, res: Response) => {
   if (![ROLES.SUPER_ADMIN, ROLES.SPORTS_ADMIN].includes(req.user?.role as never)) {
     throw new AppError('Solo administración deportiva puede capturar resultados históricos', 403);
@@ -24,8 +24,16 @@ export const saveHistoricalResult = asyncHandler(async (req: AuthRequest, res: R
     [req.params.id, req.user!.leagueId]);
     const game = found.rows[0];
     if (!game) throw new AppError('Partido no encontrado', 404);
-    if (game.game_type !== 'OFFICIAL' || (await q('SELECT 1 FROM playoff_games WHERE game_id = $1', [game.id])).rows.length) {
-      throw new AppError('La captura histórica solo está disponible para temporada regular oficial', 409);
+    if (game.game_type !== 'OFFICIAL') {
+      throw new AppError('La captura histórica solo está disponible para partidos oficiales', 409);
+    }
+    const playoff = (await q(`SELECT pg.stage AS game_stage, p.stage, p.champion_id, p.discarded_at
+      FROM playoff_games pg JOIN playoffs p ON p.id = pg.playoff_id WHERE pg.game_id = $1`, [game.id])).rows[0];
+    if (playoff) {
+      if (playoff.discarded_at || playoff.champion_id || playoff.stage !== playoff.game_stage) {
+        throw new AppError('La fase de playoff está cerrada. Ya no se puede cambiar el marcador.', 409);
+      }
+      if (homeScore === awayScore) throw new AppError('El marcador de playoff debe incluir el desempate.', 409);
     }
     if (!['PUBLISHED', 'IN_PROGRESS', 'FINISHED'].includes(game.round_status)) {
       throw new AppError('Publica la jornada antes de capturar el resultado', 409);

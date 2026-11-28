@@ -127,7 +127,7 @@ export default function AdminRounds() {
         </Button>
         <Button disabled={!seasonId || manual || proponer.isPending || guardar.isPending} onClick={() => { setManualProposal(undefined); setManual(true); setPropuesta(null); setError(null); }}>Crear jornada manual</Button>
       </header>
-      <Alert tone="info" title="¿Todavía no registraron jugadores?">Puedes publicar la jornada y, después de jugar, abrirla para capturar únicamente el marcador final. El resultado actualiza posiciones aunque las estadísticas individuales queden pendientes.</Alert>
+      <Alert tone="info" title="¿Todavía no registraron jugadores?">Puedes publicar la jornada y capturar el marcador después del partido. En temporada regular, el resultado actualiza las posiciones. En playoffs, permite avanzar al ganador desde la llave.</Alert>
 
       {error && <Alert tone="error">{error}</Alert>}
       {discardPlayoff.error && <Alert tone="error">{discardPlayoff.error.message}</Alert>}

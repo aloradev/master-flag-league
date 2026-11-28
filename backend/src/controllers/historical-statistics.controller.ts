@@ -25,9 +25,8 @@ export const updateHistoricalStatistics = asyncHandler(async (req: AuthRequest, 
     const game = found.rows[0];
     if (!game) throw new AppError('Partido no encontrado', 404);
     if (game.score_source !== 'MANUAL' || game.status !== 'FINISHED' || game.game_type !== 'OFFICIAL'
-      || !['PUBLISHED','IN_PROGRESS','FINISHED'].includes(game.round_status)
-      || (await q('SELECT 1 FROM playoff_games WHERE game_id=$1', [game.id])).rows.length) {
-      throw new AppError('Solo se admiten resultados históricos de temporada regular publicados', 409);
+      || !['PUBLISHED','IN_PROGRESS','FINISHED'].includes(game.round_status)) {
+      throw new AppError('Solo se admiten resultados históricos de partidos oficiales publicados', 409);
     }
     if (action === 'BULK') return saveHistoricalTotals(req,game,q);
     if (game.statistics_status !== (action === 'REOPEN' ? 'COMPLETE' : 'PENDING')) {
